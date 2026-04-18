@@ -7,8 +7,8 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './auth.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { RegisterDto, LoginDto, UpdateLayoutDto } from './auth.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 interface RequestWithUser extends Request {
   user: {
@@ -22,25 +22,25 @@ interface RequestWithUser extends Request {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
+  @Public()
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req: RequestWithUser) {
     return this.authService.getProfile(req.user.sub);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('layout')
-  updateLayout(@Request() req: RequestWithUser, @Body() layout: any) {
+  updateLayout(@Request() req: RequestWithUser, @Body() layout: UpdateLayoutDto) {
     return this.authService.updateLayout(req.user.sub, layout);
   }
 }

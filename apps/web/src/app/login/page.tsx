@@ -4,8 +4,11 @@ import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
 import { UserOutlined, LockOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 
 const { Title, Text } = Typography;
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface LoginValues {
   email?: string;
@@ -17,16 +20,27 @@ export default function LoginPage() {
 
   const onFinish = async (values: LoginValues) => {
     try {
-      // 模拟登录成功
-      console.log('Login:', values);
-      localStorage.setItem('token', 'dev-mock-token');
-      message.success({
-        content: '登录成功，欢迎回来！',
-        className: 'rounded-lg',
+      const res = await axios.post(`${API_BASE}/auth/login`, {
+        email: values.email,
+        password: values.password,
       });
-      router.push('/dashboard');
-    } catch {
-      message.error('登录失败，请检查您的凭据');
+
+      const { access_token } = res.data;
+      if (access_token) {
+        localStorage.setItem('token', access_token);
+        // 同时写入 cookie 供 middleware 路由守卫使用
+        document.cookie = `token=${access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        message.success({
+          content: '登录成功，欢迎回来！',
+          className: 'rounded-lg',
+        });
+        router.push('/dashboard');
+      } else {
+        message.error('登录失败：服务器未返回有效令牌');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || '登录失败，请检查您的凭据';
+      message.error(msg);
     }
   };
 
@@ -55,7 +69,7 @@ export default function LoginPage() {
             >
               <ThunderboltFilled className="text-3xl text-white" />
             </motion.div>
-            
+
             <Title level={2} className="text-white m-0 font-bold tracking-tight">
               智领未来 · YZSCHROS
             </Title>
@@ -65,24 +79,24 @@ export default function LoginPage() {
           </div>
 
           <Form name="login" onFinish={onFinish} size="large" layout="vertical" requiredMark={false}>
-            <Form.Item 
-              name="email" 
+            <Form.Item
+              name="email"
               rules={[{ required: true, message: '请输入您的邮箱' }]}
             >
-              <Input 
-                prefix={<UserOutlined className="text-gray-400 mr-2" />} 
-                placeholder="邮箱地址" 
+              <Input
+                prefix={<UserOutlined className="text-gray-400 mr-2" />}
+                placeholder="邮箱地址"
                 className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
               />
             </Form.Item>
 
-            <Form.Item 
-              name="password" 
+            <Form.Item
+              name="password"
               rules={[{ required: true, message: '请输入您的密码' }]}
             >
-              <Input.Password 
-                prefix={<LockOutlined className="text-gray-400 mr-2" />} 
-                placeholder="密码" 
+              <Input.Password
+                prefix={<LockOutlined className="text-gray-400 mr-2" />}
+                placeholder="密码"
                 className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
               />
             </Form.Item>
@@ -92,10 +106,10 @@ export default function LoginPage() {
             </div>
 
             <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                block 
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
                 className="h-12 bg-blue-600 hover:bg-blue-500 border-none rounded-xl font-bold shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all"
               >
                 启 动 系 统
@@ -111,7 +125,7 @@ export default function LoginPage() {
           </div>
         </Card>
 
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}

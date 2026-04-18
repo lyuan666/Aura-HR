@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
 import { AiService } from '../ai/ai.service';
+import { cosineSimilarity } from '../../common/utils/similarity';
 
 @Injectable()
 export class MatchingService {
@@ -30,7 +31,7 @@ export class MatchingService {
       // 1.1 语义相似度 (余弦相似度)
       let semanticScore = 0;
       if (job.embedding && candidate.embedding) {
-        semanticScore = this.cosineSimilarity(job.embedding, candidate.embedding);
+        semanticScore = cosineSimilarity(job.embedding, candidate.embedding);
       }
 
       // 1.2 标签匹配度 (Skills)
@@ -60,14 +61,6 @@ export class MatchingService {
       .filter((r) => r.score > 30)
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }
-
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    if (!magA || !magB) return 0;
-    return dotProduct / (magA * magB);
   }
 
   private calculateTagOverlap(tagsA: string[], tagsB: string[]): number {

@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsObject, ValidateNested, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class RegisterDto {
   @IsEmail()
@@ -23,4 +24,20 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+}
+
+export class LayoutConfigDto {
+  @IsString()
+  @IsOptional()
+  key?: string;
+
+  @IsOptional()
+  layout?: any;
+}
+
+export class UpdateLayoutDto {
+  @IsObject()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutConfigDto)
+  layout: Record<string, LayoutConfigDto>;
 }

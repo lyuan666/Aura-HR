@@ -7,14 +7,20 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { UserEntity } from '../../entities/user.entity';
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity]),
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-secret-key',
+      secret: jwtSecret,
       signOptions: {
-        expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any,
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d',
       },
     }),
   ],

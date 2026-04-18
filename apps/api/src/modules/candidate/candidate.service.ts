@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { CreateCandidateDto } from './candidate.dto';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { cosineSimilarity } from '../../common/utils/similarity';
 
 @Injectable()
 export class CandidateService {
@@ -113,7 +114,7 @@ export class CandidateService {
     const results = candidates.map((c) => {
       let score = 0;
       if (c.embedding && queryEmbedding) {
-        score = this.cosineSimilarity(queryEmbedding, c.embedding);
+        score = cosineSimilarity(queryEmbedding, c.embedding);
       }
       return {
         ...c,
@@ -124,13 +125,5 @@ export class CandidateService {
     return results
       .filter((r) => r.matchScore > 20)
       .sort((a, b) => b.matchScore - a.matchScore);
-  }
-
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    if (!magA || !magB) return 0;
-    return dotProduct / (magA * magB);
   }
 }

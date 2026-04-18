@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import * as mammoth from 'mammoth';
 import pdf from 'pdf-parse';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 const writeFilePromise = promisify(fs.writeFile);
 const unlinkPromise = promisify(fs.unlink);
 
@@ -121,7 +121,8 @@ export class AiService {
     try {
       this.logger.log(`正在调用 SmartResume Python 引擎解析: ${originalName}`);
       const scriptPath = path.join(process.cwd(), 'apps/api/scripts/start.py');
-      const { stdout, stderr } = await execPromise(`python3 ${scriptPath} --file "${tempPath}"`);
+      // 使用 execFile 传递参数数组，避免 shell 注入
+      const { stdout, stderr } = await execFilePromise('python3', [scriptPath, '--file', tempPath]);
       
       if (stderr && !stdout) {
         throw new Error(stderr);

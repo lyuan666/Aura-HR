@@ -18,7 +18,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false, // 设为 false 以解决 500 拦截报错
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
