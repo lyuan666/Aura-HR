@@ -25,11 +25,11 @@ export default function LoginPage() {
         password: values.password,
       });
 
-      const { access_token } = res.data;
-      if (access_token) {
-        localStorage.setItem('token', access_token);
+      const { accessToken } = res.data;
+      if (accessToken) {
+        localStorage.setItem('token', accessToken);
         // 同时写入 cookie 供 middleware 路由守卫使用
-        document.cookie = `token=${access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        document.cookie = `token=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
         message.success({
           content: '登录成功，欢迎回来！',
           className: 'rounded-lg',
