@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "猎头智能助手",
+  "version": "0.1.0",
+  "description": "猎头公司管理智能系统 - 浏览器插件，支持简历采集、AI解析、自动打招呼",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://www.zhipin.com/*",
+    "https://www.liepin.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.zhipin.com/*", "https://www.liepin.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

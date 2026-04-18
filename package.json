@@ -1,0 +1,37 @@
+{
+  "name": "yzschros",
+  "version": "0.1.0",
+  "private": true,
+  "description": "猎头公司管理智能系统 - 业务增强型智能猎头操作系统",
+  "scripts": {
+    "dev:web": "pnpm --filter @yzschros/web dev",
+    "dev:api": "pnpm --filter @yzschros/api start:dev",
+    "dev:extension": "pnpm --filter @yzschros/extension dev",
+    "build:web": "pnpm --filter @yzschros/web build",
+    "build:api": "pnpm --filter @yzschros/api build",
+    "build:extension": "pnpm --filter @yzschros/extension build",
+    "dev": "concurrently \"pnpm dev:api\" \"pnpm dev:web\"",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "pnpm --filter @yzschros/api migration:run",
+    "db:generate": "pnpm --filter @yzschros/api migration:generate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/multer": "^2.1.0",
+    "concurrently": "^9.2.1",
+    "playwright": "^1.59.1",
+    "prettier": "^3.8.2"
+  },
+  "dependencies": {
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5"
+  }
+}
