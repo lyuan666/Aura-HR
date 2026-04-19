@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ResponsiveGridLayout, useContainerWidth, Layout } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth, LayoutItem } from 'react-grid-layout';
 import { Button, Space, message, Drawer, Checkbox, Typography, Divider } from 'antd';
 import { 
   SaveOutlined, 
@@ -9,7 +9,7 @@ import {
   ReloadOutlined,
   AppstoreAddOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import api from '@/lib/api';
 import { 
   QuickNavWidget, 
   DemandHeatmapWidget, 
@@ -21,7 +21,7 @@ import {
 const { Text, Title } = Typography;
 
 
-const DEFAULT_LAYOUTS: { [key: string]: Layout[] } = {
+const DEFAULT_LAYOUTS: { [key: string]: readonly LayoutItem[] } = {
   lg: [
     { i: 'quick-nav', x: 0, y: 0, w: 6, h: 4 },
     { i: 'funnel', x: 6, y: 0, w: 6, h: 10 },
@@ -48,7 +48,7 @@ const WIDGET_NAMES: { [key: string]: string } = {
 };
 
 export default function DashboardContainer() {
-  const [layouts, setLayouts] = useState<{ [key: string]: Layout[] }>(DEFAULT_LAYOUTS);
+  const [layouts, setLayouts] = useState<{ [key: string]: readonly LayoutItem[] }>(DEFAULT_LAYOUTS);
   const [visibleWidgets, setVisibleWidgets] = useState<string[]>(Object.keys(WIDGET_COMPONENTS));
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,7 +61,7 @@ export default function DashboardContainer() {
   useEffect(() => {
     const fetchLayout = async () => {
       try {
-        const res = await axios.get('/api/auth/profile');
+        const res = await api.get('/auth/profile');
         if (res.data?.dashboardLayoutConfig) {
           const config = res.data.dashboardLayoutConfig;
           if (config.layouts) setLayouts(config.layouts);
@@ -76,15 +76,15 @@ export default function DashboardContainer() {
     fetchLayout();
   }, []);
 
-  const onLayoutChange = (currentLayout: Layout[], allLayouts: { [key: string]: Layout[] }) => {
+  const onLayoutChange = (currentLayout: readonly LayoutItem[], allLayouts: Partial<Record<string, readonly LayoutItem[]>>) => {
     // 自动保存本地，不实时推送到后端，由用户手动点击“保存配置”或切页时保存
-    setLayouts(allLayouts);
+    setLayouts(allLayouts as { [key: string]: readonly LayoutItem[] });
   };
 
   const handleSaveLayout = async () => {
     setSaving(true);
     try {
-      await axios.post('/api/auth/layout', {
+      await api.post('/auth/layout', {
         layouts,
         visibleWidgets
       });
@@ -150,7 +150,7 @@ export default function DashboardContainer() {
           breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
           cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
           rowHeight={30}
-          draggableHandle=".ant-card-head, .widget-drag-handle"
+          dragConfig={{ handle: '.ant-card-head, .widget-drag-handle' }}
           onLayoutChange={onLayoutChange}
           margin={[20, 20]}
         >

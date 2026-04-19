@@ -10,7 +10,7 @@ import {
   CheckCircleOutlined,
   LoadingOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const { Dragger } = Upload;
@@ -48,7 +48,7 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     formData.append('file', file);
 
     try {
-      const res = await axios.post('/api/candidates/upload', formData, {
+      const res = await api.post('/candidates/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || progressEvent.loaded));
@@ -160,13 +160,12 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
                       {item.status === 'uploading' ? 'AI 深度理解中...' : item.status === 'success' ? '已入库' : '解析异常'}
                     </span>
                   </div>
-                  <Progress 
-                    percent={item.progress} 
-                    size="small" 
-                    showInfo={false} 
+                  <Progress
+                    percent={item.progress}
+                    size="small"
+                    showInfo={false}
                     strokeColor={item.status === 'error' ? '#f43f5e' : item.status === 'success' ? '#10b981' : { '0%': '#6366f1', '100%': '#a855f7' }}
                     trailColor="#f1f5f9"
-                    strokeWidth={4}
                   />
                 </div>
                 {item.status === 'error' && (

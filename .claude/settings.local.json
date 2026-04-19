@@ -5,7 +5,26 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git checkout:*)",
+      "mcp__zai-mcp-server__analyze_image",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(echo \"Build started in background, PID: $!\")",
+      "Bash(find node_modules/react-grid-layout -name \"*.d.ts\" -exec grep -l \"Layout\" {} \\\\;)",
+      "Bash(grep -r \"drag\" /Users/lee/Desktop/YZSCHROS/node_modules/.pnpm/react-grid-layout@2.2.3*/node_modules/react-grid-layout/dist/core.d.ts)",
+      "Bash(grep -n \"DragConfig\\\\|dragConfig\\\\|draggableHandle\\\\|handle\" /Users/lee/Desktop/YZSCHROS/node_modules/.pnpm/react-grid-layout@2.2.3*/node_modules/react-grid-layout/dist/types-jd8MiKM1.d.ts)",
+      "Bash(grep -n \"GridConfig\\\\|dragConfig\\\\|drag\" /Users/lee/Desktop/YZSCHROS/node_modules/.pnpm/react-grid-layout@2.2.3*/node_modules/react-grid-layout/dist/types-jd8MiKM1.d.ts)",
+      "Bash(grep -rn \"ResponsiveGridLayoutProps\\\\|Responsive.*Props\" /Users/lee/Desktop/YZSCHROS/node_modules/.pnpm/react-grid-layout@2.2.3*/node_modules/react-grid-layout/dist/*.d.ts)",
+      "Bash(grep -B2 -A50 \"^interface ResponsiveProps\" /Users/lee/Desktop/YZSCHROS/node_modules/.pnpm/react-grid-layout@2.2.3*/node_modules/react-grid-layout/dist/ResponsiveGridLayout-BrhkSyZk.d.ts)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(sort -k5 -rn)",
+      "Bash(awk '{printf \"%.1f KB  %s\\\\n\", $5/1024, $9}')",
+      "Bash(xargs kill:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3003/login)",
+      "Bash(lsof -ti:3001)",
+      "Bash(lsof -ti:3003)"
     ]
   }
 }

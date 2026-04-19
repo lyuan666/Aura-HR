@@ -70,6 +70,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     onClick: ({ key }: { key: string }) => {
       if (key === 'logout') {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
         router.push('/login');
       } else if (key === 'settings') {
         router.push('/settings');
@@ -200,15 +202,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', lineHeight: 1 }}>Franklin Jr.</div>
                   <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1 }}>超级管理员</div>
                 </div>
-                <Avatar 
-                  size={40} 
-                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" 
-                  style={{ 
-                    border: '2px solid #fff', 
+                <Avatar
+                  size={40}
+                  style={{
+                    backgroundColor: '#6366f1',
+                    border: '2px solid #fff',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                    display: 'block' 
+                    display: 'block',
+                    fontSize: 16,
+                    fontWeight: 700,
                   }}
-                />
+                >
+                  F
+                </Avatar>
               </div>
             </Dropdown>
           </Space>

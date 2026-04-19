@@ -15,7 +15,7 @@ import {
   PlusOutlined, MailOutlined, PhoneOutlined,
   SendOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import api from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -65,7 +65,7 @@ export default function EnterpriseDetailPage() {
     setLoading(true);
     try {
       // 使用相对路径，利用 next.config.ts 中的 rewrites
-      const res = await axios.get(`/api/enterprises/${params.id}`);
+      const res = await api.get(`/enterprises/${params.id}`);
       setData(res.data);
     } catch (e: unknown) {
       message.error('加载客户详情失败');
@@ -76,7 +76,7 @@ export default function EnterpriseDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     try {
-      await axios.patch(`/api/enterprises/${params.id}/status`, { status: newStatus });
+      await api.patch(`/enterprises/${params.id}/status`, { status: newStatus });
       message.success('状态更新成功');
       fetchData();
     } catch (e: unknown) {
@@ -87,7 +87,7 @@ export default function EnterpriseDetailPage() {
   const handleAddContact = async () => {
     try {
       const values = await form.validateFields();
-      await axios.post(`/api/enterprises/${params.id}/contacts`, values);
+      await api.post(`/enterprises/${params.id}/contacts`, values);
       message.success('联系人添加成功');
       setIsContactModalOpen(false);
       form.resetFields();
@@ -101,7 +101,7 @@ export default function EnterpriseDetailPage() {
     if (!followUpContent.trim()) return;
     setSubmittingFollowUp(true);
     try {
-      await axios.post('/api/follow-ups', {
+      await api.post('/follow-ups', {
         targetType: 'enterprise',
         targetId: params.id,
         content: followUpContent,
@@ -273,7 +273,7 @@ export default function EnterpriseDetailPage() {
           <Timeline
             mode="left"
             className="custom-timeline pl-4"
-            items={data.followUps?.length > 0 ? data.followUps.map((f: FollowUp) => ({
+            items={data.followUps && data.followUps.length > 0 ? data.followUps.map((f: FollowUp) => ({
               children: (
                 <div className="bg-white p-4 rounded-xl border border-slate-50 shadow-sm mb-4 hover:border-indigo-100 transition-colors">
                   <div className="flex items-center justify-between mb-2">
@@ -377,7 +377,7 @@ export default function EnterpriseDetailPage() {
               defaultActiveKey="1" 
               items={tabItems} 
               className="custom-tabs"
-              styles={{ tabPane: { padding: '8px' } }}
+              style={{ padding: '8px' }}
             />
           </Card>
         </div>

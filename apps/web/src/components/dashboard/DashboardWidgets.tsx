@@ -194,12 +194,12 @@ export const LatestTalentWidget = ({ data = [] }: { data?: any[] }) => {
 
       <div className="space-y-4">
         {(data.length > 0 ? data : [
-          { name: '王小明', title: '资深 Java', company: '美团', exp: '8年', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Wang' },
-          { name: '李红', title: '架构师', company: '腾讯', exp: '12年', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Li' },
-          { name: '周杰', title: '前端专家', company: '字节', exp: '6年', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Zhou' },
+          { name: '王小明', title: '资深 Java', company: '美团', exp: '8年' },
+          { name: '李红', title: '架构师', company: '腾讯', exp: '12年' },
+          { name: '周杰', title: '前端专家', company: '字节', exp: '6年' },
         ]).map((talent: any) => (
           <div key={talent.name} className="flex items-center group cursor-pointer">
-             <Avatar src={talent.avatar} size={36} className="mr-3 border border-slate-100" />
+             <Avatar src={talent.avatar} size={36} className="mr-3 border border-slate-100" style={!talent.avatar ? { backgroundColor: '#6366f1', fontWeight: 700 } : {}}>{!talent.avatar ? talent.name?.[0] : null}</Avatar>
              <div className="flex-1 min-w-0 border-b border-slate-50 pb-3 group-last:border-none">
                 <div className="flex justify-between items-start">
                    <Text strong className="text-[13px]">{talent.name}</Text>

@@ -36,6 +36,7 @@ import {
 import dayjs from 'dayjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import JobSidebar from '@/components/delivery/JobSidebar';
+import api from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -88,9 +89,9 @@ export default function DeliveryPage() {
     try {
       setLoading(true);
       // 实际开发中应根据 selectedJobId 过滤
-      const res = await fetch('/api/recommendations');
-      const json = await res.json();
-      
+      const res = await api.get('/recommendations');
+      const json = Array.isArray(res.data) ? res.data : [];
+
       // 注入一些模拟数据以确保看板丰满
       const mockData = [
         { id: 'rec-1', candidateName: '张建国', matchScore: 92, status: 'pending', candidateId: 'c1', updatedAt: '2023-11-20' },
@@ -98,7 +99,7 @@ export default function DeliveryPage() {
         { id: 'rec-3', candidateName: '王小明', matchScore: 75, status: 'reviewing', candidateId: 'c3', updatedAt: '2023-11-18' },
         { id: 'rec-4', candidateName: '赵铁柱', matchScore: 95, status: 'interview_scheduled', candidateId: 'c4', updatedAt: '2023-11-17', interviewDate: '2023-11-25' },
       ];
-      
+
       setData(json.length > 0 ? json : mockData);
     } catch (e) {
       message.error('加载交付数据失败');
@@ -113,12 +114,8 @@ export default function DeliveryPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/recommendations/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) {
+      const res = await api.patch(`/recommendations/${id}/status`, { status });
+      if (res.status === 200) {
         message.success('状态更新成功');
         fetchRecommendations();
       }
@@ -129,12 +126,8 @@ export default function DeliveryPage() {
 
   const handleScheduleChange = async (id: string, date: any) => {
     try {
-      const res = await fetch(`/api/recommendations/${id}/schedule`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewDate: date ? date.toDate() : null }),
-      });
-      if (res.ok) {
+      const res = await api.patch(`/recommendations/${id}/schedule`, { interviewDate: date ? date.toDate() : null });
+      if (res.status === 200) {
         message.success('面试日程已更新');
         fetchRecommendations();
       }
@@ -148,8 +141,8 @@ export default function DeliveryPage() {
     setLoadingOutreach(true);
     setOutreachText('');
     try {
-      const res = await fetch(`/api/recommendations/${id}/outreach`);
-      const text = await res.text();
+      const res = await api.get(`/recommendations/${id}/outreach`);
+      const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
       setOutreachText(text || '尊敬的候选人您好，看到您的简历与我们目前招聘的高级开发职位非常匹配...');
     } catch (e) {
       message.error('生成邀约话术失败');

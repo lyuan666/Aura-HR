@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import SmartJobCreationModal from '@/components/jobs/SmartJobCreationModal';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -56,11 +57,12 @@ export default function JobsPage() {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/job-positions');
-      const json = await res.json();
+      const res = await api.get('/job-positions');
+      const json = Array.isArray(res.data) ? res.data : [];
       setData(json);
     } catch (e) {
       console.error('获取职位列表失败:', e);
+      setData([]);
     } finally {
       setLoading(false);
     }

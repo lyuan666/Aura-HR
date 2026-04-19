@@ -11,7 +11,7 @@ import {
   ReloadOutlined
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import CandidateDetailDrawer from '@/components/candidates/CandidateDetailDrawer';
 import { HolographicCard } from '@/components/candidates/HolographicCard';
@@ -63,11 +63,11 @@ export default function CandidatesPage() {
   const fetchCandidates = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/candidates');
+      const res = await api.get('/candidates');
       // 处理 mock 数据用于全息卡片展示
       const enhanced = res.data.map((c: any) => ({
         ...c,
-        avatar: c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`,
+        avatar: c.avatar || null,
         experienceYears: c.totalYears || 5,
         workExperiences: c.workExperiences || [
           { company: '阿里巴巴', position: '技术专家', period: '2022.01-至今' },
@@ -101,7 +101,7 @@ export default function CandidatesPage() {
       key: 'info',
       render: (_: any, record: any) => (
         <Space>
-          <Avatar src={record.avatar} />
+          <Avatar src={record.avatar} style={!record.avatar ? { backgroundColor: '#6366f1', fontWeight: 700 } : {}}>{!record.avatar ? record.name?.[0] || '' : null}</Avatar>
           <span className="font-bold text-slate-800">{record.name}</span>
         </Space>
       ),
@@ -130,7 +130,7 @@ export default function CandidatesPage() {
       
       try {
         setLoading(true);
-        const res = await axios.post('/api/candidates/upload', formData, {
+        const res = await api.post('/candidates/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         if (res.data.success) {
@@ -255,9 +255,11 @@ export default function CandidatesPage() {
             </div>
           )}
           
-          <div className="mt-12 flex justify-center pb-8">
-            <Pagination total={100} pageSize={20} size="small" />
-          </div>
+          {!loading && candidates.length > 0 && (
+            <div className="mt-12 flex justify-center pb-8">
+              <Pagination total={candidates.length} pageSize={20} size="small" />
+            </div>
+          )}
         </div>
       </div>
 

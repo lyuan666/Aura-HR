@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, Table, Tag, Typography, Progress, Space, Button, message, Row, Col, Divider, Skeleton } from 'antd';
-import { ArrowLeftOutlined, RobotOutlined, UserOutlined, FileSearchOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Typography, Progress, Space, Button, message, Row, Col, Divider, Skeleton, Modal, Empty } from 'antd';
+import { ArrowLeftOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
+import api from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -39,22 +40,21 @@ export default function JobMatchesPage() {
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<JobDetail | null>(null);
   const [matches, setMatches] = useState<MatchResult[]>([]);
+  const [isReportVisible, setIsReportVisible] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const [jobRes, matchRes] = await Promise.all([
-          fetch(`/api/job-positions/${id}`),
-          fetch(`/api/matching/jobs/${id}`)
+          api.get(`/job-positions/${id}`),
+          api.get(`/matching/jobs/${id}`)
         ]);
-        
-        if (jobRes.ok && matchRes.ok) {
-          const jobData = await jobRes.json();
-          const matchData = await matchRes.json();
-          setJob(jobData);
-          setMatches(matchData);
-        }
+
+        setJob(jobRes.data);
+        setMatches(Array.isArray(matchRes.data) ? matchRes.data : []);
       } catch (e) {
         message.error('加载匹配数据失败');
       } finally {
@@ -63,6 +63,40 @@ export default function JobMatchesPage() {
     };
     if (id) fetchData();
   }, [id]);
+
+  const handleRecommend = async (record: MatchResult) => {
+    try {
+      await api.post('/recommendations', {
+        candidateId: record.candidate.id,
+        jobId: id,
+      });
+      message.success('已加入交付看板，可在"交付管理"中跟进状态');
+    } catch (e) {
+      message.error('推荐失败');
+    }
+  };
+
+  const handleShowAnalysis = async (record: MatchResult) => {
+    setIsReportVisible(true);
+    setReportLoading(true);
+    setReportData(null);
+
+    try {
+      const recRes = await api.post('/recommendations', {
+        candidateId: record.candidate.id,
+        jobId: id,
+      });
+
+      const rec = recRes.data;
+      const reportRes = await api.get(`/recommendations/${rec.id}/report`);
+
+      setReportData(reportRes.data);
+    } catch (e) {
+      message.error('生成报告失败');
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   const columns = [
     {
@@ -81,10 +115,10 @@ export default function JobMatchesPage() {
       dataIndex: 'score',
       key: 'score',
       render: (score: number) => (
-        <Progress 
-          percent={score} 
-          size="small" 
-          strokeColor={score > 80 ? '#52c41a' : (score > 60 ? '#1890ff' : '#faad14')} 
+        <Progress
+          percent={score}
+          size="small"
+          strokeColor={score > 80 ? '#52c41a' : (score > 60 ? '#1890ff' : '#faad14')}
         />
       )
     },
@@ -105,15 +139,15 @@ export default function JobMatchesPage() {
       key: 'action',
       render: (_: any, record: MatchResult) => (
         <Space>
-          <Button 
+          <Button
             size="small"
             icon={<RobotOutlined />}
             onClick={() => handleShowAnalysis(record)}
           >
             AI 深度分析
           </Button>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             size="small"
             onClick={() => handleRecommend(record)}
           >
@@ -124,71 +158,22 @@ export default function JobMatchesPage() {
     }
   ];
 
-  const handleRecommend = async (record: MatchResult) => {
-    try {
-      const res = await fetch('/api/recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId: record.candidate.id,
-          jobId: id,
-        }),
-      });
-      if (res.ok) {
-        message.success('已加入交付看板，可在“交付管理”中跟进状态');
-      }
-    } catch (e) {
-      message.error('推荐失败');
-    }
-  };
-
-  const [isReportVisible, setIsReportVisible] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-
-  const handleShowAnalysis = async (record: MatchResult) => {
-    setIsReportVisible(true);
-    setReportLoading(true);
-    setReportData(null);
-    
-    try {
-      // 首先获取/创建推荐记录，然后获取报告
-      const recRes = await fetch('/api/recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateId: record.candidate.id, jobId: id }),
-      });
-      
-      const rec = await recRes.json();
-      const reportRes = await fetch(`/api/recommendations/${rec.id}/report`);
-      const report = await reportRes.json();
-      
-      setReportData(report);
-    } catch (e) {
-      message.error('生成报告失败');
-    } finally {
-      setReportLoading(false);
-    }
-  };
-
   if (loading) return <div style={{ padding: 24 }}><Skeleton active paragraph={{ rows: 10 }} /></div>;
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-      <Button 
-        icon={<ArrowLeftOutlined />} 
-        onClick={() => router.push('/jobs')} 
+      <Button
+        icon={<ArrowLeftOutlined />}
+        onClick={() => router.push('/jobs')}
         style={{ marginBottom: 16 }}
       >
         返回职位列表
       </Button>
 
       <Row gutter={24}>
-        {/* 左侧：职位画像 */}
         <Col span={8}>
-          <Card 
-            title={<Space><RobotOutlined /> AI 职位画像</Space>} 
-            className="premium-card"
+          <Card
+            title={<Space><RobotOutlined /> AI 职位画像</Space>}
             style={{ height: '100%' }}
           >
             <Title level={4}>{job?.title}</Title>
@@ -213,16 +198,17 @@ export default function JobMatchesPage() {
           </Card>
         </Col>
 
-        {/* 右侧：匹配结果 */}
         <Col span={16}>
-          <Card title="智能算法推荐 (TOP 10)" className="premium-card">
-            <Table 
-              columns={columns} 
-              dataSource={candidatesToResults(matches)} 
+          <Card title="智能算法推荐 (TOP 10)">
+            <Table
+              columns={columns}
+              dataSource={matches}
               rowKey={(record) => record.candidate.id}
               pagination={false}
               locale={{ emptyText: '暂无匹配候选人，请尝试调整需求或增加人才库' }}
             />
+          </Card>
+        </Col>
       </Row>
 
       <Modal
@@ -254,7 +240,7 @@ export default function JobMatchesPage() {
                 ))}
               </ul>
             </div>
-            
+
             <div style={{ marginBottom: 20 }}>
               <div style={{ borderLeft: '4px solid #fa8c16', paddingLeft: 12, marginBottom: 12 }}>
                 <Text strong style={{ fontSize: 16 }}>潜在风险 (Risks)</Text>
@@ -289,9 +275,4 @@ export default function JobMatchesPage() {
       </Modal>
     </div>
   );
-}
-
-// 辅助函数处理数据结构
-function candidatesToResults(matches: any[]) {
-  return matches || [];
 }

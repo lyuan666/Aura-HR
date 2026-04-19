@@ -1,7 +1,7 @@
 'use client';
 
-import { Card, Form, Input, Button, message, Typography, Space, App } from 'antd';
-import { UserOutlined, LockOutlined, ThunderboltFilled } from '@ant-design/icons';
+import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
+import { UserOutlined, LockOutlined, PhoneOutlined, TeamOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -10,46 +10,38 @@ const { Title, Text } = Typography;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-interface LoginValues {
+interface RegisterValues {
   email?: string;
   password?: string;
+  name?: string;
+  phone?: string;
 }
 
-export default function LoginPage() {
-  const { message: apiMessage } = App.useApp();
+export default function RegisterPage() {
   const router = useRouter();
 
-  const onFinish = async (values: LoginValues) => {
+  const onFinish = async (values: RegisterValues) => {
     try {
-      const res = await axios.post(`${API_BASE}/auth/login`, {
+      await axios.post(`${API_BASE}/auth/register`, {
         email: values.email,
         password: values.password,
+        name: values.name,
+        phone: values.phone,
       });
 
-      const { accessToken, refreshToken } = res.data;
-      if (accessToken) {
-        localStorage.setItem('token', accessToken);
-        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-        document.cookie = `token=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure}`;
-        apiMessage.success({
-          content: '登录成功，欢迎回来！',
-          className: 'rounded-lg',
-        });
-        // 使用 replace 避免回退到登录页，延迟确保 cookie 生效
-        setTimeout(() => router.replace('/dashboard'), 100);
-      } else {
-        apiMessage.error('登录失败：服务器未返回有效令牌');
-      }
+      message.success({
+        content: '注册成功，请登录',
+        className: 'rounded-lg',
+      });
+      router.push('/login');
     } catch (err: any) {
-      const msg = err.response?.data?.message || '登录失败，请检查您的凭据';
-      apiMessage.error(msg);
+      const msg = err.response?.data?.message || '注册失败，请稍后重试';
+      message.error(msg);
     }
   };
 
   return (
     <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-[#0f172a]">
-      {/* 动态背景装饰 */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px]" />
 
@@ -74,17 +66,31 @@ export default function LoginPage() {
             </motion.div>
 
             <Title level={2} className="text-white m-0 font-bold tracking-tight">
-              智领未来 · YZSCHROS
+              申请入驻
             </Title>
             <Text className="text-gray-400 block mt-2 text-sm">
-              业务增强型智能猎头操作系统
+              填写信息完成注册，开始使用智能猎头系统
             </Text>
           </div>
 
-          <Form name="login" onFinish={onFinish} size="large" layout="vertical" requiredMark={false}>
+          <Form name="register" onFinish={onFinish} size="large" layout="vertical" requiredMark={false}>
+            <Form.Item
+              name="name"
+              rules={[{ required: true, message: '请输入您的姓名' }]}
+            >
+              <Input
+                prefix={<TeamOutlined className="text-gray-400 mr-2" />}
+                placeholder="姓名"
+                className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
+              />
+            </Form.Item>
+
             <Form.Item
               name="email"
-              rules={[{ required: true, message: '请输入您的邮箱' }]}
+              rules={[
+                { required: true, message: '请输入您的邮箱' },
+                { type: 'email', message: '请输入有效的邮箱地址' },
+              ]}
             >
               <Input
                 prefix={<UserOutlined className="text-gray-400 mr-2" />}
@@ -94,19 +100,28 @@ export default function LoginPage() {
             </Form.Item>
 
             <Form.Item
-              name="password"
-              rules={[{ required: true, message: '请输入您的密码' }]}
+              name="phone"
             >
-              <Input.Password
-                prefix={<LockOutlined className="text-gray-400 mr-2" />}
-                placeholder="密码"
+              <Input
+                prefix={<PhoneOutlined className="text-gray-400 mr-2" />}
+                placeholder="手机号（选填）"
                 className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
               />
             </Form.Item>
 
-            <div className="flex justify-between items-center mb-6">
-              <a href="#" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">忘记密码？</a>
-            </div>
+            <Form.Item
+              name="password"
+              rules={[
+                { required: true, message: '请设置密码' },
+                { min: 6, message: '密码至少 6 位' },
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined className="text-gray-400 mr-2" />}
+                placeholder="设置密码（至少 6 位）"
+                className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
+              />
+            </Form.Item>
 
             <Form.Item>
               <Button
@@ -115,15 +130,15 @@ export default function LoginPage() {
                 block
                 className="h-12 bg-blue-600 hover:bg-blue-500 border-none rounded-xl font-bold shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all"
               >
-                启 动 系 统
+                提 交 注 册
               </Button>
             </Form.Item>
           </Form>
 
           <div className="text-center mt-6">
             <Text className="text-gray-500 text-xs">
-              还没有账号？{' '}
-              <a href="/register" className="text-blue-400 font-medium hover:underline">立即申请入驻</a>
+              已有账号？{' '}
+              <a href="/login" className="text-blue-400 font-medium hover:underline">返回登录</a>
             </Text>
           </div>
         </Card>

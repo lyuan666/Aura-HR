@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Table, Input, Space, Tag, Modal, Form, Select, message, Typography, Row, Col, Card, Badge, Avatar } from 'antd';
 import { PlusOutlined, SearchOutlined, ReloadOutlined, BankOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 const { Title, Text } = Typography;
@@ -28,7 +28,7 @@ export default function EnterprisesPage() {
   const fetchEnterprises = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/api/enterprises');
+      const res = await api.get('/enterprises');
       setData(res.data);
     } catch (e: unknown) {
       if (e instanceof Error && !e.message?.includes('Network Error')) {
@@ -46,7 +46,7 @@ export default function EnterprisesPage() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
-      await axios.post('/api/enterprises', values);
+      await api.post('/enterprises', values);
       message.success('创建成功');
       setIsModalOpen(false);
       form.resetFields();

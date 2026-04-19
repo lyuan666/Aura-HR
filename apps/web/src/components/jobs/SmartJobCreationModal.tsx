@@ -9,6 +9,7 @@ import {
   RobotOutlined,
   StopOutlined
 } from '@ant-design/icons';
+import api from '@/lib/api';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
@@ -66,27 +67,19 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
   const handleTextFinish = async (values: any) => {
     setParsing(true);
     try {
-      const res = await fetch('/api/job-positions/parse-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: values.description }),
+      const res = await api.post('/job-positions/parse-text', {
+        text: values.description,
       });
-      if (!res.ok) throw new Error('解析失败');
-      const parsedData = await res.json();
-      
-      // 关键：立即执行持久化保存
-      const saveRes = await fetch('/api/job-positions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: parsedData.title || '猎头发布职位',
-          description: values.description,
-          salaryMin: parsedData.salaryMin,
-          salaryMax: parsedData.salaryMax,
-          skillTags: parsedData.requiredSkills
-        }),
+      const parsedData = res.data;
+
+      const saveRes = await api.post('/job-positions', {
+        title: parsedData.title || '猎头发布职位',
+        description: values.description,
+        salaryMin: parsedData.salaryMin,
+        salaryMax: parsedData.salaryMax,
+        skillTags: parsedData.requiredSkills
       });
-      const finalData = await saveRes.json();
+      const finalData = saveRes.data;
       
       onSuccess(finalData);
       message.success('智能发布成功，职位已入库');
@@ -108,13 +101,10 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
     formData.append('file', fileList[0].originFileObj);
 
     try {
-      const res = await fetch('/api/job-positions/parse', {
-        method: 'POST',
-        body: formData,
+      const res = await api.post('/job-positions/parse', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      if (!res.ok) throw new Error('解析失败');
-      const data = await res.json();
-      onSuccess(data);
+      onSuccess(res.data);
       message.success('文件解析成功');
     } catch (e) {
       message.error('文件解析失败');

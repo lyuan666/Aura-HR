@@ -81,7 +81,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1">
                 <Text strong className="text-sm">{step.name}</Text>
-                {step.locked && <Tag size="small" className="ml-2 scale-90 border-none bg-gray-100 text-gray-400">系统内置</Tag>}
+                {step.locked && <Tag className="ml-2 scale-90 border-none bg-gray-100 text-gray-400">系统内置</Tag>}
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
                  {!step.locked && <Button size="small" type="text" className="text-gray-400 hover:text-blue-500">重命名</Button>}
@@ -120,7 +120,7 @@ export default function SettingsPage() {
             <List.Item>
               <Card className="rounded-2xl border-gray-100 hover:shadow-md transition-shadow">
                  <div className="flex items-start space-x-4">
-                    <Avatar src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.avatar}`} size={48} className="border-2 border-white shadow-sm" />
+                    <Avatar size={48} className="border-2 border-white shadow-sm" style={{ backgroundColor: '#6366f1', fontWeight: 700 }}>{item.name?.[0] || '?'}</Avatar>
                     <div className="flex-1">
                        <div className="flex justify-between items-center">
                           <Text strong>{item.name}</Text>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
       label: <Space><UserOutlined />个人中心</Space>,
       children: (
         <div className="py-10 flex flex-col items-center">
-           <Avatar src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" size={100} className="border-4 border-white shadow-xl mb-6" />
+           <Avatar size={100} className="border-4 border-white shadow-xl mb-6" style={{ backgroundColor: '#6366f1', fontSize: 36, fontWeight: 700 }}>F</Avatar>
            <Title level={4} className="m-0">Franklin Jr.</Title>
            <Text type="secondary" className="mb-8">超级管理员 · 加入于 2023年10月</Text>
            <div className="w-full max-w-md bg-gray-50 p-6 rounded-2xl border border-gray-100 italic text-gray-400 text-center">

@@ -7,7 +7,7 @@ import {
   SettingOutlined,
   AppstoreOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import api from '@/lib/api';
 import { 
   QuickNavWidget, 
   DemandHeatmapWidget, 
@@ -39,12 +39,12 @@ export default function DashboardPage() {
       setLoading(true);
       // 同时加载基础数据与统计数据
       const [candRes, jobRes, entRes, statsRes, funnelRes, talentStatsRes] = await Promise.all([
-        axios.get('/api/candidates'),
-        axios.get('/api/job-positions'),
-        axios.get('/api/enterprises'),
-        axios.get('/api/analytics/overview').catch(() => ({ data: {} })),
-        axios.get('/api/analytics/delivery-funnel').catch(() => ({ data: [] })),
-        axios.get('/api/analytics/talent-stats').catch(() => ({ data: [] }))
+        api.get('/candidates'),
+        api.get('/job-positions'),
+        api.get('/enterprises'),
+        api.get('/analytics/overview').catch(() => ({ data: {} })),
+        api.get('/analytics/delivery-funnel').catch(() => ({ data: [] })),
+        api.get('/analytics/talent-stats').catch(() => ({ data: [] }))
       ]);
 
       setData({

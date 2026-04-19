@@ -16,17 +16,18 @@ import {
   Col, 
   Avatar 
 } from 'antd';
-import { 
-  SolutionOutlined, 
-  ThunderboltOutlined, 
-  WarningOutlined, 
-  BulbOutlined, 
+import {
+  SolutionOutlined,
+  ThunderboltOutlined,
+  WarningOutlined,
+  BulbOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   UserOutlined,
   CalendarOutlined,
   GlobalOutlined
 } from '@ant-design/icons';
+import api from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -43,10 +44,8 @@ export default function PublicSharePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`/api/share/${token}`);
-        if (!res.ok) throw new Error('链接已失效或不存在');
-        const json = await res.json();
-        setData(json);
+        const res = await api.get(`/share/${token}`);
+        setData(res.data);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -59,15 +58,11 @@ export default function PublicSharePage() {
   const handleFeedback = async (type: string) => {
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/share/${token}/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feedback: type === 'accept' ? '企业已选中，建议约面' : '企业评估不合适' }),
+      await api.post(`/share/${token}/feedback`, {
+        feedback: type === 'accept' ? '企业已选中，建议约面' : '企业评估不合适',
       });
-      if (res.ok) {
-        message.success('反馈已成功传达给猎头');
-        setFeedbackSent(true);
-      }
+      message.success('反馈已成功传达给猎头');
+      setFeedbackSent(true);
     } catch (e) {
       message.error('提交反馈失败');
     } finally {
