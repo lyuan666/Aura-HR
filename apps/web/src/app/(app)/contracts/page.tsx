@@ -18,7 +18,7 @@ import {
   Select,
   InputNumber,
   DatePicker,
-  message,
+  App,
   Tooltip
 } from 'antd';
 import {
@@ -32,34 +32,12 @@ import {
   BankOutlined,
   SafetyCertificateOutlined
 } from '@ant-design/icons';
-import { motion } from 'framer-motion';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
-interface Recommendation {
-  id: string;
-  candidateId: string;
-  candidateName?: string;
-  candidateAvatar?: string;
-  jobPositionId: string;
-  status: string;
-  matchScore: number;
-  aiAnalysis?: any;
-  interviewDate?: string;
-  updatedAt: string;
-}
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: '待初筛', color: '#94a3b8', bg: '#f8fafc' },
-  submitted: { label: '已推荐', color: '#3b82f6', bg: '#eff6ff' },
-  reviewing: { label: '企业评估', color: '#f59e0b', bg: '#fffbeb' },
-  interview_scheduled: { label: '约面中', color: '#8b5cf6', bg: '#f5f3ff' },
-  offer_sent: { label: '发Offer', color: '#06b6d4', bg: '#ecfeff' },
-  accepted: { label: '已入职', color: '#10b981', bg: '#f0fdf4' },
-};
-
 export default function ContractsPage() {
+  const { message: antMessage } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -106,13 +84,13 @@ export default function ContractsPage() {
       key: 'title',
       render: (text: string, record: any) => (
         <Space size={12}>
-           <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-             <FileTextOutlined style={{ fontSize: 18 }} />
-           </div>
-           <div>
-              <div className="font-bold text-gray-800">{text}</div>
-              <div className="text-[11px] text-gray-400">编号: {record.contractNo}</div>
-           </div>
+          <div className="w-9 h-9 rounded-[10px] bg-[#007AFF]/[0.08] flex items-center justify-center text-[#007AFF]">
+            <FileTextOutlined style={{ fontSize: 16 }} />
+          </div>
+          <div>
+            <div className="font-medium text-[#1D1D1F]">{text}</div>
+            <div className="text-[11px] text-[#8E8E93]">编号: {record.contractNo}</div>
+          </div>
         </Space>
       )
     },
@@ -122,8 +100,13 @@ export default function ContractsPage() {
       key: 'enterprise',
       render: (text: string, record: any) => (
         <Space>
-           <Avatar src={record.logo} size="small" style={!record.logo ? { backgroundColor: '#6366f1', fontSize: 12, fontWeight: 700 } : {}}>{!record.logo ? text?.[0] : null}</Avatar>
-           <span className="text-sm">{text}</span>
+          <Avatar
+            size="small"
+            style={!record.logo ? { backgroundColor: '#007AFF', fontSize: 12, fontWeight: 500 } : {}}
+          >
+            {!record.logo ? text?.[0] : null}
+          </Avatar>
+          <span className="text-sm text-[#1D1D1F]">{text}</span>
         </Space>
       )
     },
@@ -131,19 +114,23 @@ export default function ContractsPage() {
       title: '合同总额',
       dataIndex: 'amount',
       key: 'amount',
-      render: (text: string) => <Text strong className="text-blue-600">{text}</Text>
+      render: (text: string) => <Text strong className="text-[#007AFF]">{text}</Text>
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
-        const colors: Record<string, string> = {
-          '执行中': 'blue',
-          '待审核': 'orange',
-          '已完成': 'green',
+        const config: Record<string, string> = {
+          '执行中': '#007AFF',
+          '待审核': '#FF9500',
+          '已完成': '#34C759',
         };
-        return <Tag color={colors[status]} className="rounded-md border-none px-2">{status}</Tag>;
+        return (
+          <Tag style={{ color: config[status], background: `${config[status]}10`, border: 'none', borderRadius: 8, fontWeight: 500 }}>
+            {status}
+          </Tag>
+        );
       }
     },
     {
@@ -151,9 +138,9 @@ export default function ContractsPage() {
       dataIndex: 'endDate',
       key: 'endDate',
       render: (date: string) => (
-        <Space className="text-gray-500 text-xs">
-           <ClockCircleOutlined />
-           {date}
+        <Space className="text-[#8E8E93] text-xs">
+          <ClockCircleOutlined />
+          {date}
         </Space>
       )
     },
@@ -162,94 +149,102 @@ export default function ContractsPage() {
       key: 'action',
       render: () => (
         <Space size={16}>
-           <Tooltip title="查看详情"><EyeOutlined className="text-gray-400 hover:text-blue-500 cursor-pointer" /></Tooltip>
-           <Tooltip title="下载附件"><DownloadOutlined className="text-gray-400 hover:text-blue-500 cursor-pointer" /></Tooltip>
+          <Tooltip title="查看详情"><EyeOutlined className="text-[#8E8E93] hover:text-[#007AFF] cursor-pointer" /></Tooltip>
+          <Tooltip title="下载附件"><DownloadOutlined className="text-[#8E8E93] hover:text-[#007AFF] cursor-pointer" /></Tooltip>
         </Space>
       )
     }
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex justify-between items-end">
         <div>
-           <div className="flex items-center space-x-2 text-gray-400 text-xs mb-1 uppercase tracking-widest font-bold">
-              <SafetyCertificateOutlined />
-              <span>商务合规管理</span>
-           </div>
-           <h1 className="text-3xl font-black m-0 text-gray-900 tracking-tighter">合同协议中心</h1>
+          <div className="flex items-center space-x-2 text-[#8E8E93] text-xs mb-1 uppercase tracking-wider font-medium">
+            <SafetyCertificateOutlined />
+            <span>商务合规管理</span>
+          </div>
+          <h1 className="text-xl font-semibold m-0 text-[#1D1D1F] tracking-tight">合同协议中心</h1>
         </div>
         <Space size={12}>
           <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: '#C7C7CC' }} />}
             placeholder="搜索合同、企业号..."
-            className="w-72 rounded-xl h-10 border-gray-100 bg-white"
+            className="w-64 rounded-[10px] h-10 bg-[#F2F2F7] border-transparent"
           />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} className="h-10 rounded-xl bg-blue-600 border-none shadow-lg shadow-blue-100 px-6">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setIsModalOpen(true)}
+            className="h-10 rounded-[10px] px-5"
+          >
             创建新合同
           </Button>
         </Space>
       </div>
 
-      <Row gutter={24}>
+      {/* Stats */}
+      <Row gutter={20}>
         <Col span={8}>
-          <Card className="rounded-2xl border-none shadow-sm bg-gradient-to-br from-blue-600 to-indigo-700">
-             <Statistic
-                title={<span className="text-blue-100 text-xs">执行中合同总额</span>}
-                value={970000}
-                prefix="￥"
-                valueStyle={{ color: '#fff', fontWeight: 900, fontSize: '24px' }}
-             />
-             <div className="mt-2 text-[10px] text-blue-200">当前活跃合同共 5 份</div>
+          <Card className="rounded-[20px] border-none shadow-sm bg-white">
+            <Statistic
+              title={<span className="text-[#8E8E93] text-xs">执行中合同总额</span>}
+              value={970000}
+              prefix="￥"
+              valueStyle={{ color: '#007AFF', fontWeight: 600, fontSize: '24px' }}
+            />
+            <div className="mt-2 text-[10px] text-[#8E8E93]">当前活跃合同共 5 份</div>
           </Card>
         </Col>
         <Col span={8}>
-          <Card className="rounded-2xl border-none shadow-sm bg-white">
-             <Statistic
-                title={<span className="text-gray-400 text-xs">待审核项目</span>}
-                value={3}
-                suffix="份"
-                valueStyle={{ color: '#f59e0b', fontWeight: 900, fontSize: '24px' }}
-             />
-             <div className="mt-2 text-[10px] text-gray-400 italic">最新提交：美团高级人才寻访项目</div>
+          <Card className="rounded-[20px] border-none shadow-sm bg-white">
+            <Statistic
+              title={<span className="text-[#8E8E93] text-xs">待审核项目</span>}
+              value={3}
+              suffix="份"
+              valueStyle={{ color: '#FF9500', fontWeight: 600, fontSize: '24px' }}
+            />
+            <div className="mt-2 text-[10px] text-[#8E8E93]">最新提交：美团高级人才寻访项目</div>
           </Card>
         </Col>
         <Col span={8}>
-          <Card className="rounded-2xl border-none shadow-sm bg-white">
-             <Statistic
-                title={<span className="text-gray-400 text-xs">本月已回款</span>}
-                value={128400}
-                prefix="￥"
-                valueStyle={{ color: '#10b981', fontWeight: 900, fontSize: '24px' }}
-             />
-             <div className="mt-2 text-[10px] text-gray-400 flex items-center">
-                <CheckCircleOutlined className="text-green-500 mr-1" />
-                回款进度正常
-             </div>
+          <Card className="rounded-[20px] border-none shadow-sm bg-white">
+            <Statistic
+              title={<span className="text-[#8E8E93] text-xs">本月已回款</span>}
+              value={128400}
+              prefix="￥"
+              valueStyle={{ color: '#34C759', fontWeight: 600, fontSize: '24px' }}
+            />
+            <div className="mt-2 text-[10px] text-[#8E8E93] flex items-center">
+              <CheckCircleOutlined className="text-[#34C759] mr-1" />
+              回款进度正常
+            </div>
           </Card>
         </Col>
       </Row>
 
-      <Card className="rounded-2xl border-gray-100 shadow-sm">
+      {/* Table */}
+      <Card className="rounded-[20px] border-none shadow-sm">
         <Table
           columns={columns}
           dataSource={mockData}
           pagination={false}
-          className="mophy-table"
         />
       </Card>
 
+      {/* Modal */}
       <Modal
         title="创建新合同"
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={
           <Space>
-            <Button onClick={() => setIsModalOpen(false)}>取消</Button>
+            <Button onClick={() => setIsModalOpen(false)} className="rounded-[10px]">取消</Button>
             <Button type="primary" onClick={() => {
               setIsModalOpen(false);
-              message.info('合同创建功能开发中');
-            }}>
+              antMessage.info('合同创建功能开发中');
+            }} className="rounded-[10px]">
               创建
             </Button>
           </Space>
@@ -258,16 +253,16 @@ export default function ContractsPage() {
       >
         <Form layout="vertical">
           <Form.Item label="合同标题" name="title" rules={[{ required: true, message: '请输入合同标题' }]}>
-            <Input placeholder="请输入合同标题" />
+            <Input placeholder="请输入合同标题" className="rounded-[10px]" />
           </Form.Item>
           <Form.Item label="签约主体" name="enterprise" rules={[{ required: true, message: '请输入签约主体' }]}>
-            <Input placeholder="请输入签约主体名称" />
+            <Input placeholder="请输入签约主体名称" className="rounded-[10px]" />
           </Form.Item>
           <Form.Item label="合同金额" name="amount">
-            <InputNumber prefix="￥" placeholder="请输入合同金额" />
+            <InputNumber prefix="￥" placeholder="请输入合同金额" className="w-full rounded-[10px]" />
           </Form.Item>
           <Form.Item label="到期日期" name="endDate">
-            <DatePicker className="w-full" placeholder="请选择到期日期" />
+            <DatePicker className="w-full rounded-[10px]" placeholder="请选择到期日期" />
           </Form.Item>
         </Form>
       </Modal>

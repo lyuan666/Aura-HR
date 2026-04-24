@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from './modules/auth/auth.module';
 import { CandidateModule } from './modules/candidate/candidate.module';
 import { AiModule } from './modules/ai/ai.module';
@@ -15,6 +16,9 @@ import { ShareModule } from './modules/share/share.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { FollowUpModule } from './modules/follow-up/follow-up.module';
+import { QueueModule } from './modules/queue/queue.module';
+import { ReportModule } from './modules/report/report.module';
+import { GuaranteeModule } from './modules/guarantee/guarantee.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import {
   UserEntity,
@@ -28,6 +32,9 @@ import {
   FollowUpEntity,
   AuditLogEntity,
   ShareLinkEntity,
+  PendingJobEntity,
+  GuaranteeTrackingEntity,
+  RefreshTokenEntity,
 } from './entities';
 
 @Module({
@@ -38,6 +45,7 @@ import {
     }),
 
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
 
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -58,6 +66,9 @@ import {
         FollowUpEntity,
         AuditLogEntity,
         ShareLinkEntity,
+        PendingJobEntity,
+        GuaranteeTrackingEntity,
+        RefreshTokenEntity,
       ],
       synchronize: process.env.NODE_ENV !== 'production',
       logging: process.env.NODE_ENV !== 'production',
@@ -75,6 +86,9 @@ import {
     ShareModule,
     InvoiceModule,
     FollowUpModule,
+    QueueModule,
+    ReportModule,
+    GuaranteeModule,
   ],
   providers: [
     // 全局 JWT 认证守卫，所有端点默认需要认证

@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('job_positions')
@@ -11,7 +12,12 @@ export class JobPositionEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ name: 'enterprise_id' })
+  @Index()
   enterpriseId: string;
 
   @Column()
@@ -57,6 +63,7 @@ export class JobPositionEntity {
     ],
     default: 'pending',
   })
+  @Index()
   status: string;
 
   @Column({ name: 'skill_tags', type: 'jsonb', default: [] })
@@ -69,7 +76,8 @@ export class JobPositionEntity {
   enhancedDescription: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'vector',
+    length: 1024,
     nullable: true,
   })
   embedding: number[];

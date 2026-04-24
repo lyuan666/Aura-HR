@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Avatar, Dropdown, theme, Input, Badge, Button, Space } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Menu, Avatar, Dropdown, Input, Badge, Space } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -35,7 +35,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sidebar-collapsed');
-      // 默认折叠 (true)
       if (saved === null) return true;
       return saved === 'true';
     }
@@ -44,7 +43,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const router = useRouter();
   const pathname = usePathname();
-  const { token } = theme.useToken();
 
   const handleToggleCollapse = () => {
     const nextState = !collapsed;
@@ -53,11 +51,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   };
 
   const activeKey = '/' + (pathname?.split('/')[1] || 'dashboard');
-
-  useEffect(() => {
-    // 确保在路由切换时，如果之前是展开状态，则继续保持
-    // 此处逻辑已由 useState 保证，仅作保留位置以备后用
-  }, [pathname]);
 
   const userMenu = {
     items: [
@@ -82,135 +75,151 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+    <Layout style={{ minHeight: '100vh', background: '#F5F5F7' }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
-        className="mophy-sidebar"
+        className="glass-sidebar"
         style={{
-          background: '#ffffff',
           position: 'fixed',
           height: '100vh',
           left: 0,
           top: 0,
           bottom: 0,
-          padding: '16px 0',
-          boxShadow: collapsed ? 'none' : '4px 0 24px rgba(0,0,0,0.02)',
+          padding: '12px 0',
+          borderRight: '1px solid rgba(0, 0, 0, 0.06)',
           zIndex: 1000,
         }}
-        width={260} // 略微增加宽度以提升品质感
+        width={260}
       >
+        {/* Logo */}
         <div
           style={{
-            height: 64,
+            height: 52,
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? 0 : '0 24px',
-            marginBottom: 32,
+            padding: collapsed ? 0 : '0 20px',
+            marginBottom: 16,
           }}
         >
-          <div style={{ 
-            width: 42, height: 42, 
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
-            borderRadius: 12,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, color: '#fff',
-            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.25)'
-          }}>🎯</div>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)',
+            }}
+          >
+            <img src="/logo.png" alt="天选OS" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
           {!collapsed && (
-            <span style={{ 
-              marginLeft: 14, 
-              fontSize: 20, 
-              fontWeight: 850, 
-              color: '#0f172a', 
-              letterSpacing: '-0.03em',
-              fontFamily: 'Inter, system-ui, sans-serif'
-            }}>
-              YZSCHROS
+            <span
+              style={{
+                marginLeft: 12,
+                fontSize: 18,
+                fontWeight: 800,
+                color: '#1D1D1F',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              天选OS
             </span>
           )}
         </div>
+
+        {/* Menu */}
         <Menu
           mode="inline"
           selectedKeys={[activeKey]}
           items={menuItems}
           onClick={({ key }) => router.push(key)}
-          style={{ borderRight: 0, padding: '0 12px' }}
-          className="custom-mophy-menu"
+          style={{ borderRight: 0, padding: '0 8px' }}
+          className="apple-menu"
         />
       </Sider>
-      <Layout style={{ marginLeft: collapsed ? 80 : 260, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+
+      <Layout
+        style={{
+          marginLeft: collapsed ? 80 : 260,
+          transition: 'margin-left 0.25s ease',
+        }}
+      >
+        {/* Header */}
         <Header
           style={{
-            padding: '0 40px',
-            background: 'rgba(249, 250, 251, 0.8)',
-            backdropFilter: 'blur(8px)',
+            padding: '0 32px',
+            background: 'rgba(245, 245, 247, 0.72)',
+            backdropFilter: 'saturate(180%) blur(20px)',
+            WebkitBackdropFilter: 'saturate(180%) blur(20px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            height: 88,
+            height: 64,
             position: 'sticky',
             top: 0,
             zIndex: 999,
+            borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 28, flex: 1 }}>
-            <div 
-              style={{ 
-                cursor: 'pointer', 
-                fontSize: 22, 
-                color: '#64748b',
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1 }}>
+            {/* Collapse toggle */}
+            <div
+              style={{
+                cursor: 'pointer',
+                fontSize: 18,
+                color: '#8E8E93',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: 40,
-                height: 40,
-                borderRadius: '10px',
-                background: '#fff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-              }} 
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                transition: 'background 0.15s ease',
+              }}
               onClick={handleToggleCollapse}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F2F2F7')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </div>
-            <Input 
-              prefix={<SearchOutlined style={{ color: '#94a3b8' }} />} 
-              placeholder="搜索人才、职位或企业资产..." 
-              className="mophy-search-input"
-              style={{ 
-                width: 420, 
-                borderRadius: 14, 
-                background: '#fff', 
-                border: '1px solid #e2e8f0',
-                height: 48,
+
+            {/* Search */}
+            <Input
+              prefix={<SearchOutlined style={{ color: '#C7C7CC' }} />}
+              placeholder="搜索人才、职位或企业..."
+              style={{
+                width: 360,
+                borderRadius: 10,
+                background: '#F2F2F7',
+                border: '1px solid transparent',
+                height: 40,
                 fontSize: 14,
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-                transition: 'all 0.3s'
-              }} 
+              }}
             />
           </div>
-          
-          <Space size={24} style={{ display: 'flex', alignItems: 'center' }}>
-            <Badge dot color="#6366f1">
-              <BellOutlined style={{ fontSize: 20, color: '#64748b', cursor: 'pointer' }} />
+
+          <Space size={20} style={{ display: 'flex', alignItems: 'center' }}>
+            <Badge dot color="#007AFF" style={{ boxShadow: 'none' }}>
+              <BellOutlined style={{ fontSize: 18, color: '#8E8E93', cursor: 'pointer' }} />
             </Badge>
             <Dropdown menu={userMenu} placement="bottomRight" arrow>
-              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, height: 40 }}>
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', gap: '2px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', lineHeight: 1 }}>Franklin Jr.</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1 }}>超级管理员</div>
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1D1D1F', lineHeight: 1.2 }}>Franklin Jr.</div>
+                  <div style={{ fontSize: 11, color: '#8E8E93', lineHeight: 1.2 }}>超级管理员</div>
                 </div>
                 <Avatar
-                  size={40}
+                  size={36}
                   style={{
-                    backgroundColor: '#6366f1',
-                    border: '2px solid #fff',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                    display: 'block',
-                    fontSize: 16,
-                    fontWeight: 700,
+                    backgroundColor: '#007AFF',
+                    fontSize: 14,
+                    fontWeight: 600,
                   }}
                 >
                   F
@@ -219,7 +228,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </Dropdown>
           </Space>
         </Header>
-        <Content style={{ padding: '0 32px 32px', display: 'flex', flexDirection: 'column' }}>
+
+        <Content style={{ padding: '0 28px 28px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {children}
           </div>

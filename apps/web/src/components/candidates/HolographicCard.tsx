@@ -41,7 +41,7 @@ export const HolographicCard = ({ candidate, onClick }: HolographicCardProps) =>
           <Checkbox className="mr-1" onClick={(e) => e.stopPropagation()} />
           <div className="relative">
             <Avatar 
-              src={candidate.avatar} 
+              src={candidate.avatar || (candidate.gender === '女' ? 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka' : 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix')} 
               size={56} 
               className="border-2 border-white shadow-sm ring-1 ring-slate-100" 
             />
@@ -77,31 +77,15 @@ export const HolographicCard = ({ candidate, onClick }: HolographicCardProps) =>
         </div>
 
         {/* 3. 中间历程区：Timeline 样式 (复刻图二核心) */}
-        <div className="flex-1 px-8 border-l border-slate-50 ml-6 relative">
+        <div className="flex-1 px-8 border-l border-slate-50 ml-6 flex flex-col justify-center">
            {experiences.length > 0 ? (
-             <div className="space-y-0">
+             <div className="space-y-1.5">
                {experiences.map((exp: any, idx: number) => (
-                 <div key={idx} className="relative pl-6 pb-2.5 last:pb-1 group/item">
-                    {/* 垂直连接线 */}
-                    {idx !== experiences.length - 1 && (
-                      <div className="absolute left-[3px] top-[14px] bottom-[-2px] w-[1px] border-l border-dashed border-slate-200" />
-                    )}
-                    {/* 节点图标 */}
-                    <div className="absolute left-0 top-[6px] w-2 h-2 rounded-full bg-slate-200 group-hover/item:bg-indigo-400 transition-colors" />
-                    
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs font-black text-slate-600 truncate block">
-                          {exp.company}
-                        </span>
-                        <span className="text-[10px] text-slate-400 truncate block mt-0.5">
-                          {exp.position}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-300 font-mono ml-4 shrink-0 italic">
-                        {exp.period || '-'}
-                      </span>
-                    </div>
+                 <div key={idx} className="flex items-center text-xs">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-2 shrink-0" />
+                    <span className="text-slate-400 font-mono mr-2 shrink-0">{exp.period || '-'}</span>
+                    <span className="font-bold text-slate-700 mr-2 truncate">{exp.company}</span>
+                    <span className="text-slate-500 truncate">{exp.position}</span>
                  </div>
                ))}
              </div>

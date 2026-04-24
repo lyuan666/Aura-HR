@@ -1,14 +1,12 @@
 'use client';
 
-import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
+import { Card, Form, Input, Button, Typography, App } from 'antd';
 import { UserOutlined, LockOutlined, PhoneOutlined, TeamOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import api from '@/lib/api';
 
 const { Title, Text } = Typography;
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface RegisterValues {
   email?: string;
@@ -18,25 +16,26 @@ interface RegisterValues {
 }
 
 export default function RegisterPage() {
+  const { message: apiMessage } = App.useApp();
   const router = useRouter();
 
   const onFinish = async (values: RegisterValues) => {
     try {
-      await axios.post(`${API_BASE}/auth/register`, {
+      await api.post('/auth/register', {
         email: values.email,
         password: values.password,
         name: values.name,
         phone: values.phone,
       });
 
-      message.success({
+      apiMessage.success({
         content: '注册成功，请登录',
         className: 'rounded-lg',
       });
       router.push('/login');
     } catch (err: any) {
       const msg = err.response?.data?.message || '注册失败，请稍后重试';
-      message.error(msg);
+      apiMessage.error(msg);
     }
   };
 
@@ -69,7 +68,7 @@ export default function RegisterPage() {
               申请入驻
             </Title>
             <Text className="text-gray-400 block mt-2 text-sm">
-              填写信息完成注册，开始使用智能猎头系统
+              填写信息完成注册，开始使用天选OS
             </Text>
           </div>
 
@@ -149,7 +148,7 @@ export default function RegisterPage() {
           transition={{ delay: 1 }}
           className="text-center text-gray-600 text-[10px] mt-8 uppercase tracking-[0.2em]"
         >
-          POWERED BY YZSCHROS AI ENGINE
+          POWERED BY 天选OS AI ENGINE
         </motion.p>
       </motion.div>
     </div>

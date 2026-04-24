@@ -5,32 +5,40 @@ import React from 'react';
 import { ConfigProvider, App as AntApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 
+const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
+
 const antTheme = {
   token: {
-    colorPrimary: '#2563eb', // 更深邃的品牌蓝
-    borderRadius: 12,
+    colorPrimary: '#007AFF',
+    borderRadius: 10,
     fontSize: 14,
-    colorLink: '#2563eb',
-    colorBgLayout: '#f8fafc',
-    boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    colorLink: '#007AFF',
+    colorBgLayout: '#F5F5F7',
+    fontFamily: SF_FONT,
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
+    colorText: '#1D1D1F',
+    colorTextSecondary: '#8E8E93',
   },
   components: {
     Card: {
-      borderRadiusLG: 24,
+      borderRadiusLG: 20,
       colorBgContainer: '#ffffff',
       paddingLG: 24,
-      boxShadowTertiary: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+      boxShadowTertiary: '0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
     },
     Button: {
       borderRadius: 10,
-      fontWeight: 600,
+      fontWeight: 500,
       controlHeight: 40,
       paddingInline: 20,
+      primaryShadow: 'none',
     },
     Menu: {
-      itemBorderRadius: 10,
-      itemHeight: 48,
+      itemBorderRadius: 8,
+      itemHeight: 40,
+      itemMarginBlock: 2,
+      itemMarginInline: 10,
+      activeBarBorderWidth: 0,
     },
     Table: {
       borderRadius: 16,
@@ -38,8 +46,17 @@ const antTheme = {
     Input: {
       borderRadius: 10,
       controlHeight: 40,
-    }
-  }
+    },
+    Select: {
+      borderRadius: 10,
+    },
+    Modal: {
+      borderRadiusLG: 16,
+    },
+    Tag: {
+      borderRadiusSM: 8,
+    },
+  },
 };
 
 export default function AntdProvider({ children }: { children: React.ReactNode }) {

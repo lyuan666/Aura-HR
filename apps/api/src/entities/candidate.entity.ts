@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('candidates')
@@ -29,13 +30,19 @@ export class CandidateEntity {
 
   // 联系方式
   @Column({ nullable: true })
+  @Index()
   phone: string;
 
   @Column({ nullable: true })
   wechat: string;
 
   @Column({ nullable: true })
+  @Index()
   email: string;
+
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
 
   // 职业信息
   @Column({ name: 'current_company', nullable: true })
@@ -104,6 +111,7 @@ export class CandidateEntity {
     enum: ['new', 'active', 'in_process', 'offered', 'placed', 'inactive'],
     default: 'new',
   })
+  @Index()
   status: string;
 
   @Column({ name: 'resume_url', nullable: true })
@@ -113,7 +121,8 @@ export class CandidateEntity {
   resumeText: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'vector',
+    length: 1024,
     nullable: true,
   })
   embedding: number[];

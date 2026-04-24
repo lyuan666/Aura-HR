@@ -24,7 +24,7 @@ const { Text, Title } = Typography;
 // --- 1. 快捷导航 (Quick Nav) ---
 export const QuickNavWidget = () => {
   const links = [
-    { name: 'BOSS直聘', icon: 'https://img.bosszhipin.com/beijin/mcs/useravatar/20180820/6c715c0e1cc9486c476715f335ed5276cfcd208495d565ef66e7dff9f98764da_s.jpg', url: 'https://login.zhipin.com' },
+    { name: 'BOSS直聘', icon: 'https://www.zhipin.com/favicon.ico', url: 'https://login.zhipin.com' },
     { name: '猎聘(猎头端)', icon: 'https://c.liepin.com/favicon.ico', url: 'https://h.liepin.com' },
     { name: '企查查', icon: 'https://www.qcc.com/favicon.ico', url: 'https://www.qcc.com' },
     { name: '脉脉', icon: 'https://maimai.cn/favicon.ico', url: 'https://maimai.cn' },
@@ -93,7 +93,14 @@ export const DemandHeatmapWidget = ({ data = [] }: { data?: any[] }) => {
           </List.Item>
         )}
       />
-      <Button type="link" block className="mt-2 text-slate-400 text-xs hover:text-indigo-500">查看全部在招岗位 <ArrowRightOutlined className="text-[10px]" /></Button>
+      <Button 
+        type="link" 
+        block 
+        className="mt-2 text-slate-400 text-xs hover:text-indigo-500"
+        onClick={() => window.location.href = '/jobs'}
+      >
+        查看全部在招岗位 <ArrowRightOutlined className="text-[10px]" />
+      </Button>
     </Card>
   );
 };
@@ -107,7 +114,10 @@ export const ClientTrackerWidget = ({ data = [] }: { data?: any[] }) => {
           <Text strong className="text-[13px] font-black text-slate-700 block text-indigo-900">核心客户跟进</Text>
           <Text className="text-[10px] text-slate-400">建立持久且深度的客户链接</Text>
         </div>
-        <ShopOutlined className="text-xl text-indigo-200" />
+        <ShopOutlined 
+          className="text-xl text-indigo-200 cursor-pointer hover:text-indigo-500 transition-colors" 
+          onClick={() => window.location.href = '/enterprises'}
+        />
       </div>
 
       <div className="space-y-4">

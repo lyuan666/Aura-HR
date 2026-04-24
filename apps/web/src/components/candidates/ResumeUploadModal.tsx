@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Modal, Upload, Button, message, List, Progress, App } from 'antd';
+import { Modal, Upload, Button, message, List, Progress, App, Tooltip } from 'antd';
 import { 
   InboxOutlined, 
   FilePdfOutlined, 
@@ -127,22 +127,24 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
       }
       width={520}
       centered
-      className="mophy-modal"
-      styles={{ body: { padding: '12px 0 24px' } }}
+      styles={{ body: { padding: '24px 0 24px' } }}
     >
       <div className="px-6">
-        <Dragger {...uploadProps} className="group !bg-slate-50/50 !border-dashed !border-2 !border-slate-200 !rounded-2xl !p-10 hover:!border-indigo-400 transition-all cursor-pointer">
+        <Dragger 
+          {...uploadProps} 
+          className="group !bg-[#F9FAFB] !border-dashed !border-2 !border-[#E5E7EB] !rounded-2xl !p-10 hover:!border-indigo-400 hover:!bg-white transition-all cursor-pointer"
+        >
           <p className="ant-upload-drag-icon !text-slate-300 group-hover:!text-indigo-400 transition-colors !mb-4">
-            <InboxOutlined style={{ fontSize: 44 }} />
+            <InboxOutlined style={{ fontSize: 48 }} />
           </p>
-          <p className="text-[13px] font-black text-slate-700 mb-1">批量拖拽简历文件至此处，或点击浏览</p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">支持 PDF, Word, Txt | 智能提取人岗画像</p>
+          <p className="text-[14px] font-black text-slate-700 mb-1">批量拖拽简历文件至此处，或点击浏览</p>
+          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">支持 PDF, Word, Txt | 智能提取人岗画像</p>
         </Dragger>
 
         {queue.length > 0 && (
-          <div className="mt-8 max-h-[280px] overflow-y-auto no-scrollbar space-y-3">
+          <div className="mt-8 max-h-[320px] overflow-y-auto no-scrollbar space-y-3 pb-2">
             {queue.map(item => (
-              <div key={item.id} className="p-3 bg-white border border-slate-100 rounded-xl flex items-center shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-slate-200">
+              <div key={item.id} className="p-3.5 bg-white border border-slate-100 rounded-xl flex items-center shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-slate-200">
                 <div className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center mr-4 shrink-0 transition-colors",
                   item.status === 'success' ? "bg-emerald-50 text-emerald-500" : 
@@ -151,14 +153,16 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
                   {item.status === 'uploading' ? <LoadingOutlined /> : item.name.toLowerCase().endsWith('.pdf') ? <FilePdfOutlined /> : <FileWordOutlined />}
                 </div>
                 <div className="flex-1 min-w-0 mr-4">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[11px] font-black text-slate-700 truncate mr-2">{item.name}</span>
-                    <span className={cn(
-                      "text-[9px] font-black uppercase tracking-tight",
-                      item.status === 'success' ? "text-emerald-500" : item.status === 'error' ? "text-rose-500" : "text-indigo-500"
-                    )}>
-                      {item.status === 'uploading' ? 'AI 深度理解中...' : item.status === 'success' ? '已入库' : '解析异常'}
-                    </span>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[12px] font-black text-slate-700 truncate mr-2">{item.name}</span>
+                    <Tooltip title={item.message}>
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-tight cursor-help",
+                        item.status === 'success' ? "text-emerald-500" : item.status === 'error' ? "text-rose-500 underline decoration-dotted" : "text-indigo-500"
+                      )}>
+                        {item.status === 'uploading' ? 'AI 深度理解中...' : item.status === 'success' ? '已入库' : (item.message || '解析异常')}
+                      </span>
+                    </Tooltip>
                   </div>
                   <Progress
                     percent={item.progress}

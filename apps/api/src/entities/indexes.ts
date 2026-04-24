@@ -10,5 +10,3 @@ export { FollowUpEntity } from './follow-up.entity';
 export { AuditLogEntity } from './audit-log.entity';
 export { ShareLinkEntity } from './share-link.entity';
 export { PendingJobEntity } from './pending-job.entity';
-export { GuaranteeTrackingEntity } from './guarantee-tracking.entity';
-export { RefreshTokenEntity } from './refresh-token.entity';

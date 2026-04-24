@@ -16,51 +16,61 @@ export class MatchingService {
     private readonly aiService: AiService,
   ) {}
 
-  async findBestMatches(jobId: string) {
-    const job = await this.jobRepo.findOne({ where: { id: jobId } });
+  async findBestMatches(jobId: string, tenantId?: string) {
+    const job = await this.jobRepo.findOne({ where: { id: jobId, ...(tenantId ? { tenantId } : {}) } });
     if (!job) throw new NotFoundException('职位不存在');
 
-    // 1. 获取所有有向量的候选人 (如果 pgvector 可用, 这里可以用 SQL 优化)
-    // 这里实现一个退化方案: 查出 top 200 候选人并在内存计算相似度
-    const candidates = await this.candidateRepo.find({
-      order: { lastContactedAt: 'DESC' },
-      take: 200,
-    });
+    if (!job.embedding || job.embedding.length === 0) {
+      return [];
+    }
 
-    const results = candidates.map((candidate) => {
-      // 1.1 语义相似度 (余弦相似度)
-      let semanticScore = 0;
-      if (job.embedding && candidate.embedding) {
-        semanticScore = cosineSimilarity(job.embedding, candidate.embedding);
-      }
+    // Phase 1: pgvector HNSW 索引粗筛 (取 Top 100)
+    const tenantFilter = tenantId ? 'AND tenant_id = $2' : '';
+    const params = [JSON.stringify(job.embedding)];
+    if (tenantId) params.push(tenantId);
 
-      // 1.2 标签匹配度 (Skills)
+    const candidates = await this.candidateRepo.query(
+      `SELECT *, 1 - (embedding <=> $1::vector) AS semantic_score
+       FROM candidates
+       WHERE embedding IS NOT NULL ${tenantFilter}
+         AND status IN ('new', 'active', 'in_process')
+       ORDER BY embedding <=> $1::vector
+       LIMIT 100`,
+      params,
+    );
+
+    // Phase 2: 应用层精排
+    const results = candidates.map((candidate: any) => {
+      // 2.1 语义相似度
+      const semanticScore = parseFloat(candidate.semantic_score) || 0;
+
+      // 2.2 标签匹配度 (Skills)
       const jobSkills = job.skillTags || [];
-      const candidateSkills = (candidate.parsedTags?.skills as string[]) || [];
+      const candidateSkills = (candidate.parsed_tags?.skills as string[]) || [];
       const tagMatchScore = this.calculateTagOverlap(jobSkills, candidateSkills);
 
-      // 1.3 硬性过滤 (加权影响, 而非直接剔除, 除非差异巨大)
-      let hardMatchMultiplier = 1.0;
-      if (job.salaryMin && candidate.expectedSalary && candidate.expectedSalary > job.salaryMax * 1.5) {
-        hardMatchMultiplier = 0.5; // 期望薪资远超预算, 降权
-      }
+      // 2.3 经验匹配度 (工作年限 + 行业)
+      const expScore = this.calculateExperienceMatch(job, candidate);
 
-      // 1.4 综合得分
-      const totalScore = (semanticScore * 0.6 + tagMatchScore * 0.3 + 0.1) * hardMatchMultiplier * 100;
+      // 2.4 硬性过滤
+      const hardMatchMultiplier = this.calculateHardMatch(job, candidate);
+
+      // 2.5 综合得分: 50% 语义 + 30% 标签 + 20% 经验
+      const totalScore = (semanticScore * 0.5 + tagMatchScore * 0.3 + expScore * 0.2) * hardMatchMultiplier * 100;
 
       return {
         candidate,
         score: Math.round(totalScore),
         semanticScore: Math.round(semanticScore * 100),
         tagMatchScore: Math.round(tagMatchScore * 100),
+        expScore: Math.round(expScore * 100),
       };
     });
 
-    // 过滤掉得分太低的并排序
     return results
-      .filter((r) => r.score > 30)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+      .filter((r: any) => r.score > 30)
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 20);
   }
 
   private calculateTagOverlap(tagsA: string[], tagsB: string[]): number {
@@ -69,5 +79,85 @@ export class MatchingService {
       tagsB.some((bt) => bt.toLowerCase().includes(t.toLowerCase())),
     );
     return intersection.length / tagsA.length;
+  }
+
+  private calculateExperienceMatch(job: JobPositionEntity, candidate: any): number {
+    let score = 0;
+    
+    // 工作年限匹配
+    if (job.salaryMin) { // 借用作为年限参考或者直接用年限
+      const requiredYears = 3; // 假设默认 3 年
+      const candidateYears = candidate.total_years || 0;
+      if (candidateYears >= requiredYears) score += 0.5;
+      else score += (candidateYears / requiredYears) * 0.5;
+    } else {
+      score += 0.5;
+    }
+
+    // 行业/职位匹配
+    if (job.title && candidate.current_title) {
+      if (candidate.current_title.toLowerCase().includes(job.title.toLowerCase())) {
+        score += 0.5;
+      }
+    }
+
+    return score;
+  }
+
+  private calculateHardMatch(job: JobPositionEntity, candidate: any): number {
+    let multiplier = 1.0;
+
+    // 薪资 Gap 检查
+    if (job.salaryMax && candidate.expected_salary) {
+      if (candidate.expected_salary > job.salaryMax * 1.5) {
+        multiplier *= 0.5;
+      }
+    }
+
+    return multiplier;
+  }
+
+  /**
+   * 为单个候选人主动匹配现有岗位
+   */
+  async findBestMatchesForCandidate(candidateId: string, tenantId?: string) {
+    const candidate = await this.candidateRepo.findOne({ where: { id: candidateId, ...(tenantId ? { tenantId } : {}) } });
+    if (!candidate || !candidate.embedding) return [];
+
+    // Phase 1: 语义粗筛 (寻找所有匹配的 active 岗位)
+    const tenantFilter = tenantId ? 'AND tenant_id = $2' : '';
+    const params = [JSON.stringify(candidate.embedding)];
+    if (tenantId) params.push(tenantId);
+
+    const jobs = await this.jobRepo.query(
+      `SELECT *, 1 - (embedding <=> $1::vector) AS semantic_score
+       FROM job_positions
+       WHERE embedding IS NOT NULL ${tenantFilter}
+         AND status IN ('matching', 'recommending', 'interviewing')
+       ORDER BY embedding <=> $1::vector
+       LIMIT 50`,
+      params,
+    );
+
+    // Phase 2: 应用层精排
+    const results = jobs.map((job: any) => {
+      const semanticScore = parseFloat(job.semantic_score) || 0;
+      const jobSkills = job.skill_tags || [];
+      const candidateSkills = (candidate.parsedTags?.skills as string[]) || [];
+      const tagMatchScore = this.calculateTagOverlap(jobSkills, candidateSkills);
+      const expScore = this.calculateExperienceMatch(job, candidate);
+      const hardMatchMultiplier = this.calculateHardMatch(job, candidate);
+
+      const totalScore = (semanticScore * 0.5 + tagMatchScore * 0.3 + expScore * 0.2) * hardMatchMultiplier * 100;
+
+      return {
+        job,
+        score: Math.round(totalScore),
+      };
+    });
+
+    return results
+      .filter((r: any) => r.score > 60) // 只推送高匹配度的
+      .sort((a: any, b: any) => b.score - a.score);
   }
 }

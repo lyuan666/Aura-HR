@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -6,17 +6,20 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('overview')
-  getOverview() {
-    return this.analyticsService.getOverview();
+  getOverview(@Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.analyticsService.getOverview(tenantId);
   }
 
   @Get('talent-stats')
-  getTalentStats() {
-    return this.analyticsService.getTalentStats();
+  getTalentStats(@Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.analyticsService.getTalentStats(tenantId);
   }
 
   @Get('delivery-funnel')
-  getDeliveryFunnel() {
-    return this.analyticsService.getDeliveryFunnel();
+  getDeliveryFunnel(@Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.analyticsService.getDeliveryFunnel(tenantId);
   }
 }

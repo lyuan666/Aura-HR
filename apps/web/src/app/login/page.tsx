@@ -1,14 +1,12 @@
 'use client';
 
-import { Card, Form, Input, Button, message, Typography, Space, App } from 'antd';
-import { UserOutlined, LockOutlined, ThunderboltFilled } from '@ant-design/icons';
+import { Card, Form, Input, Button, Typography, App } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import api from '@/lib/api';
 
 const { Title, Text } = Typography;
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface LoginValues {
   email?: string;
@@ -21,7 +19,7 @@ export default function LoginPage() {
 
   const onFinish = async (values: LoginValues) => {
     try {
-      const res = await axios.post(`${API_BASE}/auth/login`, {
+      const res = await api.post('/auth/login', {
         email: values.email,
         password: values.password,
       });
@@ -36,7 +34,6 @@ export default function LoginPage() {
           content: '登录成功，欢迎回来！',
           className: 'rounded-lg',
         });
-        // 使用 replace 避免回退到登录页，延迟确保 cookie 生效
         setTimeout(() => router.replace('/dashboard'), 100);
       } else {
         apiMessage.error('登录失败：服务器未返回有效令牌');
@@ -48,36 +45,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-[#0f172a]">
-      {/* 动态背景装饰 */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px]" />
+    <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-[#1D1D1F]">
+      {/* Minimal Apple-style ambient light */}
+      <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] bg-[#007AFF]/[0.04] rounded-full blur-[150px]" />
+      <div className="absolute bottom-1/4 right-1/3 w-[400px] h-[400px] bg-[#007AFF]/[0.03] rounded-full blur-[120px]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="z-10 w-full max-w-[420px] px-4"
+        transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+        className="z-10 w-full max-w-[400px] px-4"
       >
         <Card
-          className="bg-white/10 backdrop-blur-xl border-white/20 shadow-2xl rounded-[32px] overflow-hidden"
-          styles={{ body: { padding: '40px' } }}
+          className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.08] rounded-[20px]"
+          styles={{ body: { padding: '36px 32px' } }}
         >
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <motion.div
-              initial={{ scale: 0.8 }}
+              initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 200 }}
-              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30 mb-6"
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-[12px] mb-5 overflow-hidden shadow-xl shadow-indigo-500/10"
             >
-              <ThunderboltFilled className="text-3xl text-white" />
+              <img src="/logo.png" alt="天选OS" className="w-full h-full object-cover" />
             </motion.div>
 
-            <Title level={2} className="text-white m-0 font-bold tracking-tight">
-              智领未来 · YZSCHROS
+            <Title level={3} className="text-white m-0 font-bold tracking-tight text-xl">
+              天选OS
             </Title>
-            <Text className="text-gray-400 block mt-2 text-sm">
-              业务增强型智能猎头操作系统
+            <Text className="text-[#8E8E93] block mt-1.5 text-[13px]">
+              业务增强型智能操作系统
             </Text>
           </div>
 
@@ -87,9 +84,9 @@ export default function LoginPage() {
               rules={[{ required: true, message: '请输入您的邮箱' }]}
             >
               <Input
-                prefix={<UserOutlined className="text-gray-400 mr-2" />}
+                prefix={<UserOutlined className="text-[#8E8E93] mr-2" />}
                 placeholder="邮箱地址"
-                className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
+                className="h-11 bg-white/[0.06] border-white/[0.1] text-white placeholder:text-[#8E8E93] rounded-[10px] hover:border-white/[0.2] focus:border-[#007AFF] hover:bg-white/[0.08]"
               />
             </Form.Item>
 
@@ -98,14 +95,14 @@ export default function LoginPage() {
               rules={[{ required: true, message: '请输入您的密码' }]}
             >
               <Input.Password
-                prefix={<LockOutlined className="text-gray-400 mr-2" />}
+                prefix={<LockOutlined className="text-[#8E8E93] mr-2" />}
                 placeholder="密码"
-                className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-xl hover:border-blue-500 focus:border-blue-500 hover:bg-white/10"
+                className="h-11 bg-white/[0.06] border-white/[0.1] text-white placeholder:text-[#8E8E93] rounded-[10px] hover:border-white/[0.2] focus:border-[#007AFF] hover:bg-white/[0.08]"
               />
             </Form.Item>
 
-            <div className="flex justify-between items-center mb-6">
-              <a href="#" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">忘记密码？</a>
+            <div className="flex justify-end items-center mb-5">
+              <a href="#" className="text-xs text-[#007AFF] hover:text-[#007AFF]/80 transition-colors">忘记密码？</a>
             </div>
 
             <Form.Item>
@@ -113,17 +110,17 @@ export default function LoginPage() {
                 type="primary"
                 htmlType="submit"
                 block
-                className="h-12 bg-blue-600 hover:bg-blue-500 border-none rounded-xl font-bold shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all"
+                className="h-11 bg-[#007AFF] hover:bg-[#007AFF]/85 border-none rounded-[10px] font-medium text-[15px] active:scale-[0.98] transition-all"
               >
-                启 动 系 统
+                登录
               </Button>
             </Form.Item>
           </Form>
 
-          <div className="text-center mt-6">
-            <Text className="text-gray-500 text-xs">
+          <div className="text-center mt-4">
+            <Text className="text-[#8E8E93] text-xs">
               还没有账号？{' '}
-              <a href="/register" className="text-blue-400 font-medium hover:underline">立即申请入驻</a>
+              <a href="/register" className="text-[#007AFF] font-medium hover:underline">立即申请入驻</a>
             </Text>
           </div>
         </Card>
@@ -131,10 +128,10 @@ export default function LoginPage() {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="text-center text-gray-600 text-[10px] mt-8 uppercase tracking-[0.2em]"
+          transition={{ delay: 0.8 }}
+          className="text-center text-[#48484A] text-[10px] mt-6 tracking-[0.15em] uppercase"
         >
-          POWERED BY YZSCHROS AI ENGINE
+          Powered by 天选OS
         </motion.p>
       </motion.div>
     </div>

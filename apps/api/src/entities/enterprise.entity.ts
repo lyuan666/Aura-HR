@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { ContactEntity } from './contact.entity';
 
@@ -12,6 +13,10 @@ import { ContactEntity } from './contact.entity';
 export class EnterpriseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
 
   @Column()
   name: string;
@@ -36,6 +41,7 @@ export class EnterpriseEntity {
     enum: ['potential', 'following', 'negotiating', 'signed', 'churned'],
     default: 'potential',
   })
+  @Index()
   status: string;
 
   @Column({ type: 'jsonb', default: [] })

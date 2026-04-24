@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { EnterpriseEntity } from './enterprise.entity';
 
@@ -14,7 +15,12 @@ export class ContactEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ name: 'enterprise_id' })
+  @Index()
   enterpriseId: string;
 
   @ManyToOne(() => EnterpriseEntity, (enterprise) => enterprise.contacts)

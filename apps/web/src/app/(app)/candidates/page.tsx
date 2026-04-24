@@ -1,86 +1,31 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Input, Button, Table, Space, Avatar, Empty, Pagination, App, Divider, Tooltip, Upload } from 'antd';
-import { 
-  SearchOutlined, 
-  FilterOutlined, 
-  BarsOutlined,
-  AppstoreOutlined,
-  PlusOutlined,
-  ReloadOutlined
-} from '@ant-design/icons';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { MoreHorizontal, ChevronDown, Mail, Star, Settings2, Eraser, Briefcase, GraduationCap } from 'lucide-react';
 import api from '@/lib/api';
-import { cn } from '@/lib/utils';
-import CandidateDetailDrawer from '@/components/candidates/CandidateDetailDrawer';
-import { HolographicCard } from '@/components/candidates/HolographicCard';
+import CandidateDetailModal from '@/components/candidates/CandidateDetailModal';
 import ResumeUploadModal from '@/components/candidates/ResumeUploadModal';
-
-// 左侧过滤分组组件
-const FilterMenu = ({ title, options, activeItem }: { title: string, options: string[], activeItem?: string }) => {
-  // 这里的 count 以后可对接真实 API，目前使用确定的 Mock 值避免水和报错
-  const getStableCount = (opt: string) => {
-    const hash = opt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return (hash % 20) + 1;
-  };
-
-  return (
-    <div className="mb-8">
-      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-2">{title}</div>
-      <div className="space-y-1">
-        {options.map(opt => (
-          <div 
-            key={opt} 
-            className={cn(
-              "px-4 py-2 text-sm rounded-xl cursor-pointer transition-all flex justify-between items-center group",
-              opt === activeItem ? "bg-slate-900 text-white shadow-md" : "text-slate-500 hover:bg-slate-100/50 hover:pl-5 font-medium"
-            )}
-          >
-            <span>{opt}</span>
-            <span className={cn(
-              "text-[9px] px-1.5 py-0.5 rounded-md",
-              opt === activeItem ? "bg-white/20" : "bg-slate-100 group-hover:bg-slate-200"
-            )}>
-              {getStableCount(opt)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+import { App, Skeleton, Empty, Tag, Checkbox } from 'antd';
+import { cn } from '@/lib/utils';
 
 export default function CandidatesPage() {
   const { message } = App.useApp();
-  const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'holographic' | 'table'>('holographic');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const fetchCandidates = async () => {
     try {
       setLoading(true);
       const res = await api.get('/candidates');
-      // 处理 mock 数据用于全息卡片展示
-      const enhanced = res.data.map((c: any) => ({
-        ...c,
-        avatar: c.avatar || null,
-        experienceYears: c.totalYears || 5,
-        workExperiences: c.workExperiences || [
-          { company: '阿里巴巴', position: '技术专家', period: '2022.01-至今' },
-          { company: '腾讯', position: '高级工程师', period: '2019.06-2021.12' }
-        ],
-        educationHistory: c.educationHistory || [
-          { school: '浙江大学', degree: '硕士', major: '计算机科学' }
-        ],
-        lastUpdate: new Date(c.updatedAt).toLocaleDateString()
-      }));
-      setCandidates(enhanced);
+      setCandidates(res.data?.items || []);
     } catch (e) {
-      message.error('数据流链接失败');
+      console.error(e);
+      message.error('数据加载失败');
     } finally {
       setLoading(false);
     }
@@ -90,188 +35,217 @@ export default function CandidatesPage() {
     fetchCandidates();
   }, []);
 
-  const handleCandidateClick = (candidate: any) => {
-    setSelectedCandidate(candidate);
-    setIsDrawerOpen(true);
-  };
-
-  const columns = [
-    {
-      title: '基本信息',
-      key: 'info',
-      render: (_: any, record: any) => (
-        <Space>
-          <Avatar src={record.avatar} style={!record.avatar ? { backgroundColor: '#6366f1', fontWeight: 700 } : {}}>{!record.avatar ? record.name?.[0] || '' : null}</Avatar>
-          <span className="font-bold text-slate-800">{record.name}</span>
-        </Space>
-      ),
-    },
-    { title: '最近雇主', dataIndex: 'currentCompany', key: 'company' },
-    { title: '职位', dataIndex: 'currentJob', key: 'job' },
-    { title: '更新时间', dataIndex: 'lastUpdate', key: 'update' },
-    {
-      title: '操作',
-      key: 'action',
-      render: (_: any, record: any) => (
-        <Button type="link" onClick={() => handleCandidateClick(record)}>查看</Button>
-      ),
-    },
-  ];
-
-  const handleImport = async (info: any) => {
-    const { file } = info;
-    if (file.status === 'uploading') {
-      setLoading(true);
-      return;
-    }
-    if (file.status === 'done' || file.status === 'error' || file.originFileObj) {
-      const formData = new FormData();
-      formData.append('file', file.originFileObj || file);
-      
-      try {
-        setLoading(true);
-        const res = await api.post('/candidates/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        if (res.data.success) {
-          message.success('简历已提交 AI 深度解析并成功入库');
-          fetchCandidates();
-        } else {
-          message.error('解析失败: ' + res.data.message);
-        }
-      } catch (e) {
-        message.error('由于后端网关抖动，人才导入链路请求失败');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter(c => 
+      !searchQuery || [c.name, c.currentTitle, c.currentCompany].some(f => f?.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [candidates, searchQuery]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-112px)]">
-      {/* 1. 操作栏 (ActionBar) */}
-      <div className="bg-white border-b border-slate-100 flex items-center justify-between px-8 py-4 shrink-0 rounded-t-3xl">
-        <div className="flex items-center space-x-6">
-          <div className="flex flex-col">
-            <span className="text-sm font-black text-slate-800 tracking-tight">人才库</span>
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Candidate Matrix</span>
-          </div>
-
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
-            <Tooltip title="全息矩阵视图">
-              <Button 
-                type={viewMode === 'holographic' ? 'primary' : 'text'} 
-                icon={<BarsOutlined />} 
-                onClick={() => setViewMode('holographic')}
-                className={cn("h-7 rounded-lg px-4 text-xs font-bold", viewMode === 'holographic' ? "bg-slate-900 border-none shadow-sm" : "text-slate-400")}
-              >
-                全息
-              </Button>
-            </Tooltip>
-            <Tooltip title="标准表格视图">
-              <Button 
-                type={viewMode === 'table' ? 'primary' : 'text'} 
-                icon={<AppstoreOutlined />} 
-                onClick={() => setViewMode('table')}
-                className={cn("h-7 rounded-lg px-4 text-xs font-bold", viewMode === 'table' ? "bg-slate-900 border-none shadow-sm" : "text-slate-400")}
-              >
-                表格
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <Input 
-            prefix={<SearchOutlined className="text-slate-300" />} 
-            placeholder="全文检索..." 
-            className="w-56 h-9 border-slate-100 bg-slate-50 rounded-lg text-xs"
-          />
-          <Button icon={<FilterOutlined />} className="h-9 px-3 rounded-lg border-slate-100 text-xs font-bold">筛选</Button>
-          <Button onClick={fetchCandidates} icon={<ReloadOutlined />} className="h-9 w-9 rounded-lg border-slate-100" />
-          <Divider type="vertical" className="h-6" />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            loading={loading}
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0B0D11] text-[#F0F0F2] p-8">
+      
+      {/* 1. Header Area */}
+      <div className="flex items-center justify-between mb-5 flex-shrink-0">
+        <h1 className="text-xl font-black text-white tracking-wide">全部简历</h1>
+        <div className="flex gap-3">
+          <button 
             onClick={() => setIsUploadModalOpen(true)}
-            className="h-9 px-4 rounded-lg bg-indigo-600 border-none shadow-sm text-xs font-bold"
+            className="h-[34px] px-5 rounded bg-transparent border border-[#6C5CE7] text-[#A29BFE] text-[13px] font-bold hover:bg-[#6C5CE7]/10 transition-all"
           >
-            导入简历
-          </Button>
+            上传简历
+          </button>
+          <button className="h-[34px] px-5 rounded bg-transparent border border-[#6C5CE7] text-[#A29BFE] text-[13px] font-bold hover:bg-[#6C5CE7]/10 transition-all flex items-center gap-2">
+            邮箱归集
+          </button>
+          <button className="h-[34px] w-[34px] flex items-center justify-center rounded bg-transparent border border-[#6C5CE7] text-[#A29BFE] hover:bg-[#6C5CE7]/10 transition-all">
+            <MoreHorizontal size={16} />
+          </button>
         </div>
       </div>
 
-      {/* 2. 内容区 (Body with Sidebar) */}
-      <div className="flex-1 flex overflow-hidden bg-white rounded-b-3xl">
-        {/* 左侧侧边栏 */}
-        {/* 左侧侧边栏 - 已根据需求由 w-64 压缩至 w-52 */}
-        <div className="w-52 border-r border-slate-50 overflow-y-auto no-scrollbar py-8 px-6 bg-slate-50/20">
-          <FilterMenu title="核心视图" options={['全部人才', '我的收藏', '最近联系', '待筛选']} activeItem="全部人才" />
-          <FilterMenu title="行业人才" options={['互联网/大厂', '金融科技', '医疗健康', '新能源']} />
+      {/* 2. Filter Bar */}
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex flex-wrap gap-2">
+          <div className="h-8 pl-3 pr-2 rounded bg-[#1A1D25] border border-white/5 flex items-center gap-2 group cursor-pointer hover:bg-white/5">
+            <span className="text-[12px] text-white/50">标签</span>
+            <span className="text-[12px] text-white/30 hover:text-white/80">✕</span>
+          </div>
+          <div className="h-8 pl-3 pr-2 rounded bg-[#1A1D25] border border-white/5 flex items-center gap-2 group cursor-pointer hover:bg-white/5">
+            <span className="text-[12px] text-white/50 flex items-center gap-1">上传方式 <ChevronDown size={12} /></span>
+            <span className="text-[12px] text-white/30 hover:text-white/80">✕</span>
+          </div>
+          <div className="h-8 pl-3 pr-2 rounded bg-[#1A1D25] border border-white/5 flex items-center gap-2 group cursor-pointer hover:bg-white/5">
+            <span className="text-[12px] text-white/50">当前职位</span>
+            <span className="text-[12px] text-white/30 hover:text-white/80">✕</span>
+          </div>
+          <div className="h-8 pl-3 pr-2 rounded bg-[#1A1D25] border border-white/5 flex items-center gap-2 group cursor-pointer hover:bg-white/5">
+            <span className="text-[12px] text-white/50 flex items-center gap-1">当前流程 <ChevronDown size={12} /></span>
+            <span className="text-[12px] text-white/30 hover:text-white/80">✕</span>
+          </div>
         </div>
+        <div className="flex items-center gap-6">
+           <button className="flex items-center gap-1.5 text-[12px] text-white/50 hover:text-white transition-colors">
+              <Settings2 size={14} /> 筛选设置
+           </button>
+           <button className="flex items-center gap-1.5 text-[12px] text-white/50 hover:text-white transition-colors">
+              <Eraser size={14} /> 清空
+           </button>
+        </div>
+      </div>
 
-        {/* 右侧主内容 */}
-        <div className="flex-1 overflow-y-auto p-8 no-scrollbar bg-white">
-          <AnimatePresence mode="wait">
-            {viewMode === 'holographic' ? (
-              <motion.div 
-                key="holographic"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="max-w-5xl mx-auto space-y-2"
-              >
-                {candidates.map(candidate => (
-                  <HolographicCard 
-                    key={candidate.id} 
-                    candidate={candidate} 
-                    onClick={() => handleCandidateClick(candidate)} 
-                  />
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="table"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-              >
-                <Table 
-                  columns={columns} 
-                  dataSource={candidates} 
-                  rowKey="id" 
-                  loading={loading}
-                  pagination={{ pageSize: 8 }}
-                  className="mophy-table"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {!loading && candidates.length === 0 && (
-            <div className="mt-32">
-              <Empty description="未发现符合条件的高级精英" />
-            </div>
-          )}
+      {/* 3. Bulk Action Bar */}
+      <div className="flex items-center justify-between py-3 flex-shrink-0 border-b border-white/5 mb-2">
+        <div className="flex items-center gap-4">
+          <Checkbox className="v2-dark-checkbox" />
+          <span className="text-[12px] text-white/50 ml-1">共 <span className="text-[#00D2FF] font-bold mx-1">{filteredCandidates.length}</span> 名</span>
           
-          {!loading && candidates.length > 0 && (
-            <div className="mt-12 flex justify-center pb-8">
-              <Pagination total={candidates.length} pageSize={20} size="small" />
-            </div>
-          )}
+          <div className="flex items-center gap-3 ml-2">
+            <button className="flex items-center gap-1 text-[12px] text-white/60 hover:text-white transition-colors bg-transparent px-3 py-1.5 rounded border border-white/10 hover:border-white/30">
+              简历管理 <ChevronDown size={12} />
+            </button>
+            <button className="text-[12px] text-white/60 hover:text-white transition-colors bg-transparent px-3 py-1.5 rounded border border-white/10 hover:border-white/30">
+              加入职位
+            </button>
+            <button className="text-[12px] text-white/60 hover:text-white transition-colors bg-transparent px-3 py-1.5 rounded border border-white/10 hover:border-white/30">
+              分享
+            </button>
+            <button className="flex items-center gap-1 text-[12px] text-white/60 hover:text-white transition-colors bg-transparent px-3 py-1.5 rounded border border-white/10 hover:border-white/30">
+              导出 <ChevronDown size={12} />
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-[12px] text-white/50 cursor-pointer hover:text-white">
+           <ChevronDown size={14} /> 默认综合排序
         </div>
       </div>
 
-      <CandidateDetailDrawer 
-        visible={isDrawerOpen} 
-        candidate={selectedCandidate} 
-        onClose={() => setIsDrawerOpen(false)} 
+      {/* 4. List Area - 1:1 Structure */}
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-8">
+        <div className="flex flex-col">
+          {loading ? (
+             [1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-white/5 rounded animate-pulse my-2" />)
+          ) : filteredCandidates.map((c, i) => (
+            <motion.div
+              key={c.id || i}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => { setSelectedCandidate(c); setIsModalOpen(true); }}
+              className="group flex items-start py-6 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors cursor-pointer"
+            >
+              {/* Left Column: Identity */}
+              <div className="flex items-start w-[320px] flex-shrink-0 pl-1 relative">
+                <Checkbox className="v2-dark-checkbox mt-2" onClick={(e) => e.stopPropagation()} />
+                <div className="ml-4 flex gap-4">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#1A1D25] to-[#2A2D35] border border-white/10 flex items-center justify-center text-sm font-bold text-white shadow-lg overflow-hidden">
+                      {c.avatar ? <img src={c.avatar} alt="" className="w-full h-full object-cover" /> : (c.name?.[0] || '?')}
+                    </div>
+                    {/* Gender icon (Red for female, blue for male logic based on screenshot) */}
+                    <div className={cn(
+                      "absolute -bottom-0.5 -right-0.5 w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] text-white border-2 border-[#0B0D11]",
+                      c.gender === 'female' ? "bg-[#FF6B9D]" : "bg-[#6C5CE7]"
+                    )}>
+                      {c.gender === 'female' ? '♀' : '♂'}
+                    </div>
+                  </div>
+                  <div className="min-w-0 pr-8 relative">
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                      <span className="text-[14px] font-bold text-white/90">{c.name || '未知姓名'}</span>
+                      <span className="text-[12px] text-white/40 font-medium">
+                        {c.age || 35}岁 <span className="mx-0.5 text-white/20">|</span> {c.degree || '大专'} <span className="mx-0.5 text-white/20">|</span> {c.totalYears || 13}年
+                      </span>
+                    </div>
+                    <div className="mt-2.5">
+                      <Tag className="m-0 bg-white/[0.03] border-none text-white/50 text-[11px] px-2 py-0.5 rounded shadow-sm">
+                        {c.status === 'new' ? '稳定性高' : '暂无标签'}
+                      </Tag>
+                    </div>
+                    {/* Star Icon - positioned absolute to match image layout */}
+                    <div className="absolute right-0 top-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Star size={14} className="text-white/30 hover:text-[#FFD700] transition-colors" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle Column: Timeline */}
+              <div className="flex-1 px-4 relative flex flex-col gap-3 pb-1">
+                {/* Timeline vertical dotted line connecting icons */}
+                <div className="absolute left-[23px] top-[18px] bottom-4 w-[1px] border-l border-dotted border-white/20" />
+
+                {/* Experience Item 1 */}
+                <div className="flex items-start relative z-10 group/row">
+                  <div className="flex items-start gap-3 w-full">
+                    <div className="bg-[#0B0D11] pt-0.5"><Briefcase size={14} className="text-white/40" /></div>
+                    <div className="min-w-0 pt-[1px] flex flex-col">
+                      <div className="text-[13px] text-white/80 font-medium flex items-center gap-3">
+                        <span className="text-[12px] text-white/40 tabular-nums w-[120px] shrink-0 whitespace-nowrap">{c.currentCompany ? '2024.10-至今' : '2024.10-至今'}</span>
+                        <div className="flex items-center">
+                          <span className="text-[#6C5CE7] hover:underline cursor-pointer border-b border-dashed border-[#6C5CE7]/30 pb-[1px]">
+                            {c.currentCompany || '阿里云'}
+                          </span>
+                          <span className="mx-1 text-white/30">-</span>
+                          <span>{c.currentTitle || '前端开发专家'}</span>
+                        </div>
+                      </div>
+                      {/* Sub-experience if any (like in the second row of the screenshot) */}
+                      <div className="text-[12px] text-white/40 mt-1.5 flex items-center gap-3">
+                         <span className="tabular-nums opacity-60 w-[120px] shrink-0 whitespace-nowrap">2023.02-2024.09</span>
+                         <div className="flex items-center">
+                           <span className="text-[#6C5CE7]/80 hover:underline cursor-pointer border-b border-dashed border-[#6C5CE7]/20 pb-[1px]">杭州必定特供应链有限公司</span>
+                           <span className="mx-1 text-white/20">-</span>
+                           <span>成本会计</span>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Education Item */}
+                <div className="flex items-start relative z-10 mt-1">
+                  <div className="flex items-start gap-3 w-full">
+                    <div className="bg-[#0B0D11] pt-0.5"><GraduationCap size={14} className="text-white/40" /></div>
+                    <div className="min-w-0 pt-[1px] flex items-center gap-3 text-[13px] text-white/60">
+                      <span className="text-[12px] text-white/40 tabular-nums w-[120px] shrink-0 whitespace-nowrap">2008.01-2012.01</span>
+                      <div className="flex items-center">
+                        <span className="hover:underline cursor-pointer border-b border-dashed border-white/20 pb-[1px]">{c.school || '浙江大学'}</span>
+                        <span className="mx-1 text-white/30">-</span>
+                        <span>{c.degree || '硕士'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Actions */}
+              <div className="w-[180px] flex items-start justify-end gap-2 flex-shrink-0 pr-4 mt-0.5">
+                <button className="h-[28px] px-3 rounded bg-[#6C5CE7]/10 text-[#A29BFE] text-[12px] font-medium hover:bg-[#6C5CE7]/20 transition-colors">
+                  加入分组
+                </button>
+                <button className="h-[28px] px-3 rounded bg-[#6C5CE7]/10 text-[#A29BFE] text-[12px] font-medium hover:bg-[#6C5CE7]/20 transition-colors">
+                  备注
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {!loading && filteredCandidates.length === 0 && (
+          <div className="py-32 flex flex-col items-center justify-center">
+             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span className="text-white/30 text-[12px]">暂无数据</span>} />
+          </div>
+        )}
+      </div>
+
+      <CandidateDetailModal
+        visible={isModalOpen}
+        candidate={selectedCandidate}
+        onClose={() => setIsModalOpen(false)}
       />
-      <ResumeUploadModal 
-        visible={isUploadModalOpen} 
-        onClose={() => setIsUploadModalOpen(false)} 
-        onSuccess={fetchCandidates} 
+      <ResumeUploadModal
+        visible={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={fetchCandidates}
       />
     </div>
   );

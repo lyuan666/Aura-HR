@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('contracts')
@@ -11,7 +12,12 @@ export class ContractEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ name: 'enterprise_id' })
+  @Index()
   enterpriseId: string;
 
   @Column({ name: 'contract_no', unique: true })
@@ -34,6 +40,7 @@ export class ContractEntity {
     enum: ['draft', 'pending_approval', 'active', 'completed', 'terminated'],
     default: 'draft',
   })
+  @Index()
   status: string;
 
   @Column({ name: 'file_url', nullable: true })

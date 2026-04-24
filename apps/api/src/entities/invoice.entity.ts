@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('invoices')
@@ -11,7 +12,12 @@ export class InvoiceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ name: 'contract_id' })
+  @Index()
   contractId: string;
 
   @Column({ name: 'invoice_no', unique: true })
@@ -34,6 +40,7 @@ export class InvoiceEntity {
     enum: ['pending', 'issued', 'sent', 'paid', 'overdue', 'cancelled'],
     default: 'pending',
   })
+  @Index()
   status: string;
 
   @Column({ type: 'text', nullable: true })

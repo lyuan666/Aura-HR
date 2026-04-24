@@ -26,28 +26,28 @@ def main():
     results = []
     
     if args.file:
-        print(f"[*] 正在解析单文件: {args.file}")
+        print(f"[*] 正在解析单文件: {args.file}", file=sys.stderr)
         try:
             result = analyzer.analyze_file(args.file)
             print(json.dumps(result, ensure_ascii=False, indent=2))
         except Exception as e:
-            print(f"[!] 解析失败: {str(e)}")
+            print(f"[!] 解析失败: {str(e)}", file=sys.stderr)
             
     elif args.dir:
         if not os.path.exists(args.dir):
-            print(f"[!] 目录不存在: {args.dir}")
+            print(f"[!] 目录不存在: {args.dir}", file=sys.stderr)
             return
             
-        print(f"[*] 正在批量处理目录: {args.dir}")
+        print(f"[*] 正在批量处理目录: {args.dir}", file=sys.stderr)
         for filename in os.listdir(args.dir):
             if filename.lower().endswith((".pdf", ".docx", ".txt")):
                 file_path = os.path.join(args.dir, filename)
-                print(f"  -> 正在解析: {filename}")
+                print(f"  -> 正在解析: {filename}", file=sys.stderr)
                 try:
                     result = analyzer.analyze_file(file_path)
                     results.append({"filename": filename, "data": result})
                 except Exception as e:
-                    print(f"  [!] {filename} 解析异常: {str(e)}")
+                    print(f"  [!] {filename} 解析异常: {str(e)}", file=sys.stderr)
         
         # 输出汇总结果
         output_file = "batch_parsing_results.json"

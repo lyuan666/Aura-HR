@@ -4,11 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { CreateCandidateDto } from './candidate.dto';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
-import { cosineSimilarity } from '../../common/utils/similarity';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class CandidateService {
@@ -16,37 +16,57 @@ export class CandidateService {
     @InjectRepository(CandidateEntity)
     private readonly candidateRepo: Repository<CandidateEntity>,
     private readonly embeddingService: EmbeddingService,
+    private readonly queueService: QueueService,
   ) {}
 
-  findAll() {
-    return this.candidateRepo.find({
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(page = 1, pageSize = 20, tenantId?: string) {
+    const qb = this.candidateRepo.createQueryBuilder('candidate');
+    if (tenantId) {
+      qb.where('candidate.tenantId = :tenantId', { tenantId });
+    }
+    const [items, total] = await qb
+      .orderBy('candidate.createdAt', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+
+    return { items, total, page, pageSize };
   }
 
-  async findOne(id: string) {
-    const candidate = await this.candidateRepo.findOne({ where: { id } });
+  async findOne(id: string, tenantId?: string) {
+    const where: any = { id };
+    if (tenantId) where.tenantId = tenantId;
+    
+    const candidate = await this.candidateRepo.findOne({ where });
     if (!candidate) throw new NotFoundException('候选人不存在');
     return candidate;
   }
 
   // 查重并入库
-  async create(dto: CreateCandidateDto) {
+  async create(dto: CreateCandidateDto, tenantId?: string) {
     const qb = this.candidateRepo.createQueryBuilder('candidate');
 
     // 查重逻辑：优先查是否有同平台的同样名字的人，或者同样 phone/email
     qb.where(
-      '(candidate.name = :name AND candidate.sourcePlatform = :sourcePlatform)',
-      { 
-        name: dto.name || '未命名', 
-        sourcePlatform: dto.sourcePlatform || 'manual' 
-      },
+      new Brackets((qb2) => {
+        qb2.where(
+          'candidate.name = :name AND candidate.sourcePlatform = :sourcePlatform',
+          {
+            name: dto.name || '未命名',
+            sourcePlatform: dto.sourcePlatform || 'manual',
+          },
+        );
+        if (dto.phone) {
+          qb2.orWhere('candidate.phone = :phone', { phone: dto.phone });
+        }
+        if (dto.email) {
+          qb2.orWhere('candidate.email = :email', { email: dto.email });
+        }
+      }),
     );
-    if (dto.phone) {
-      qb.orWhere('candidate.phone = :phone', { phone: dto.phone });
-    }
-    if (dto.email) {
-      qb.orWhere('candidate.email = :email', { email: dto.email });
+
+    if (tenantId) {
+      qb.andWhere('candidate.tenantId = :tenantId', { tenantId });
     }
 
     const duplicate = await qb.getOne().catch(() => null);
@@ -60,15 +80,14 @@ export class CandidateService {
 
     const newCandidate = this.candidateRepo.create({
       ...dto,
+      tenantId,
       status: 'new',
     });
 
     const saved = await this.candidateRepo.save(newCandidate);
 
-    // 触发异步向量化
-    this.vectorizeCandidate(saved.id).catch((err) =>
-      console.error(`Candidate ${saved.id} vectorization failed:`, err),
-    );
+    // 触发持久化异步向量化
+    await this.queueService.enqueue('vectorize', { candidateId: saved.id }, tenantId);
 
     return saved;
   }
@@ -107,23 +126,26 @@ export class CandidateService {
   /**
    * 语义搜索候选人
    */
-  async semanticSearch(query: string) {
+  async semanticSearch(query: string, tenantId?: string) {
     const queryEmbedding = await this.embeddingService.generateEmbedding(query);
-    const candidates = await this.candidateRepo.find();
+    if (!queryEmbedding || queryEmbedding.length === 0) return [];
 
-    const results = candidates.map((c) => {
-      let score = 0;
-      if (c.embedding && queryEmbedding) {
-        score = cosineSimilarity(queryEmbedding, c.embedding);
-      }
-      return {
-        ...c,
-        matchScore: Math.round(score * 100),
-      };
-    });
+    const tenantFilter = tenantId ? 'AND tenant_id = $2' : '';
+    const params = [JSON.stringify(queryEmbedding)];
+    if (tenantId) params.push(tenantId);
 
-    return results
-      .filter((r) => r.matchScore > 20)
-      .sort((a, b) => b.matchScore - a.matchScore);
+    const candidates = await this.candidateRepo.query(
+      `SELECT *, 1 - (embedding <=> $1::vector) AS match_score
+       FROM candidates
+       WHERE embedding IS NOT NULL ${tenantFilter}
+       ORDER BY embedding <=> $1::vector
+       LIMIT 20`,
+      params,
+    );
+
+    return candidates.map((c: any) => ({
+      ...c,
+      matchScore: Math.round((c.match_score || 0) * 100),
+    }));
   }
 }

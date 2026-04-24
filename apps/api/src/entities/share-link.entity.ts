@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('share_links')
@@ -11,10 +12,16 @@ export class ShareLinkEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ unique: true })
+  @Index()
   token: string;
 
   @Column({ name: 'recommendation_id' })
+  @Index()
   recommendationId: string;
 
   @Column({ type: 'timestamp', name: 'expires_at' })

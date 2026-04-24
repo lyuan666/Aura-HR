@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 @Entity('recommendations')
@@ -11,13 +12,20 @@ export class RecommendationEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', nullable: true })
+  @Index()
+  tenantId: string;
+
   @Column({ name: 'candidate_id' })
+  @Index()
   candidateId: string;
 
   @Column({ name: 'job_position_id' })
+  @Index()
   jobPositionId: string;
 
   @Column({ name: 'consultant_id' })
+  @Index()
   consultantId: string;
 
   @Column({
@@ -44,6 +52,7 @@ export class RecommendationEntity {
     ],
     default: 'pending',
   })
+  @Index()
   status: string;
 
   @Column({ name: 'ai_analysis', type: 'jsonb', nullable: true })

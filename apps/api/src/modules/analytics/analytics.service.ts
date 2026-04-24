@@ -16,12 +16,13 @@ export class AnalyticsService {
     private readonly recRepo: Repository<RecommendationEntity>,
   ) {}
 
-  async getOverview() {
+  async getOverview(tenantId?: string) {
+    const where = tenantId ? { tenantId } : {};
     const [candidateCount, jobCount, recommendationCount, acceptedCount] = await Promise.all([
-      this.candidateRepo.count(),
-      this.jobRepo.count(),
-      this.recRepo.count(),
-      this.recRepo.count({ where: { status: 'accepted' } }),
+      this.candidateRepo.count({ where }),
+      this.jobRepo.count({ where }),
+      this.recRepo.count({ where }),
+      this.recRepo.count({ where: { ...where, status: 'accepted' } }),
     ]);
 
     return {
@@ -32,9 +33,12 @@ export class AnalyticsService {
     };
   }
 
-  async getTalentStats() {
+  async getTalentStats(tenantId?: string) {
     // 聚合技能标签分布
-    const candidates = await this.candidateRepo.find({ select: ['parsedTags'] });
+    const candidates = await this.candidateRepo.find({ 
+      where: tenantId ? { tenantId } : {},
+      select: ['parsedTags'] 
+    });
     const skillMap: Record<string, number> = {};
 
     candidates.forEach(c => {
@@ -52,9 +56,14 @@ export class AnalyticsService {
     return sortedSkills;
   }
 
-  async getDeliveryFunnel() {
-    const stats = await this.recRepo
-      .createQueryBuilder('rec')
+  async getDeliveryFunnel(tenantId?: string) {
+    const qb = this.recRepo.createQueryBuilder('rec');
+    
+    if (tenantId) {
+      qb.where('rec.tenantId = :tenantId', { tenantId });
+    }
+
+    const stats = await qb
       .select('rec.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('rec.status')

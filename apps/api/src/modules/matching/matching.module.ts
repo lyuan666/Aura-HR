@@ -1,18 +1,23 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MatchingController } from './matching.controller';
 import { MatchingService } from './matching.service';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
 import { AiModule } from '../ai/ai.module';
+import { CandidateModule } from '../candidate/candidate.module';
+import { JobModule } from '../job/job.module';
+import { MatchingListener } from './matching.listener';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CandidateEntity, JobPositionEntity]),
     AiModule,
+    forwardRef(() => CandidateModule),
+    forwardRef(() => JobModule),
   ],
   controllers: [MatchingController],
-  providers: [MatchingService],
+  providers: [MatchingService, MatchingListener],
   exports: [MatchingService],
 })
 export class MatchingModule {}

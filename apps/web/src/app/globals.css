@@ -1,56 +1,126 @@
 @import "tailwindcss";
 
+/* ===== Apple Design Language — Global Styles ===== */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --sidebar-bg: #ffffff;
-  --card-radius: 24px;
-  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-  --shadow-medium: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
-  --primary: #6366f1;
-  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  /* Apple System Colors */
+  --apple-blue: #007AFF;
+  --apple-green: #34C759;
+  --apple-orange: #FF9500;
+  --apple-red: #FF3B30;
+  --apple-purple: #AF52DE;
+  --apple-teal: #5AC8FA;
+  --apple-yellow: #FFCC00;
+
+  /* Neutral Palette */
+  --apple-gray-1: #8E8E93;
+  --apple-gray-2: #AEAEB2;
+  --apple-gray-3: #C7C7CC;
+  --apple-gray-4: #D1D1D6;
+  --apple-gray-5: #E5E5EA;
+  --apple-gray-6: #F2F2F7;
+
+  /* Semantic */
+  --background: #F5F5F7;
+  --foreground: #1D1D1F;
+  --sidebar-bg: rgba(255, 255, 255, 0.72);
+  --card-radius: 20px;
+  --btn-radius: 10px;
+  --tag-radius: 8px;
+
+  /* Shadows — Apple-style layered, ultra-light */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+
+  /* Primary */
+  --primary: #007AFF;
+  --primary-light: rgba(0, 122, 255, 0.08);
+  --primary-medium: rgba(0, 122, 255, 0.15);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-.mophy-card {
+/* ===== Glass Material Classes ===== */
+
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.glass-content {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: saturate(150%) blur(20px);
+  -webkit-backdrop-filter: saturate(150%) blur(20px);
+}
+
+.glass-popover {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ===== Apple Card ===== */
+
+.apple-card {
   background: #ffffff;
   border-radius: var(--card-radius);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  box-shadow: var(--shadow-soft);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
   overflow: hidden;
+  border: none;
 }
 
-.mophy-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-medium);
-  border-color: rgba(99, 102, 241, 0.2);
+.apple-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
-.mophy-sidebar {
-  border-radius: 0 var(--card-radius) var(--card-radius) 0;
-  box-shadow: var(--shadow-soft);
+/* ===== Apple Menu ===== */
+
+.apple-menu .ant-menu-item {
+  border-radius: 8px !important;
+  margin: 2px 10px !important;
+  width: calc(100% - 20px) !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-weight: 400 !important;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.mophy-gradient-blue { background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: white; }
-.mophy-gradient-green { background: linear-gradient(135deg, #34d399 0%, #10b981 100%); color: white; }
-.mophy-gradient-orange { background: linear-gradient(135deg, #fb923c 0%, #f97316 100%); color: white; }
-.mophy-gradient-purple { background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%); color: white; }
+.apple-menu .ant-menu-item-selected {
+  background: var(--primary-light) !important;
+  color: var(--apple-blue) !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+}
 
-/* Ant Design Overrides */
+.apple-menu .ant-menu-item-selected .anticon {
+  color: var(--apple-blue) !important;
+}
+
+.apple-menu .ant-menu-item:not(.ant-menu-item-selected):hover {
+  background: var(--apple-gray-6) !important;
+  color: var(--foreground) !important;
+}
+
+/* ===== Ant Design Global Overrides ===== */
+
 .ant-layout {
   background: var(--background) !important;
 }
 
 .ant-layout-sider {
-  background: var(--sidebar-bg) !important;
-  border-right: 1px solid #f1f5f9 !important;
+  background: transparent !important;
 }
 
 .ant-menu {
@@ -58,68 +128,126 @@ body {
   border-inline-end: none !important;
 }
 
-.ant-menu-item {
-  border-radius: 12px !important;
-  margin: 4px 12px !important;
-  width: calc(100% - 24px) !important;
-}
-
-.ant-menu-item-selected {
-  background: var(--primary-gradient) !important;
-  color: white !important;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
-}
-
+/* Statistic — Apple style */
 .ant-statistic-title {
-  color: #64748b !important;
-  font-size: 14px !important;
+  color: var(--apple-gray-1) !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
+  letter-spacing: -0.01em;
 }
 
 .ant-statistic-content-value {
-  font-weight: 800 !important;
-  font-size: 28px !important;
-  letter-spacing: -0.03em;
+  font-weight: 600 !important;
+  font-size: 24px !important;
+  letter-spacing: -0.02em;
 }
 
-/* React Grid Layout Styles */
+/* Table — Apple style: no gridlines, row dividers only */
+.ant-table {
+  border-radius: 16px !important;
+}
+
+.ant-table-thead > tr > th {
+  background: transparent !important;
+  border-bottom: 1px solid var(--apple-gray-5) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  color: var(--apple-gray-1) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--apple-gray-6) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--apple-gray-6) !important;
+}
+
+/* Tag — Apple style */
+.ant-tag {
+  border-radius: var(--tag-radius) !important;
+  border: none !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+}
+
+/* Button — Apple style */
+.ant-btn-primary {
+  box-shadow: none !important;
+}
+
+.ant-btn-primary:hover {
+  opacity: 0.85;
+}
+
+/* Input focus ring */
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: var(--apple-blue) !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12) !important;
+}
+
+/* Modal — Apple style */
+.ant-modal .ant-modal-content {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.ant-modal .ant-modal-header {
+  border-radius: 16px 16px 0 0 !important;
+}
+
+/* Card — Apple style */
+.ant-card {
+  border: none !important;
+}
+
+/* ===== React Grid Layout ===== */
+
 .react-grid-layout {
   position: relative;
   transition: height 200ms ease;
 }
+
 .react-grid-item {
   transition: all 200ms ease;
   transition-property: left, top;
 }
+
 .react-grid-item.resizing {
   z-index: 1;
   will-change: width, height;
 }
+
 .react-grid-item.react-draggable-dragging {
   transition: none;
   z-index: 3;
   will-change: transform;
 }
+
 .react-grid-item.dropping {
   visibility: hidden;
 }
+
 .react-grid-item.react-grid-placeholder {
-  background: rgba(99, 102, 241, 0.05);
-  border-radius: 24px;
-  border: 2px dashed rgba(99, 102, 241, 0.2);
+  background: rgba(0, 122, 255, 0.06);
+  border-radius: 20px;
+  border: 2px dashed rgba(0, 122, 255, 0.15);
   transition-duration: 100ms;
   z-index: 2;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -o-user-select: none;
   user-select: none;
 }
+
 .react-grid-item > .react-resizable-handle {
   position: absolute;
   width: 20px;
   height: 20px;
 }
+
 .react-grid-item > .react-resizable-handle::after {
   content: "";
   position: absolute;
@@ -127,12 +255,23 @@ body {
   bottom: 5px;
   width: 8px;
   height: 8px;
-  border-right: 2px solid rgba(0, 0, 0, 0.2);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  border-right: 2px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.15);
 }
+
 .react-resizable-handle-se {
   bottom: 0;
   right: 0;
   cursor: se-resize;
 }
 
+/* ===== Utility ===== */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
