@@ -1,247 +1,242 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Card,
-  Tabs,
-  Typography,
-  Form,
-  Input,
-  Button,
-  Switch,
-  List,
-  Avatar,
-  Tag,
-  Space,
-  App,
-  Alert,
-  Select,
-  Row,
-  Col
-} from 'antd';
-import {
-  UserOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  RobotOutlined,
-  PlusOutlined,
-  HolderOutlined,
-  SaveOutlined,
-  CheckCircleOutlined
-} from '@ant-design/icons';
-import { cn } from '@/lib/utils';
-
-const { Title, Text, Paragraph } = Typography;
+  Settings, User, Shield, Bell, Database,
+  Cpu, Cloud, HardDrive, Key, Globe, Zap, Save, Camera, Mail, Phone, MapPin, Building
+} from 'lucide-react';
+import { SpotlightCard } from '@/components/v2/SpotlightCard';
+import { App, Switch, Input, Button, Avatar, Upload, Divider, Skeleton } from 'antd';
+import api from '@/lib/api';
 
 export default function SettingsPage() {
-  const { message: antMessage } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('process');
+  const { message } = App.useApp();
+  const [activeTab, setActiveTab] = useState('个人档案');
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<{ name: string; email: string; phone?: string; avatar?: string } | null>(null);
 
-  const onSave = () => {
-    setLoading(true);
+  useEffect(() => {
+    api.get('/auth/profile').then(res => {
+      setProfile(res.data);
+    }).catch(() => {
+      message.error('加载用户信息失败');
+    }).finally(() => setLoading(false));
+  }, []);
+
+  // 模拟配置状态
+  const [config, setConfig] = useState({
+    mfa: true,
+    auditLog: false,
+    apiKey: true,
+    glm4: true,
+    deepParse: true,
+    autoInvite: false,
+    wechat: false,
+    esign: false,
+  });
+
+  const handleToggle = (key: keyof typeof config) => {
+    const newValue = !config[key];
+    setConfig(prev => ({ ...prev, [key]: newValue }));
+    message.success(`${key.toUpperCase()} 配置已${newValue ? '开启' : '关闭'}`);
+  };
+
+  const handleSaveProfile = () => {
+    setSaving(true);
     setTimeout(() => {
-      setLoading(false);
-      antMessage.success('配置已成功保存');
+      setSaving(false);
+      message.success('个人档案已同步至云端');
     }, 1000);
   };
 
-  const initialSteps = [
-    { id: 1, name: '简历初筛', type: 'system', locked: true },
-    { id: 2, name: '顾问面试', type: 'custom', locked: false },
-    { id: 3, name: '客户初试', type: 'custom', locked: false },
-    { id: 4, name: '客户复试', type: 'custom', locked: false },
-    { id: 5, name: '发送 Offer', type: 'system', locked: true },
-    { id: 6, name: '成功入职', type: 'system', locked: true },
-  ];
-
-  const ProcessSettings = () => (
-    <div className="space-y-5">
-      <Alert
-        message="招聘流程定制"
-        description="您可以根据企业的业务需求自定义招聘漏斗的各个阶段。系统将自动根据这些阶段生成交付看板。"
-        type="info"
-        showIcon
-        className="rounded-[12px]"
-      />
-
-      <div className="bg-white rounded-[16px] overflow-hidden shadow-sm">
-        <div className="bg-[#F2F2F7] px-5 py-3 border-b border-[#F2F2F7] flex justify-between items-center">
-          <span className="text-sm font-medium text-[#1D1D1F]">标准招聘流程环节</span>
-          <Button type="primary" size="small" icon={<PlusOutlined />} className="rounded-[8px]">新增环节</Button>
-        </div>
-        <div className="p-2">
-          {initialSteps.map((step, index) => (
-            <div key={step.id} className="group flex items-center p-3 hover:bg-[#F2F2F7] rounded-[10px] transition-colors cursor-move">
-              <HolderOutlined className="text-[#C7C7CC] mr-3" />
-              <div className="w-7 h-7 rounded-full bg-[#007AFF]/[0.08] text-[#007AFF] flex items-center justify-center text-xs font-medium mr-3">
-                {index + 1}
-              </div>
-              <div className="flex-1">
-                <Text className="text-sm font-medium text-[#1D1D1F]">{step.name}</Text>
-                {step.locked && <Tag style={{ background: '#F2F2F7', color: '#8E8E93', border: 'none', borderRadius: 6, marginLeft: 8, fontSize: 10 }}>系统内置</Tag>}
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
-                {!step.locked && <Button size="small" type="text" className="text-[#8E8E93] hover:text-[#007AFF]">重命名</Button>}
-                {!step.locked && <Button size="small" type="text" danger>移除</Button>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex justify-end pt-3">
-        <Button type="primary" onClick={onSave} loading={loading} icon={<SaveOutlined />} className="rounded-[10px] h-10 px-8">保存流程配置</Button>
-      </div>
-    </div>
-  );
-
-  const TeamSettings = () => (
-    <div className="space-y-5">
-      <div className="flex justify-between items-center">
-        <div>
-          <Title level={5} className="m-0 text-[#1D1D1F]">团队成员 (4/10)</Title>
-          <Text className="text-[#8E8E93] text-xs">管理您的猎头团队成员及其系统访问权限</Text>
-        </div>
-        <Button type="primary" className="rounded-[10px]">邀请成员</Button>
-      </div>
-
-      <List
-        grid={{ gutter: 16, column: 2 }}
-        dataSource={[
-          { name: 'Franklin Jr.', role: '超级管理员', email: 'franklin@example.com', status: '在线' },
-          { name: '李经理', role: '资深顾问', email: 'li.m@example.com', status: '忙碌' },
-          { name: 'Sarah Chen', role: '初级顾问', email: 'sarah.c@example.com', status: '离线' },
-          { name: '人工智能助手', role: '系统AI', email: 'ai@system.com', status: '全天候' },
-        ]}
-        renderItem={(item) => (
-          <List.Item>
-            <Card className="rounded-[16px] border-none shadow-sm">
-              <div className="flex items-start space-x-3">
-                <Avatar size={44} style={{ backgroundColor: '#007AFF', fontWeight: 500, fontSize: 16 }}>{item.name?.[0] || '?'}</Avatar>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <Text className="font-medium text-[#1D1D1F]">{item.name}</Text>
-                    <Tag style={{ background: 'rgba(0,122,255,0.06)', color: '#007AFF', border: 'none', borderRadius: 8, fontSize: 10, fontWeight: 500 }}>{item.role}</Tag>
-                  </div>
-                  <div className="text-[11px] text-[#8E8E93] mt-1">{item.email}</div>
-                  <div className="mt-2 flex items-center">
-                    <div className={cn("w-1.5 h-1.5 rounded-full mr-1.5", item.status === '在线' ? "bg-[#34C759]" : "bg-[#C7C7CC]")} />
-                    <span className="text-[10px] text-[#8E8E93]">{item.status}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </List.Item>
-        )}
-      />
-    </div>
-  );
-
-  const AISettings = () => (
-    <Form layout="vertical" onFinish={onSave} className="space-y-5">
-      <Alert
-        message="AI 行为增强"
-        description="配置 AI 在解析简历和生成职位匹配报告时的侧重点。这些设定将影响 AI 评分的逻辑。"
-        type="success"
-        showIcon
-        icon={<RobotOutlined />}
-        className="rounded-[12px]"
-      />
-
-      <Row gutter={24}>
-        <Col span={12}>
-          <Form.Item label={<span className="font-medium text-[#1D1D1F]">深度解析模式</span>} valuePropName="checked" initialValue={true}>
-            <div className="flex items-center justify-between p-4 bg-[#F2F2F7] rounded-[12px]">
-              <div>
-                <div className="text-sm font-medium text-[#1D1D1F]">语义检索增强</div>
-                <div className="text-xs text-[#8E8E93] mt-1">启用后 AI 将深入分析过往项目深度而非仅仅匹配关键词</div>
-              </div>
-              <Switch defaultChecked />
-            </div>
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item label={<span className="font-medium text-[#1D1D1F]">智能匹配加权</span>} initialValue="standard">
-            <Select className="h-10 w-full" defaultValue="standard">
-              <Select.Option value="standard">均衡权重 (默认)</Select.Option>
-              <Select.Option value="edu">名校背景优先</Select.Option>
-              <Select.Option value="company">一线大厂经验优先</Select.Option>
-              <Select.Option value="skill">硬技能匹配优先</Select.Option>
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Form.Item label={<span className="font-medium text-[#1D1D1F] text-sm">自定义 AI 提示词偏好</span>}>
-        <Input.TextArea
-          placeholder="例如：在生成报告时，请重点标注候选人的离职风险，并对频繁跳槽的现象给出批判性分析。"
-          rows={5}
-          className="rounded-[12px] bg-[#F2F2F7] p-3 text-xs"
-        />
-      </Form.Item>
-
-      <div className="flex justify-end pt-3">
-        <Button type="primary" htmlType="submit" loading={loading} icon={<CheckCircleOutlined />} className="rounded-[10px] h-10 px-10">
-          更新 AI 解析策略
-        </Button>
-      </div>
-    </Form>
-  );
-
-  const tabItems = [
-    {
-      key: 'process',
-      label: <Space><SettingOutlined />招聘流程</Space>,
-      children: <ProcessSettings />,
-    },
-    {
-      key: 'team',
-      label: <Space><TeamOutlined />团队管理</Space>,
-      children: <TeamSettings />,
-    },
-    {
-      key: 'ai',
-      label: <Space><RobotOutlined />AI 策略配置</Space>,
-      children: <AISettings />,
-    },
-    {
-      key: 'profile',
-      label: <Space><UserOutlined />个人中心</Space>,
-      children: (
-        <div className="py-8 flex flex-col items-center">
-          <Avatar size={80} style={{ backgroundColor: '#007AFF', fontSize: 28, fontWeight: 500 }} className="mb-5">F</Avatar>
-          <Title level={4} className="m-0 text-[#1D1D1F]">Franklin Jr.</Title>
-          <Text className="text-[#8E8E93] mb-6">超级管理员 · 加入于 2023年10月</Text>
-          <div className="w-full max-w-md bg-[#F2F2F7] p-5 rounded-[12px] text-center">
-            <Text className="text-[#8E8E93] text-sm">
-              个人详细信息编辑模块已接入 SSO 统一认证中心，请前往主系统进行修改。
-            </Text>
-          </div>
-        </div>
-      ),
-    },
+  const navItems = [
+    { name: '个人档案', icon: <User size={16} /> },
+    { name: '安全设置', icon: <Shield size={16} /> },
+    { name: '消息提醒', icon: <Bell size={16} /> },
+    { name: 'AI 配置', icon: <Zap size={16} /> },
+    { name: '数据存储', icon: <HardDrive size={16} /> },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto p-4 lg:p-6">
-      <div className="mb-8 flex items-center justify-between">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col h-full overflow-hidden pb-6">
+      <div className="flex items-end justify-between mb-8 flex-shrink-0">
         <div>
-          <h1 className="text-xl font-semibold text-[#1D1D1F] m-0 tracking-tight">系统偏好设置</h1>
-          <p className="text-[#8E8E93] text-xs mt-1">配置招聘漏斗、团队权限及 AI 解析引擎的核心逻辑</p>
+          <h1 className="text-3xl font-black tracking-tight text-white mb-1">系统调校 <span className="text-sm font-normal text-[#555762] ml-2">Control Panel</span></h1>
+          <div className="text-[11px] text-[#8B8D97] font-bold mt-1 uppercase tracking-widest flex items-center gap-2">
+            <Settings size={12} className="animate-spin-slow" /> 全局配置与底层引擎参数优化
+          </div>
         </div>
+        {activeTab === '个人档案' && (
+          <button 
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="bg-[#6C5CE7] hover:bg-[#5a4cdb] text-white px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-[#6C5CE7]/30 transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            <Save size={14} /> {saving ? '正在同步...' : '保存更改'}
+          </button>
+        )}
       </div>
 
-      <Card variant="borderless" className="rounded-[20px] shadow-sm" styles={{ body: { padding: 0 } }}>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          tabBarExtraContent={
-            activeTab !== 'profile' && <Button type="text" className="text-[#8E8E93] hover:text-[#007AFF] mr-4">恢复默认</Button>
-          }
-          items={tabItems}
-          style={{ padding: '20px 28px 28px' }}
-        />
-      </Card>
-    </div>
+      <div className="flex gap-8 flex-1 overflow-hidden">
+        {/* Left: Sidebar Nav */}
+        <div className="w-64 flex flex-col gap-2 shrink-0">
+           {navItems.map((nav, i) => (
+             <div 
+               key={nav.name} 
+               onClick={() => setActiveTab(nav.name)}
+               className={`flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer transition-all border ${activeTab === nav.name ? 'bg-[#6C5CE7]/10 text-[#A29BFE] border-[#6C5CE7]/30 shadow-[inset_0_0_20px_rgba(108,92,231,0.05)]' : 'text-[#555762] border-transparent hover:bg-white/5 hover:text-white'}`}
+             >
+               {nav.icon}
+               <span className="text-[11px] font-black uppercase tracking-widest">{nav.name}</span>
+             </div>
+           ))}
+        </div>
+
+        {/* Right: Content Area */}
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-8 pr-2">
+          <AnimatePresence mode="wait">
+            {activeTab === '个人档案' && (
+              <motion.div 
+                key="profile"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <SpotlightCard className="p-8">
+                  {loading ? (
+                    <Skeleton active avatar paragraph={{ rows: 4 }} />
+                  ) : profile ? (
+                  <div>
+                  <div className="flex items-center gap-8 mb-10">
+                    <div className="relative group">
+                      <Avatar size={100} className="border-2 border-[#6C5CE7]/30 shadow-2xl" src={profile.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.name || 'User'}`} />
+                      <div className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer">
+                        <Camera size={24} className="text-white" />
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white mb-1">{profile.name || '未设置'}</h2>
+                      <p className="text-xs text-[#555762] font-bold uppercase tracking-widest">{profile.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black text-[#555762] uppercase tracking-[0.2em] mb-2 block">真实姓名 (Full Name)</label>
+                        <Input defaultValue={profile.name || ''} className="bg-[#13161C] border-white/5 text-white h-11 rounded-xl focus:border-[#6C5CE7]/50" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-[#555762] uppercase tracking-[0.2em] mb-2 block">电子邮箱 (Email)</label>
+                        <Input prefix={<Mail size={14} className="text-[#555762] mr-2" />} defaultValue={profile.email || ''} className="bg-[#13161C] border-white/5 text-white h-11 rounded-xl focus:border-[#6C5CE7]/50" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-[#555762] uppercase tracking-[0.2em] mb-2 block">联系电话 (Phone)</label>
+                        <Input prefix={<Phone size={14} className="text-[#555762] mr-2" />} defaultValue={profile.phone || ''} className="bg-[#13161C] border-white/5 text-white h-11 rounded-xl focus:border-[#6C5CE7]/50" />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black text-[#555762] uppercase tracking-[0.2em] mb-2 block">系统语言 (Locale)</label>
+                        <select className="w-full bg-[#13161C] border border-white/5 text-white h-11 rounded-xl px-4 text-xs focus:border-[#6C5CE7]/50 outline-none">
+                          <option>简体中文 (Chinese)</option>
+                          <option>English (US)</option>
+                          <option>日本語 (Japanese)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                  ) : null}
+                </SpotlightCard>
+              </motion.div>
+            )}
+
+            {activeTab === '安全设置' && (
+              <motion.div 
+                key="security"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                {[
+                  { id: 'mfa', name: '多重身份验证 (MFA)', desc: '为您的账户增加额外的安全保障层，通过移动端 App 验证登录。', icon: <Shield size={18} /> },
+                  { id: 'auditLog', name: '登录审计日志', desc: '记录并审计最近 90 天内所有的 API 请求和控制台登录行为。', icon: <Database size={18} /> },
+                  { id: 'apiKey', name: 'API 访问令牌', desc: '允许通过加密令牌访问系统核心接口，用于外部机器人集成。', icon: <Key size={18} /> },
+                ].map((item) => (
+                  <SpotlightCard key={item.id} className="p-6 flex items-center justify-between group">
+                    <div className="flex items-center gap-5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${config[item.id as keyof typeof config] ? 'bg-[#6C5CE7]/10 text-[#A29BFE]' : 'bg-white/5 text-[#555762]'}`}>
+                        {item.icon}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-bold text-white group-hover:text-[#A29BFE] transition-colors">{item.name}</div>
+                        <div className="text-[10px] text-[#555762] mt-1 font-medium max-w-md">{item.desc}</div>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={config[item.id as keyof typeof config]} 
+                      onChange={() => handleToggle(item.id as keyof typeof config)}
+                      className={config[item.id as keyof typeof config] ? 'bg-[#6C5CE7]' : ''}
+                    />
+                  </SpotlightCard>
+                ))}
+              </motion.div>
+            )}
+
+            {activeTab === 'AI 配置' && (
+              <motion.div 
+                key="ai"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                <div className="bg-[#6C5CE7]/5 border border-[#6C5CE7]/20 rounded-2xl p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Zap size={18} className="text-[#A29BFE]" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">底层 AI 算力节点已连接</h3>
+                  </div>
+                  <p className="text-[11px] text-[#8B8D97] leading-relaxed">当前正在使用 GLM-4 视觉解析引擎与专用人才向量空间。您可以动态调整模型权重以优化匹配精度。</p>
+                </div>
+
+                {[
+                  { id: 'glm4', name: 'GLM-4 增强解析', desc: '开启深度语义理解，自动提取简历中的隐藏技能标签与软素质。', icon: <Cpu size={18} /> },
+                  { id: 'deepParse', name: '全链路向量空间映射', desc: '将候选人与职位库进行 1024 维向量匹配，提升 40% 的准确率。', icon: <Database size={18} /> },
+                  { id: 'autoInvite', name: '自动邀约话术生成', desc: '根据候选人画像，AI 自动生成定制化的面试邀约内容，提升回复率。', icon: <Mail size={18} /> },
+                ].map((item) => (
+                  <SpotlightCard key={item.id} className="p-6 flex items-center justify-between group">
+                    <div className="flex items-center gap-5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${config[item.id as keyof typeof config] ? 'bg-[#00D2FF]/10 text-[#00D2FF]' : 'bg-white/5 text-[#555762]'}`}>
+                        {item.icon}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-bold text-white group-hover:text-[#00D2FF] transition-colors">{item.name}</div>
+                        <div className="text-[10px] text-[#555762] mt-1 font-medium max-w-md">{item.desc}</div>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={config[item.id as keyof typeof config]} 
+                      onChange={() => handleToggle(item.id as keyof typeof config)}
+                      className={config[item.id as keyof typeof config] ? 'bg-[#00D2FF]' : ''}
+                    />
+                  </SpotlightCard>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
   );
 }
+
+const Tag = ({ children, color, className }: any) => (
+  <span className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-[9px] font-black uppercase ${className}`}>
+    {children}
+  </span>
+);

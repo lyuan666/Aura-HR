@@ -67,7 +67,7 @@ export default function LoginPage() {
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-[12px] mb-5 overflow-hidden shadow-xl shadow-indigo-500/10"
             >
-              <img src="/logo.png" alt="天选OS" className="w-full h-full object-cover" />
+              <img src="/logo-tx-v2.png" alt="天选OS" className="w-full h-full object-cover" />
             </motion.div>
 
             <Title level={3} className="text-white m-0 font-bold tracking-tight text-xl">

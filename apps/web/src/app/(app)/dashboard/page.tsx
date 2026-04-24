@@ -211,7 +211,7 @@ export default function DashboardPage() {
              {[
                { n: '待处理面试', v: data.candidates?.filter((c: any) => c.status === 'interviewing')?.length || 0, c: '#6C5CE7', i: <UserCheck size={14} /> },
                { n: '全线在招', v: data.jobs?.filter((j: any) => j.status === 'active')?.length || 0, c: '#00E676', i: <Briefcase size={14} /> },
-               { n: '即将到期', v: 2, c: '#FF9100', i: <Clock size={14} /> },
+               { n: '即将到期', v: 0, c: '#FF9100', i: <Clock size={14} /> },
                { n: 'API 节点', v: '正常', c: '#00D2FF', i: <Database size={14} /> },
              ].map((q, i) => (
                <div key={i} className="bg-[#13161C] border border-white/5 hover:border-[#6C5CE7]/30 rounded-2xl p-4 flex flex-col cursor-pointer transition-all hover:bg-[#1A1D25] group">
@@ -236,9 +236,9 @@ export default function DashboardPage() {
                    <AlertCircle size={18} />
                  </div>
                  <div>
-                   <div className="text-xs font-bold text-white mb-1">字节跳动架构师简历评审</div>
+                   <div className="text-xs font-bold text-white mb-1">{data.recommendations?.filter((r: any) => r.status === 'pending')[0]?.candidateName || '暂无待办' }</div>
                    <div className="text-[10px] text-[#555762] font-medium flex items-center gap-1">
-                     <Clock size={10} /> 截止于 今日 14:00
+                     <Clock size={10} /> {data.recommendations?.filter((r: any) => r.status === 'pending')[0]?.jobTitle || '-' }
                    </div>
                  </div>
                </div>
@@ -247,9 +247,9 @@ export default function DashboardPage() {
                    <Clock size={18} />
                  </div>
                  <div>
-                   <div className="text-xs font-bold text-white mb-1">确认王小明 Offer 状态</div>
+                   <div className="text-xs font-bold text-white mb-1">{data.recommendations?.filter((r: any) => r.status === 'pending')[1]?.candidateName || '暂无待办' }</div>
                    <div className="text-[10px] text-[#555762] font-medium flex items-center gap-1">
-                     <Clock size={10} /> 预计 明天 10:00
+                     <Clock size={10} /> {data.recommendations?.filter((r: any) => r.status === 'pending')[1]?.jobTitle || '-' }
                    </div>
                  </div>
                </div>
