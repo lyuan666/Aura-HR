@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
+import { SettingsController } from './settings.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { UserEntity } from '../../entities/user.entity';
@@ -24,7 +25,7 @@ import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, SettingsController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })

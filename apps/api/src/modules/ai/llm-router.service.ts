@@ -102,6 +102,10 @@ export class LlmRouterService implements OnModuleDestroy {
   }
 
   private async doCall(config: { url: string; model: string; key: string }, messages: any[]): Promise<string> {
+    if (!config.url || !config.model) {
+      throw new Error('LLM provider is not configured: missing url or model');
+    }
+
     const response = await axios.post(
       config.url,
       {

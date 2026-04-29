@@ -67,7 +67,8 @@
       "Bash(timeout 30 pnpm dev:web)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(pnpm build:*)",
-      "Bash(~/.claude/skills/gstack/bin/gstack-learnings-log '{\"skill\":\"investigate\",\"type\":\"pattern\",\"key\":\"stub-buttons-not-wired\",\"insight\":\"Three features \\(job creation, delivery follow-up, contract upload/templates\\) were broken because ProComponents migration left placeholder buttons/modals instead of wiring real components. Pattern: when doing bulk UI migration, verify each interactive element actually connects to backend logic.\",\"confidence\":9,\"source\":\"observed\",\"files\":[\"apps/web/src/app/\\(app\\)/jobs/page.tsx\",\"apps/web/src/app/\\(app\\)/delivery/page.tsx\",\"apps/web/src/app/\\(app\\)/contracts/page.tsx\"]}')"
+      "Bash(~/.claude/skills/gstack/bin/gstack-learnings-log '{\"skill\":\"investigate\",\"type\":\"pattern\",\"key\":\"stub-buttons-not-wired\",\"insight\":\"Three features \\(job creation, delivery follow-up, contract upload/templates\\) were broken because ProComponents migration left placeholder buttons/modals instead of wiring real components. Pattern: when doing bulk UI migration, verify each interactive element actually connects to backend logic.\",\"confidence\":9,\"source\":\"observed\",\"files\":[\"apps/web/src/app/\\(app\\)/jobs/page.tsx\",\"apps/web/src/app/\\(app\\)/delivery/page.tsx\",\"apps/web/src/app/\\(app\\)/contracts/page.tsx\"]}')",
+      "Bash(tmux new:*)"
     ]
   }
 }

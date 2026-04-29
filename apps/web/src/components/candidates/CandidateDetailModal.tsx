@@ -17,7 +17,7 @@ import {
   HistoryOutlined,
   MessageOutlined,
   CalendarOutlined,
-  FolderOpenOutlined
+  FolderOpenOutlined,
 } from '@ant-design/icons';
 import StandardResumeContent from './StandardResumeContent';
 import { cn } from '@/lib/utils';
@@ -51,13 +51,18 @@ function formatTimeAgo(dateStr: string) {
   return `${months}个月前`;
 }
 
-const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, candidate, onClose }) => {
+const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
+  visible,
+  candidate,
+  onClose,
+}) => {
   const [activeTab, setActiveTab] = useState('standard');
 
   if (!candidate) return null;
 
   const status = statusMap[candidate.status] || statusMap.new;
   const skills = candidate.parsedTags?.skills || [];
+  const pendingFeatureTip = '该操作需要接入职位/跟进工作流 API 后启用';
 
   const tabItems = [
     { key: 'attachment', label: '附件简历' },
@@ -82,7 +87,7 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
       styles={{
         mask: {
           backdropFilter: 'blur(12px)',
-          backgroundColor: 'rgba(0,0,0,0.8)'
+          backgroundColor: 'rgba(0,0,0,0.8)',
         },
         body: {
           padding: 0,
@@ -91,11 +96,10 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
           overflow: 'hidden',
           height: 'calc(100vh - 120px)',
           border: '1px solid var(--border-color)',
-        }
+        },
       }}
     >
       <div className="flex flex-col h-full text-text-main">
-
         {/* 1. Window Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-bg-surface">
           <div className="flex items-center gap-3">
@@ -118,10 +122,8 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
 
         {/* Main Content Area: 75:25 Split */}
         <div className="flex-1 flex overflow-hidden">
-
           {/* Left Area (75%) */}
           <div className="w-3/4 flex flex-col border-r border-border-subtle overflow-y-auto no-scrollbar bg-bg-base">
-
             {/* 2. Personal Panorama Card */}
             <div className="px-10 pt-10 pb-6">
               <div className="flex justify-between items-start">
@@ -134,17 +136,21 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
                     >
                       {candidate.name?.[0] || '?'}
                     </Avatar>
-                    <div className={cn(
-                      "absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-bg-base border border-bg-base",
-                      candidate.gender === 'female' ? "bg-error" : "bg-brand-primary"
-                    )}>
+                    <div
+                      className={cn(
+                        'absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-bg-base border border-bg-base',
+                        candidate.gender === 'female' ? 'bg-error' : 'bg-brand-primary',
+                      )}
+                    >
                       {candidate.gender === 'female' ? '♀' : '♂'}
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
-                      <span className="text-[24px] font-bold text-text-main">{candidate.name || '未知'}</span>
+                      <span className="text-[24px] font-bold text-text-main">
+                        {candidate.name || '未知'}
+                      </span>
                       <StarOutlined className="text-text-sub/30 hover:text-brand-primary cursor-pointer transition-colors text-lg" />
                     </div>
 
@@ -152,10 +158,17 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
                       {candidate.age && <span>{candidate.age}岁</span>}
                       {candidate.age && candidate.degree && <span className="opacity-20">|</span>}
                       {candidate.degree && <span>{candidate.degree}</span>}
-                      {candidate.totalYears ? <><span className="opacity-20">|</span><span>{candidate.totalYears}年经验</span></> : null}
+                      {candidate.totalYears ? (
+                        <>
+                          <span className="opacity-20">|</span>
+                          <span>{candidate.totalYears}年经验</span>
+                        </>
+                      ) : null}
                       {candidate.phone && (
                         <span className="ml-4 flex items-center gap-1.5 text-text-main/80">
-                          <span className="w-4 h-4 rounded-full bg-bg-elevated flex items-center justify-center text-[10px]">📞</span>
+                          <span className="w-4 h-4 rounded-full bg-bg-elevated flex items-center justify-center text-[10px]">
+                            📞
+                          </span>
                           {candidate.phone}
                         </span>
                       )}
@@ -166,7 +179,10 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
                         {status.label}
                       </Tag>
                       {skills.slice(0, 2).map((s: string) => (
-                        <Tag key={s} className="m-0 bg-white/5 border border-border-subtle text-text-sub/80 text-[11px] px-2 py-0.5 rounded-sm">
+                        <Tag
+                          key={s}
+                          className="m-0 bg-white/5 border border-border-subtle text-text-sub/80 text-[11px] px-2 py-0.5 rounded-sm"
+                        >
                           {s}
                         </Tag>
                       ))}
@@ -175,15 +191,30 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button className="h-9 px-4 rounded-md bg-white/5 border border-border-subtle text-text-main/80 text-[13px] font-medium hover:bg-white/10 transition-all flex items-center gap-2">
-                    <PlusOutlined size={14} /> 添加待办
-                  </button>
-                  <button className="h-9 px-4 rounded bg-white/5 border border-white/10 text-white/80 text-[13px] font-bold hover:bg-white/10 transition-all">
-                    加入分组
-                  </button>
-                  <button className="h-9 w-9 flex items-center justify-center rounded bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 transition-all">
-                    <MoreOutlined />
-                  </button>
+                  <Tooltip title={pendingFeatureTip}>
+                    <button
+                      disabled
+                      className="h-9 px-4 rounded-md bg-white/5 border border-border-subtle text-text-sub/40 text-[13px] font-medium flex items-center gap-2 cursor-not-allowed"
+                    >
+                      <PlusOutlined size={14} /> 添加待办
+                    </button>
+                  </Tooltip>
+                  <Tooltip title={pendingFeatureTip}>
+                    <button
+                      disabled
+                      className="h-9 px-4 rounded bg-white/5 border border-white/10 text-text-sub/40 text-[13px] font-bold cursor-not-allowed"
+                    >
+                      加入分组
+                    </button>
+                  </Tooltip>
+                  <Tooltip title={pendingFeatureTip}>
+                    <button
+                      disabled
+                      className="h-9 w-9 flex items-center justify-center rounded bg-white/5 border border-white/10 text-text-sub/40 cursor-not-allowed"
+                    >
+                      <MoreOutlined />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -194,7 +225,9 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
                     <div className="w-6 h-6 rounded bg-brand-primary/20 flex items-center justify-center text-[10px]">
                       <ThunderboltOutlined className="text-brand-primary" />
                     </div>
-                    <span className="text-[13px] font-medium text-text-main/80">AI 解析摘要: {candidate.notes}</span>
+                    <span className="text-[13px] font-medium text-text-main/80">
+                      AI 解析摘要: {candidate.notes}
+                    </span>
                   </div>
                 </div>
               )}
@@ -203,13 +236,15 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
             {/* 3. Tabs */}
             <div className="px-10 border-b border-border-subtle sticky top-0 bg-bg-base z-20">
               <div className="flex gap-8">
-                {tabItems.map(tab => (
+                {tabItems.map((tab) => (
                   <div
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
                     className={cn(
-                      "py-4 text-[13px] font-bold cursor-pointer transition-all relative",
-                      activeTab === tab.key ? "text-brand-primary" : "text-text-sub/60 hover:text-text-sub"
+                      'py-4 text-[13px] font-bold cursor-pointer transition-all relative',
+                      activeTab === tab.key
+                        ? 'text-brand-primary'
+                        : 'text-text-sub/60 hover:text-text-sub',
                     )}
                   >
                     {tab.label}
@@ -232,14 +267,19 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
 
           {/* Right Sidebar (25%) */}
           <div className="w-1/4 bg-bg-surface p-6 flex flex-col gap-6">
-            <Button
-              type="primary"
-              block
-              size="large"
-              className="h-12 bg-brand-primary hover:bg-brand-primary/80 border-none text-[14px] font-bold rounded-lg flex items-center justify-center gap-2"
-            >
-              加入职位 <DownOutlined />
-            </Button>
+            <Tooltip title={pendingFeatureTip}>
+              <span>
+                <Button
+                  type="primary"
+                  block
+                  size="large"
+                  disabled
+                  className="h-12 text-[14px] font-bold rounded-lg flex items-center justify-center gap-2"
+                >
+                  加入职位 <DownOutlined />
+                </Button>
+              </span>
+            </Tooltip>
 
             {/* 协同备注 */}
             <div className="bg-bg-elevated/30 border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
@@ -249,15 +289,27 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
               <Input.TextArea
                 placeholder="输入备注，支持@通知团队成员"
                 rows={4}
+                disabled
                 className="!bg-transparent !border-none !text-[13px] !text-text-main/80 placeholder:!text-white/10 !p-0 focus:!shadow-none resize-none no-scrollbar"
               />
               <div className="flex items-center justify-between mt-2 pt-3 border-t border-border-subtle">
-                <button className="text-[12px] text-text-sub hover:text-white flex items-center gap-1 transition-colors">
-                  选择模板 <DownOutlined style={{ fontSize: '10px' }} />
-                </button>
-                <button className="w-8 h-8 bg-brand-primary hover:bg-brand-dark text-white rounded-lg flex items-center justify-center transition-all active:scale-90 shadow-lg shadow-brand-primary/20">
-                  <SendOutlined />
-                </button>
+                <Tooltip title={pendingFeatureTip}>
+                  <button
+                    disabled
+                    className="text-[12px] text-text-sub/40 flex items-center gap-1 cursor-not-allowed"
+                  >
+                    选择模板 <DownOutlined style={{ fontSize: '10px' }} />
+                  </button>
+                </Tooltip>
+                <Tooltip title={pendingFeatureTip}>
+                  <button
+                    disabled
+                    className="w-8 h-8 bg-white/5 text-text-sub/40 rounded-lg flex items-center justify-center cursor-not-allowed"
+                    aria-label="发送备注暂不可用"
+                  >
+                    <SendOutlined />
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
@@ -265,7 +317,10 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between text-[12px]">
                 <span className="text-text-sub/60">当前状态</span>
-                <Tag className="m-0 border-none text-[11px] px-2 rounded" style={{ color: status.color, backgroundColor: `${status.color}15` }}>
+                <Tag
+                  className="m-0 border-none text-[11px] px-2 rounded"
+                  style={{ color: status.color, backgroundColor: `${status.color}15` }}
+                >
                   {status.label}
                 </Tag>
               </div>
@@ -282,12 +337,22 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
             </div>
 
             <div className="mt-auto space-y-3">
-              <button className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/80 hover:bg-white/10 hover:text-text-main transition-all">
-                移入公海池
-              </button>
-              <button className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/80 hover:bg-error/10 hover:text-error transition-all">
-                淘汰此候选人
-              </button>
+              <Tooltip title={pendingFeatureTip}>
+                <button
+                  disabled
+                  className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/40 cursor-not-allowed"
+                >
+                  移入公海池
+                </button>
+              </Tooltip>
+              <Tooltip title={pendingFeatureTip}>
+                <button
+                  disabled
+                  className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/40 cursor-not-allowed"
+                >
+                  淘汰此候选人
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>

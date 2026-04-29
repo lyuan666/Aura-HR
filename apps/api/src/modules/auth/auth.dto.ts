@@ -6,6 +6,8 @@ import {
   IsObject,
   ValidateNested,
   IsOptional,
+  IsBoolean,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -52,7 +54,60 @@ export class LayoutConfigDto {
 
 export class UpdateLayoutDto {
   @IsObject()
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => LayoutConfigDto)
-  layout: Record<string, LayoutConfigDto>;
+  layout?: Record<string, LayoutConfigDto>;
+
+  @IsObject()
+  @IsOptional()
+  layouts?: Record<string, any>;
+
+  @IsArray()
+  @IsOptional()
+  visibleWidgets?: string[];
+}
+
+export class UpdateProfileDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+}
+
+export class UpdateSettingsConfigDto {
+  @IsBoolean()
+  @IsOptional()
+  mfa?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  auditLog?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  apiKey?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  glm4?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  deepParse?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  autoInvite?: boolean;
 }

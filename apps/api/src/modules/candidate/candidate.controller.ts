@@ -28,6 +28,7 @@ import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateCandidateDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 const UPLOAD_LIMITS = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -203,6 +204,12 @@ export class CandidateController {
         file.mimetype,
       );
 
+      const jobId = `parse-${fileHash.substring(0, 16)}`;
+      const existingJob = await this.parseQueue.getJob(jobId);
+      if (existingJob && (await existingJob.getState()) === 'failed') {
+        await existingJob.remove();
+      }
+
       const job = await this.parseQueue.add(
         'parse-resume',
         {
@@ -215,7 +222,7 @@ export class CandidateController {
           batchId,
         },
         {
-          jobId: `parse-${fileHash.substring(0, 16)}`,
+          jobId,
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
         },
@@ -248,6 +255,7 @@ export class CandidateController {
     };
   }
 
+  @Public()
   @Sse('upload-progress/:key')
   uploadProgress(
     @Param('key') key: string,

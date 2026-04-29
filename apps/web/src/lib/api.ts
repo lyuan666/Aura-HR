@@ -22,6 +22,46 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const shouldRefresh = (error: any, originalRequest: any) => {
+  if (originalRequest?._retry) return false;
+
+  const url = originalRequest?.url || '';
+  if (
+    url.includes('/auth/login') ||
+    url.includes('/auth/register') ||
+    url.includes('/auth/refresh')
+  ) {
+    return false;
+  }
+
+  if (error.response?.status === 401) return true;
+
+  const message = error.response?.data?.message;
+  return (
+    error.response?.status === 403 &&
+    typeof message === 'string' &&
+    message.includes('缺少租户信息')
+  );
+};
+
+const refreshAccessToken = async () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    clearAuth();
+    throw new Error('Missing refresh token');
+  }
+
+  const res = await axios.post('/api/auth/refresh', { refreshToken });
+  const { accessToken, refreshToken: newRefreshToken } = res.data;
+
+  localStorage.setItem('token', accessToken);
+  localStorage.setItem('refreshToken', newRefreshToken);
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `token=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure}`;
+
+  return accessToken;
+};
+
 // 请求拦截器：注入 JWT token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -37,14 +77,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // 登录/注册/refresh 端点的 401 不重试
-      if (originalRequest.url?.includes('/auth/login') ||
-          originalRequest.url?.includes('/auth/register') ||
-          originalRequest.url?.includes('/auth/refresh')) {
-        return Promise.reject(error);
-      }
-
+    if (shouldRefresh(error, originalRequest)) {
       if (isRefreshing) {
         // 已有 refresh 请求在飞，排队等待
         return new Promise((resolve, reject) => {
@@ -58,22 +91,8 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        // 无 refresh token，直接登出
-        clearAuth();
-        return Promise.reject(error);
-      }
-
       try {
-        const res = await axios.post('/api/auth/refresh', { refreshToken });
-        const { accessToken, refreshToken: newRefreshToken } = res.data;
-
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-        document.cookie = `token=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure}`;
-
+        const accessToken = await refreshAccessToken();
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);

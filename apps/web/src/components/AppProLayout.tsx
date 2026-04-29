@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ProLayout } from '@ant-design/pro-components';
 import {
   DashboardOutlined,
@@ -33,6 +33,15 @@ const menuRoutes = {
 export default function AppProLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div style={{ minHeight: '100vh', background: '#121212' }} />;
+  }
 
   return (
     <ProLayout

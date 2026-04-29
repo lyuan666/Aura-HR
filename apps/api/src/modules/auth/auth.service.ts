@@ -10,9 +10,23 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
-import { RegisterDto, LoginDto } from './auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  UpdateProfileDto,
+  UpdateSettingsConfigDto,
+} from './auth.dto';
 import { UserEntity } from '../../entities/user.entity';
 import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
+
+const DEFAULT_SETTINGS_CONFIG: Required<UpdateSettingsConfigDto> = {
+  mfa: false,
+  auditLog: false,
+  apiKey: false,
+  glm4: false,
+  deepParse: false,
+  autoInvite: false,
+};
 
 @Injectable()
 export class AuthService {
@@ -105,6 +119,71 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('用户不存在');
 
+    return this.toProfile(user);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('用户不存在');
+
+    if (dto.email && dto.email !== user.email) {
+      const existing = await this.userRepo.findOne({
+        where: { email: dto.email },
+      });
+      if (existing) throw new ConflictException('该邮箱已注册');
+      user.email = dto.email;
+    }
+
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.phone !== undefined) user.phone = dto.phone;
+    if (dto.avatar !== undefined) user.avatar = dto.avatar;
+
+    const saved = await this.userRepo.save(user);
+    return this.toProfile(saved);
+  }
+
+  async getSettingsConfig(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('用户不存在');
+
+    return this.normalizeSettingsConfig(
+      user.dashboardLayoutConfig?.settingsConfig,
+    );
+  }
+
+  async updateSettingsConfig(userId: string, dto: UpdateSettingsConfigDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('用户不存在');
+
+    const currentConfig = this.asConfigObject(user.dashboardLayoutConfig);
+    const nextSettings = this.normalizeSettingsConfig({
+      ...this.normalizeSettingsConfig(currentConfig.settingsConfig),
+      ...dto,
+    });
+
+    user.dashboardLayoutConfig = {
+      ...currentConfig,
+      settingsConfig: nextSettings,
+    };
+    await this.userRepo.save(user);
+
+    return nextSettings;
+  }
+
+  async updateLayout(userId: string, layout: any) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('用户不存在');
+
+    user.dashboardLayoutConfig = {
+      ...this.asConfigObject(user.dashboardLayoutConfig),
+      ...layout,
+    };
+    await this.userRepo.save(user);
+
+    return { success: true };
+  }
+
+  private toProfile(user: UserEntity) {
     return {
       id: user.id,
       email: user.email,
@@ -120,22 +199,29 @@ export class AuthService {
     };
   }
 
-  async updateLayout(userId: string, layout: any) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('用户不存在');
+  private asConfigObject(value: any) {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value
+      : {};
+  }
 
-    user.dashboardLayoutConfig = layout;
-    await this.userRepo.save(user);
-
-    return { success: true };
+  private normalizeSettingsConfig(value: any) {
+    const source = this.asConfigObject(value);
+    return Object.fromEntries(
+      Object.entries(DEFAULT_SETTINGS_CONFIG).map(([key, defaultValue]) => [
+        key,
+        typeof source[key] === 'boolean' ? source[key] : defaultValue,
+      ]),
+    ) as Required<UpdateSettingsConfigDto>;
   }
 
   private async generateTokens(user: UserEntity, familyId?: string) {
+    const userWithTenant = await this.ensureTenant(user);
     const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
+      sub: userWithTenant.id,
+      email: userWithTenant.email,
+      role: userWithTenant.role,
+      tenantId: userWithTenant.tenantId,
     };
     const refreshSecret =
       this.configService.get<string>('JWT_REFRESH_SECRET') ||
@@ -153,7 +239,7 @@ export class AuthService {
     // Store refresh token hash for revocation tracking
     const family = familyId || crypto.randomUUID();
     const tokenEntity = this.refreshTokenRepo.create({
-      userId: user.id,
+      userId: userWithTenant.id,
       tokenHash: this.hashToken(refreshToken),
       familyId: family,
       isRevoked: false,
@@ -164,16 +250,23 @@ export class AuthService {
       accessToken: this.jwtService.sign(payload),
       refreshToken,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        dashboardLayoutConfig: user.dashboardLayoutConfig
-          ? JSON.parse(JSON.stringify(user.dashboardLayoutConfig))
+        id: userWithTenant.id,
+        email: userWithTenant.email,
+        name: userWithTenant.name,
+        role: userWithTenant.role,
+        tenantId: userWithTenant.tenantId,
+        dashboardLayoutConfig: userWithTenant.dashboardLayoutConfig
+          ? JSON.parse(JSON.stringify(userWithTenant.dashboardLayoutConfig))
           : null,
       },
     };
+  }
+
+  private async ensureTenant(user: UserEntity) {
+    if (user.tenantId) return user;
+
+    user.tenantId = crypto.randomUUID();
+    return this.userRepo.save(user);
   }
 
   private hashToken(token: string): string {

@@ -1,79 +1,138 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { PageContainer, ProForm, ProFormText } from '@ant-design/pro-components';
+import { PageContainer } from '@ant-design/pro-components';
 import {
-  Card, Switch, Avatar, Input, Button, App, Space, Divider, Skeleton,
-  Typography, Row, Col, Tabs,
+  Card,
+  Switch,
+  Avatar,
+  Input,
+  Button,
+  App,
+  Space,
+  Divider,
+  Skeleton,
+  Typography,
+  Row,
+  Col,
+  Tabs,
 } from 'antd';
 import {
   UserOutlined,
   SafetyCertificateOutlined,
-  BellOutlined,
   ThunderboltOutlined,
   DatabaseOutlined,
   SaveOutlined,
-  CameraOutlined,
   MailOutlined,
   PhoneOutlined,
   KeyOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 
 export default function SettingsPage() {
   const { message } = App.useApp();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<{ name: string; email: string; phone?: string; avatar?: string } | null>(null);
+  const [profile, setProfile] = useState<{
+    name: string;
+    email: string;
+    phone?: string;
+    avatar?: string;
+  } | null>(null);
   const [config, setConfig] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    api.get('/auth/profile').then(res => {
-      setProfile(res.data);
-    }).catch(() => {
-      message.error('加载用户信息失败');
-    }).finally(() => setLoading(false));
+    api
+      .get('/auth/profile')
+      .then((res) => {
+        setProfile(res.data);
+      })
+      .catch(() => {
+        message.error('加载用户信息失败');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    api.get('/settings/config').then(res => {
-      setConfig(res.data || {});
-    }).catch(() => {});
+    api
+      .get('/settings/config')
+      .then((res) => {
+        setConfig(res.data || {});
+      })
+      .catch(() => {});
   }, []);
 
   const handleToggle = (key: string) => {
     const newValue = !config[key];
-    setConfig(prev => ({ ...prev, [key]: newValue }));
-    api.put('/settings/config', { [key]: newValue }).then(() => {
-      message.success(`${key.toUpperCase()} 配置已${newValue ? '开启' : '关闭'}`);
-    }).catch(() => {
-      setConfig(prev => ({ ...prev, [key]: !newValue }));
-      message.error('配置保存失败');
-    });
+    setConfig((prev) => ({ ...prev, [key]: newValue }));
+    api
+      .put('/settings/config', { [key]: newValue })
+      .then(() => {
+        message.success(`${key.toUpperCase()} 配置已${newValue ? '开启' : '关闭'}`);
+      })
+      .catch(() => {
+        setConfig((prev) => ({ ...prev, [key]: !newValue }));
+        message.error('配置保存失败');
+      });
   };
 
   const handleSaveProfile = () => {
     if (!profile) return;
     setSaving(true);
-    api.put('/auth/profile', profile).then(() => {
-      message.success('个人档案已保存');
-    }).catch(() => {
-      message.error('保存失败');
-    }).finally(() => setSaving(false));
+    api
+      .put('/auth/profile', profile)
+      .then((res) => {
+        setProfile(res.data);
+        message.success('个人档案已保存');
+      })
+      .catch(() => {
+        message.error('保存失败');
+      })
+      .finally(() => setSaving(false));
   };
 
   const securityItems = [
-    { id: 'mfa', name: '多重身份验证 (MFA)', desc: '为账户增加额外的安全保障层', icon: <SafetyCertificateOutlined style={{ fontSize: 20 }} /> },
-    { id: 'auditLog', name: '登录审计日志', desc: '记录并审计所有 API 请求和登录行为', icon: <DatabaseOutlined style={{ fontSize: 20 }} /> },
-    { id: 'apiKey', name: 'API 访问令牌', desc: '通过加密令牌访问系统核心接口', icon: <KeyOutlined style={{ fontSize: 20 }} /> },
+    {
+      id: 'mfa',
+      name: '多重身份验证 (MFA)',
+      desc: '为账户增加额外的安全保障层',
+      icon: <SafetyCertificateOutlined style={{ fontSize: 20 }} />,
+    },
+    {
+      id: 'auditLog',
+      name: '登录审计日志',
+      desc: '记录并审计所有 API 请求和登录行为',
+      icon: <DatabaseOutlined style={{ fontSize: 20 }} />,
+    },
+    {
+      id: 'apiKey',
+      name: 'API 访问令牌',
+      desc: '通过加密令牌访问系统核心接口',
+      icon: <KeyOutlined style={{ fontSize: 20 }} />,
+    },
   ];
 
   const aiItems = [
-    { id: 'glm4', name: 'GLM-4 增强解析', desc: '开启深度语义理解，自动提取简历中的隐藏技能标签', icon: <ThunderboltOutlined style={{ fontSize: 20 }} /> },
-    { id: 'deepParse', name: '全链路向量空间映射', desc: '将候选人与职位库进行 1024 维向量匹配', icon: <DatabaseOutlined style={{ fontSize: 20 }} /> },
-    { id: 'autoInvite', name: '自动邀约话术生成', desc: '根据候选人画像自动生成定制化邀约内容', icon: <MailOutlined style={{ fontSize: 20 }} /> },
+    {
+      id: 'glm4',
+      name: 'GLM-4 增强解析',
+      desc: '开启深度语义理解，自动提取简历中的隐藏技能标签',
+      icon: <ThunderboltOutlined style={{ fontSize: 20 }} />,
+    },
+    {
+      id: 'deepParse',
+      name: '全链路向量空间映射',
+      desc: '将候选人与职位库进行 1024 维向量匹配',
+      icon: <DatabaseOutlined style={{ fontSize: 20 }} />,
+    },
+    {
+      id: 'autoInvite',
+      name: '自动邀约话术生成',
+      desc: '根据候选人画像自动生成定制化邀约内容',
+      icon: <MailOutlined style={{ fontSize: 20 }} />,
+    },
   ];
 
   const tabItems = [
@@ -94,44 +153,57 @@ export default function SettingsPage() {
                   </Avatar>
                 </div>
                 <div>
-                  <Title level={4} style={{ marginBottom: 4 }}>{profile.name || '未设置'}</Title>
+                  <Title level={4} style={{ marginBottom: 4 }}>
+                    {profile.name || '未设置'}
+                  </Title>
                   <Text type="secondary">{profile.email}</Text>
                 </div>
               </div>
             </Col>
             <Col span={12}>
               <div style={{ marginBottom: 16 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>姓名</Text>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  姓名
+                </Text>
                 <Input
-                  defaultValue={profile.name || ''}
-                  onChange={e => setProfile({ ...profile, name: e.target.value })}
+                  value={profile.name || ''}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                 />
               </div>
             </Col>
             <Col span={12}>
               <div style={{ marginBottom: 16 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>邮箱</Text>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  邮箱
+                </Text>
                 <Input
                   prefix={<MailOutlined />}
-                  defaultValue={profile.email || ''}
-                  onChange={e => setProfile({ ...profile, email: e.target.value })}
+                  value={profile.email || ''}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 />
               </div>
             </Col>
             <Col span={12}>
               <div style={{ marginBottom: 16 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>手机号</Text>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  手机号
+                </Text>
                 <Input
                   prefix={<PhoneOutlined />}
-                  defaultValue={profile.phone || ''}
-                  onChange={e => setProfile({ ...profile, phone: e.target.value })}
+                  value={profile.phone || ''}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                 />
               </div>
             </Col>
           </Row>
           <Divider />
           <div style={{ textAlign: 'right' }}>
-            <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveProfile} loading={saving}>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={handleSaveProfile}
+              loading={saving}
+            >
               保存更改
             </Button>
           </div>
@@ -144,21 +216,31 @@ export default function SettingsPage() {
       icon: <SafetyCertificateOutlined />,
       children: (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          {securityItems.map(item => (
+          {securityItems.map((item) => (
             <Card key={item.id} size="small">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <Space size={16}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: config[item.id] ? '#e6f4ff' : '#f5f5f5',
-                    color: config[item.id] ? '#1677ff' : '#999',
-                  }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: config[item.id] ? '#e6f4ff' : '#f5f5f5',
+                      color: config[item.id] ? '#1677ff' : '#999',
+                    }}
+                  >
                     {item.icon}
                   </div>
                   <div>
                     <div style={{ fontWeight: 600 }}>{item.name}</div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{item.desc}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {item.desc}
+                    </Text>
                   </div>
                 </Space>
                 <Switch checked={!!config[item.id]} onChange={() => handleToggle(item.id)} />
@@ -185,21 +267,31 @@ export default function SettingsPage() {
               </div>
             </Space>
           </Card>
-          {aiItems.map(item => (
+          {aiItems.map((item) => (
             <Card key={item.id} size="small">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <Space size={16}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: config[item.id] ? '#e6f4ff' : '#f5f5f5',
-                    color: config[item.id] ? '#1677ff' : '#999',
-                  }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: config[item.id] ? '#e6f4ff' : '#f5f5f5',
+                      color: config[item.id] ? '#1677ff' : '#999',
+                    }}
+                  >
                     {item.icon}
                   </div>
                   <div>
                     <div style={{ fontWeight: 600 }}>{item.name}</div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{item.desc}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {item.desc}
+                    </Text>
                   </div>
                 </Space>
                 <Switch checked={!!config[item.id]} onChange={() => handleToggle(item.id)} />

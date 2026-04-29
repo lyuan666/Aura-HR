@@ -24,13 +24,14 @@ export class ParseResumeProcessor extends WorkerHost {
   async process(job: Job<ParseJobData>) {
     const { fileName, batchId } = job.data;
 
-    const emit = (status: string, progress: number) => {
+    const emit = (status: string, progress: number, error?: string) => {
       const event: JobProgress = {
         jobId: job.id!,
         batchId,
         fileName,
         progress,
         status: status as JobProgress['status'],
+        error,
       };
       this.progress.emit(event);
       job.updateProgress(progress).catch(() => {});
@@ -57,7 +58,7 @@ export class ParseResumeProcessor extends WorkerHost {
       return result;
     } catch (error: any) {
       this.logger.error(`parse-resume job ${job.id} failed: ${error.message}`);
-      emit('failed', job.progress as number);
+      emit('failed', job.progress as number, error.message || '解析任务失败');
 
       // BullMQ 会根据 attempts + backoff 自动重试
       throw error;
