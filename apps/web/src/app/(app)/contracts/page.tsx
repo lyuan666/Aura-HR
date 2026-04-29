@@ -1,271 +1,270 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Table,
-  Button,
-  Input,
-  Space,
-  Tag,
-  Card,
-  Typography,
-  Statistic,
-  Row,
-  Col,
-  Avatar,
-  Modal,
-  Form,
-  Select,
-  InputNumber,
-  DatePicker,
-  App,
-  Tooltip
-} from 'antd';
+import React, { useState, useRef } from 'react';
+import { PageContainer, ProTable } from '@ant-design/pro-components';
+import type { ProColumns, ActionType } from '@ant-design/pro-components';
+import { Button, Tag, Space, App, Alert, Modal, Upload, Form, Input, DatePicker, Drawer, Card, Typography } from 'antd';
 import {
   PlusOutlined,
-  SearchOutlined,
-  FileTextOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  EyeOutlined,
   DownloadOutlined,
-  BankOutlined,
-  SafetyCertificateOutlined
+  SafetyCertificateOutlined,
+  FileTextOutlined,
+  InboxOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
+import api from '@/lib/api';
 
-const { Text } = Typography;
-const { Option } = Select;
+const { Dragger } = Upload;
+const { Text, Paragraph } = Typography;
+
+const STATUS_MAP: Record<string, { text: string; color: string }> = {
+  draft: { text: '草稿', color: 'default' },
+  pending_approval: { text: '待审批', color: 'processing' },
+  active: { text: '生效中', color: 'success' },
+  completed: { text: '已完成', color: 'default' },
+  terminated: { text: '已终止', color: 'error' },
+};
+
+const TEMPLATES = [
+  { id: 'labor', name: '劳动合同模板', desc: '标准劳动合同，适用于全职员工录用', icon: <FilePdfOutlined style={{ fontSize: 32, color: '#1677ff' }} /> },
+  { id: 'service', name: '服务协议模板', desc: '猎头服务合作协议，适用于客户签约', icon: <FilePdfOutlined style={{ fontSize: 32, color: '#52c41a' }} /> },
+  { id: 'nda', name: '保密协议模板', desc: '保密及竞业限制协议', icon: <FilePdfOutlined style={{ fontSize: 32, color: '#fa8c16' }} /> },
+  { id: 'recommendation', name: '候选人推荐函模板', desc: '正式候选人推荐信函格式', icon: <FilePdfOutlined style={{ fontSize: 32, color: '#722ed1' }} /> },
+];
 
 export default function ContractsPage() {
-  const { message: antMessage } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { message } = App.useApp();
+  const actionRef = useRef<ActionType>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [templateDrawerOpen, setTemplateDrawerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileList, setFileList] = useState<any[]>([]);
+  const [form] = Form.useForm();
 
-  const mockData = [
-    {
-      key: '1',
-      contractNo: 'HT-2023-1101',
-      title: '字节跳动 - 2024年度框架合作协议',
-      enterprise: '字节跳动有限公司',
-      logo: null,
-      amount: '￥500,000.00',
-      status: '执行中',
-      endDate: '2024-12-31',
-      owner: 'Franklin Jr.',
-    },
-    {
-      key: '2',
-      contractNo: 'HT-2023-1105',
-      title: '美团 - 高级技术人才寻访服务项目',
-      enterprise: '北京三快在线科技有限公司',
-      logo: null,
-      amount: '￥150,000.00',
-      status: '待审核',
-      endDate: '2024-06-15',
-      owner: '李经理',
-    },
-    {
-      key: '3',
-      contractNo: 'HT-2023-1099',
-      title: '阿里巴巴 - 蚂蚁金服专项招聘协议',
-      enterprise: '蚂蚁科技集团股份有限公司',
-      logo: null,
-      amount: '￥320,000.00',
-      status: '已完成',
-      endDate: '2023-12-01',
-      owner: 'Sarah Chen',
-    },
-  ];
+  const handleUpload = async (values: any) => {
+    if (fileList.length === 0) {
+      message.warning('请上传合同文件');
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', fileList[0].originFileObj);
+      formData.append('title', values.title || '');
+      formData.append('contractNo', values.contractNo || '');
+      formData.append('amount', values.amount || '0');
+      if (values.startDate) formData.append('startDate', values.startDate.format('YYYY-MM-DD'));
+      if (values.endDate) formData.append('endDate', values.endDate.format('YYYY-MM-DD'));
+      if (values.notes) formData.append('notes', values.notes);
 
-  const columns = [
+      await api.post('/contracts/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      message.success('合同上传成功');
+      setUploadModalOpen(false);
+      setFileList([]);
+      form.resetFields();
+      actionRef.current?.reload();
+    } catch (e: any) {
+      message.error(e.response?.data?.message || '合同上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const columns: ProColumns[] = [
     {
-      title: '合同信息',
+      title: '合同名称',
       dataIndex: 'title',
       key: 'title',
-      render: (text: string, record: any) => (
-        <Space size={12}>
-          <div className="w-9 h-9 rounded-[10px] bg-[#007AFF]/[0.08] flex items-center justify-center text-[#007AFF]">
-            <FileTextOutlined style={{ fontSize: 16 }} />
-          </div>
-          <div>
-            <div className="font-medium text-[#1D1D1F]">{text}</div>
-            <div className="text-[11px] text-[#8E8E93]">编号: {record.contractNo}</div>
-          </div>
-        </Space>
-      )
-    },
-    {
-      title: '签约主体',
-      dataIndex: 'enterprise',
-      key: 'enterprise',
-      render: (text: string, record: any) => (
+      render: (_, record: any) => (
         <Space>
-          <Avatar
-            size="small"
-            style={!record.logo ? { backgroundColor: '#007AFF', fontSize: 12, fontWeight: 500 } : {}}
-          >
-            {!record.logo ? text?.[0] : null}
-          </Avatar>
-          <span className="text-sm text-[#1D1D1F]">{text}</span>
+          <FileTextOutlined style={{ color: '#1677ff' }} />
+          <div>
+            <div style={{ fontWeight: 600 }}>{record.title || '未命名合同'}</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>{record.contractNo || ''}</Text>
+          </div>
         </Space>
-      )
+      ),
     },
     {
-      title: '合同总额',
+      title: '金额',
       dataIndex: 'amount',
       key: 'amount',
-      render: (text: string) => <Text strong className="text-[#007AFF]">{text}</Text>
+      hideInSearch: true,
+      width: 120,
+      render: (_, record: any) => (
+        <span style={{ color: '#fa8c16', fontWeight: 600 }}>
+          {record.amount ? `¥${Number(record.amount).toLocaleString()}` : '--'}
+        </span>
+      ),
+    },
+    {
+      title: '有效期',
+      key: 'period',
+      hideInSearch: true,
+      width: 180,
+      render: (_, record: any) => {
+        const start = record.startDate ? new Date(record.startDate).toLocaleDateString('zh-CN') : '--';
+        const end = record.endDate ? new Date(record.endDate).toLocaleDateString('zh-CN') : '--';
+        return <Text type="secondary" style={{ fontSize: 13 }}>{start} ~ {end}</Text>;
+      },
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => {
-        const config: Record<string, string> = {
-          '执行中': '#007AFF',
-          '待审核': '#FF9500',
-          '已完成': '#34C759',
-        };
-        return (
-          <Tag style={{ color: config[status], background: `${config[status]}10`, border: 'none', borderRadius: 8, fontWeight: 500 }}>
-            {status}
-          </Tag>
-        );
-      }
-    },
-    {
-      title: '到期日期',
-      dataIndex: 'endDate',
-      key: 'endDate',
-      render: (date: string) => (
-        <Space className="text-[#8E8E93] text-xs">
-          <ClockCircleOutlined />
-          {date}
-        </Space>
-      )
+      valueType: 'select',
+      valueEnum: Object.fromEntries(
+        Object.entries(STATUS_MAP).map(([k, v]) => [k, { text: v.text, status: v.color === 'success' ? 'Success' : v.color === 'error' ? 'Error' : v.color === 'processing' ? 'Processing' : 'Default' }])
+      ),
+      width: 100,
     },
     {
       title: '操作',
       key: 'action',
-      render: () => (
-        <Space size={16}>
-          <Tooltip title="查看详情"><EyeOutlined className="text-[#8E8E93] hover:text-[#007AFF] cursor-pointer" /></Tooltip>
-          <Tooltip title="下载附件"><DownloadOutlined className="text-[#8E8E93] hover:text-[#007AFF] cursor-pointer" /></Tooltip>
-        </Space>
-      )
-    }
+      hideInSearch: true,
+      width: 80,
+      render: (_, record: any) => (
+        <Button type="link" size="small">查看</Button>
+      ),
+    },
   ];
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex justify-between items-end">
-        <div>
-          <div className="flex items-center space-x-2 text-[#8E8E93] text-xs mb-1 uppercase tracking-wider font-medium">
-            <SafetyCertificateOutlined />
-            <span>商务合规管理</span>
-          </div>
-          <h1 className="text-xl font-semibold m-0 text-[#1D1D1F] tracking-tight">合同协议中心</h1>
-        </div>
-        <Space size={12}>
-          <Input
-            prefix={<SearchOutlined style={{ color: '#C7C7CC' }} />}
-            placeholder="搜索合同、企业号..."
-            className="w-64 rounded-[10px] h-10 bg-[#F2F2F7] border-transparent"
-          />
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalOpen(true)}
-            className="h-10 rounded-[10px] px-5"
-          >
-            创建新合同
-          </Button>
-        </Space>
-      </div>
-
-      {/* Stats */}
-      <Row gutter={20}>
-        <Col span={8}>
-          <Card className="rounded-[20px] border-none shadow-sm bg-white">
-            <Statistic
-              title={<span className="text-[#8E8E93] text-xs">执行中合同总额</span>}
-              value={970000}
-              prefix="￥"
-              valueStyle={{ color: '#007AFF', fontWeight: 600, fontSize: '24px' }}
-            />
-            <div className="mt-2 text-[10px] text-[#8E8E93]">当前活跃合同共 5 份</div>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card className="rounded-[20px] border-none shadow-sm bg-white">
-            <Statistic
-              title={<span className="text-[#8E8E93] text-xs">待审核项目</span>}
-              value={3}
-              suffix="份"
-              valueStyle={{ color: '#FF9500', fontWeight: 600, fontSize: '24px' }}
-            />
-            <div className="mt-2 text-[10px] text-[#8E8E93]">最新提交：美团高级人才寻访项目</div>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card className="rounded-[20px] border-none shadow-sm bg-white">
-            <Statistic
-              title={<span className="text-[#8E8E93] text-xs">本月已回款</span>}
-              value={128400}
-              prefix="￥"
-              valueStyle={{ color: '#34C759', fontWeight: 600, fontSize: '24px' }}
-            />
-            <div className="mt-2 text-[10px] text-[#8E8E93] flex items-center">
-              <CheckCircleOutlined className="text-[#34C759] mr-1" />
-              回款进度正常
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Table */}
-      <Card className="rounded-[20px] border-none shadow-sm">
-        <Table
-          columns={columns}
-          dataSource={mockData}
-          pagination={false}
-        />
-      </Card>
-
-      {/* Modal */}
-      <Modal
-        title="创建新合同"
-        open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
-        footer={
+    <PageContainer
+      header={{
+        title: '合同管理',
+        subTitle: '法务合规与协议管理',
+        extra: [
+          <Button key="template" icon={<DownloadOutlined />} onClick={() => setTemplateDrawerOpen(true)}>协议模板库</Button>,
+          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={() => setUploadModalOpen(true)}>上传合同</Button>,
+        ],
+      }}
+    >
+      <Alert
+        message={
           <Space>
-            <Button onClick={() => setIsModalOpen(false)} className="rounded-[10px]">取消</Button>
-            <Button type="primary" onClick={() => {
-              setIsModalOpen(false);
-              antMessage.info('合同创建功能开发中');
-            }} className="rounded-[10px]">
-              创建
-            </Button>
+            <SafetyCertificateOutlined />
+            <span>协议资产安全监控中 — 系统检测到期合同将自动预警</span>
           </Space>
         }
+        type="info"
+        showIcon={false}
+        style={{ marginBottom: 16 }}
+      />
+
+      <ProTable
+        columns={columns}
+        actionRef={actionRef}
+        cardBordered
+        request={async (params) => {
+          try {
+            const res = await api.get('/contracts', { params });
+            const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+            return {
+              data: items,
+              success: true,
+              total: res.data?.total || items.length,
+            };
+          } catch (e) {
+            message.error('合同数据加载失败');
+            return { data: [], success: false };
+          }
+        }}
+        rowKey="id"
+        search={{
+          labelWidth: 'auto',
+        }}
+        pagination={{
+          defaultPageSize: 10,
+          showSizeChanger: true,
+        }}
+        dateFormatter="string"
+        toolbar={{
+          search: {
+            onSearch: (value: string) => {
+              console.log('search', value);
+            },
+          },
+        }}
+      />
+
+      {/* Upload Modal */}
+      <Modal
+        title="上传合同"
+        open={uploadModalOpen}
+        onCancel={() => { setUploadModalOpen(false); setFileList([]); form.resetFields(); }}
+        onOk={() => form.submit()}
+        confirmLoading={uploading}
+        okText="确认上传"
         width={600}
       >
-        <Form layout="vertical">
-          <Form.Item label="合同标题" name="title" rules={[{ required: true, message: '请输入合同标题' }]}>
-            <Input placeholder="请输入合同标题" className="rounded-[10px]" />
+        <Form form={form} layout="vertical" onFinish={handleUpload}>
+          <Form.Item label="合同文件" required>
+            <Dragger
+              maxCount={1}
+              fileList={fileList}
+              onChange={({ fileList }) => setFileList(fileList)}
+              beforeUpload={() => false}
+              accept=".pdf,.docx,.doc,.jpg,.png"
+            >
+              <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+              <p>点击或拖拽合同文件至此</p>
+              <p style={{ color: '#999', fontSize: 12 }}>支持 PDF、DOCX、JPG、PNG</p>
+            </Dragger>
           </Form.Item>
-          <Form.Item label="签约主体" name="enterprise" rules={[{ required: true, message: '请输入签约主体' }]}>
-            <Input placeholder="请输入签约主体名称" className="rounded-[10px]" />
+          <Form.Item name="title" label="合同名称" rules={[{ required: true, message: '请输入合同名称' }]}>
+            <Input placeholder="例如：与XX公司猎头服务协议" />
           </Form.Item>
-          <Form.Item label="合同金额" name="amount">
-            <InputNumber prefix="￥" placeholder="请输入合同金额" className="w-full rounded-[10px]" />
+          <Form.Item name="contractNo" label="合同编号">
+            <Input placeholder="自动生成，也可手动填写" />
           </Form.Item>
-          <Form.Item label="到期日期" name="endDate">
-            <DatePicker className="w-full rounded-[10px]" placeholder="请选择到期日期" />
+          <Space style={{ width: '100%' }} size="large">
+            <Form.Item name="amount" label="合同金额">
+              <Input placeholder="0" style={{ width: 200 }} />
+            </Form.Item>
+          </Space>
+          <Space style={{ width: '100%' }} size="large">
+            <Form.Item name="startDate" label="开始日期">
+              <DatePicker />
+            </Form.Item>
+            <Form.Item name="endDate" label="结束日期">
+              <DatePicker />
+            </Form.Item>
+          </Space>
+          <Form.Item name="notes" label="备注">
+            <Input.TextArea rows={2} placeholder="可选备注信息" />
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+
+      {/* Template Drawer */}
+      <Drawer
+        title="协议模板库"
+        open={templateDrawerOpen}
+        onClose={() => setTemplateDrawerOpen(false)}
+        width={480}
+      >
+        <Paragraph type="secondary" style={{ marginBottom: 24 }}>
+          选择模板后可下载使用，模板均为通用版本，建议根据实际业务需求调整。
+        </Paragraph>
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          {TEMPLATES.map(t => (
+            <Card key={t.id} hoverable style={{ borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ flexShrink: 0 }}>{t.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{t.name}</div>
+                  <Text type="secondary" style={{ fontSize: 13 }}>{t.desc}</Text>
+                </div>
+                <Button type="link" icon={<DownloadOutlined />}>下载</Button>
+              </div>
+            </Card>
+          ))}
+        </Space>
+      </Drawer>
+    </PageContainer>
   );
 }
