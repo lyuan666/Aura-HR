@@ -1,29 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as mammoth from 'mammoth';
-const pdf = require('pdf-parse');
 import { LlmClientService } from './llm-client.service';
+
+// 精简 prompt：只提取核心字段，详细内容在 resumeText 原文中有
+const SYSTEM_PROMPT = `提取简历JSON，只输出JSON不要其他文字：
+{"basicInfo":{"name":"","gender":"男或女","ageNum":0,"phoneNumber":"","personalEmail":"","currentLocation":"城市"},"workExperience":[{"companyName":"","position":"","duration":"","description":""}],"education":[{"school":"","major":"","degreeLevel":"","duration":""}],"skills":[]}
+规则：location只填城市名；school必须是真实学校；skills提取专业关键词；description用1-3句概括主要工作职责和业绩；找不到填null或[]`;
 
 @Injectable()
 export class ParsingService {
   private readonly logger = new Logger(ParsingService.name);
 
-  private readonly SKILL_TAXONOMY = [
-    'Java', 'Python', 'Go', 'Node.js', 'React', 'Vue', 'Angular', 'Next.js', 'Flutter', 'TypeScript',
-    'Spring Boot', 'MyBatis', 'Redis', 'MySQL', 'PostgreSQL', 'MongoDB', 'Kafka', 'Docker', 'Kubernetes',
-    'PyTorch', 'TensorFlow', 'NLP', 'CV', 'Hadoop', 'Spark', 'Flink', 'Hive', 'Data Warehouse',
-    'AWS', 'Azure', 'Aliyun', 'Tencent Cloud', 'Microservices', 'Distributed Systems',
-    'HTML5', 'CSS3', 'Sass', 'Less', 'Webpack', 'Vite', 'Unity', 'C++', 'C#', 'Rust',
-    'Project Management', 'Product Design', 'UI/UX', 'SEO', 'SEM', 'CRM', 'ERP'
-  ];
-
   constructor(private readonly llmClient: LlmClientService) {}
 
   async extractTextFromPdf(buffer: Buffer): Promise<string> {
     try {
-      const data = await (pdf as any)(buffer);
-      return data.text;
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+      let text = '';
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map((item: any) => item.str).join(' ') + '\n';
+      }
+      return text;
     } catch (e) {
-      throw new Error('无法解析 PDF 文件内容');
+      this.logger.warn(`PDF 文本提取失败，将走 Vision 路径: ${(e as Error).message}`);
+      return '';
     }
   }
 
@@ -52,32 +55,33 @@ export class ParsingService {
       text = buffer.toString('utf-8');
     }
 
-    const baseInfo = this.extractContactViaRules(text);
-    const skills = this.extractSkillsViaTaxonomy(text);
-    const segments = this.segmentTextByHeaders(text);
+    // 规则提取联系方式（补充 LLM 遗漏）
+    const ruleContact = this.extractContactViaRules(text);
 
-    try {
-      const [parsedBasic, parsedWork, parsedEdu, parsedProject] = await Promise.all([
-        this.extractBasicInfoSlice(segments.basic),
-        this.extractWorkExpSlice(segments.work),
-        this.extractEduHistorySlice(segments.edu),
-        this.extractProjectExpSlice(segments.project),
-      ]);
+    // 单次 LLM 全文解析（精简输出，max_tokens 限制）
+    const parsed: any = await this.llmClient.callAi([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: text.slice(0, 5000) },
+    ], true, 2, undefined, true, 1000);
 
-      return {
-        basicInfo: { ...baseInfo, ...parsedBasic },
-        workExperience: Array.isArray(parsedWork) ? parsedWork : [],
-        education: Array.isArray(parsedEdu) ? parsedEdu : [],
-        projectExperience: Array.isArray(parsedProject) ? parsedProject : [],
-        skills,
-        metadata: {
-          parseTime: `${((Date.now() - start) / 1000).toFixed(2)}s`,
-          engine: 'Omni-Parse-Hybrid',
-        },
-      };
-    } catch (e) {
-      return this.parseResumeFullFallback(text, baseInfo);
-    }
+    const basicInfo = { ...ruleContact, ...(parsed?.basicInfo || {}) };
+    this.sanitizeBasicInfo(basicInfo);
+
+    const workExperience = this.sanitizeWorkExp(this.ensureArray(parsed?.workExperience), text);
+    const education = this.sanitizeEducation(this.ensureArray(parsed?.education));
+    const skills = this.mergeSkills(parsed?.skills);
+
+    return {
+      basicInfo,
+      workExperience,
+      education,
+      projectExperience: [],
+      skills,
+      metadata: {
+        parseTime: `${((Date.now() - start) / 1000).toFixed(2)}s`,
+        engine: 'Omni-Parse-v5',
+      },
+    };
   }
 
   private async parseResumeVision(buffer: Buffer) {
@@ -87,7 +91,7 @@ export class ParsingService {
         {
           role: 'user',
           content: [
-            { type: 'text', text: '提取简历 JSON：basicInfo, workExperience, education, projectExperience。' },
+            { type: 'text', text: SYSTEM_PROMPT },
             { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } }
           ]
         }
@@ -100,6 +104,8 @@ export class ParsingService {
     return { ...parsed, metadata: { engine: 'Omni-Parse-Vision' } };
   }
 
+  // ---- 规则辅助 ----
+
   private extractContactViaRules(text: string) {
     const phoneRegex = /(?:(?:\+|00)86)?\s?1[3-9]\d{9}/g;
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
@@ -108,79 +114,69 @@ export class ParsingService {
     return { phoneNumber: phones[0] || '', personalEmail: emails[0] || '' };
   }
 
-  private extractSkillsViaTaxonomy(text: string): string[] {
-    const found = new Set<string>();
-    const lowerText = text.toLowerCase();
-    for (const skill of this.SKILL_TAXONOMY) {
-      if (lowerText.includes(skill.toLowerCase())) found.add(skill);
+  private sanitizeBasicInfo(info: any) {
+    if (info.currentLocation) {
+      if (/\d|年|经验|工作|岁|以上|以下/.test(info.currentLocation)) {
+        info.currentLocation = '';
+      }
+      if (info.currentLocation) {
+        info.currentLocation = info.currentLocation.split(/[,，、\s]/)[0].trim();
+      }
     }
-    return Array.from(found);
-  }
-
-  private segmentTextByHeaders(text: string) {
-    const headers = {
-      work: /工作经历|职业经历|工作经验|Experience|Work History/i,
-      edu: /教育背景|教育经历|毕业院校|学习经历|Education|Academic|学历/i,
-      project: /项目经历|项目背景|项目经验|Project Experience|Projects/i,
-    };
-    const findIndex = (regex: RegExp) => (text.match(regex)?.index ?? -1);
-    const workIndex = findIndex(headers.work);
-    const eduIndex = findIndex(headers.edu);
-    const projectIndex = findIndex(headers.project);
-
-    const indices = [
-      { type: 'work', idx: workIndex },
-      { type: 'edu', idx: eduIndex },
-      { type: 'project', idx: projectIndex }
-    ].filter(i => i.idx !== -1).sort((a, b) => a.idx - b.idx);
-
-    const segments: any = { basic: text.slice(0, indices[0]?.idx), work: '', edu: '', project: '' };
-    for (let i = 0; i < indices.length; i++) {
-      const current = indices[i];
-      const next = indices[i + 1];
-      segments[current.type] = text.slice(current.idx, next?.idx);
+    if (info.gender) {
+      const g = String(info.gender);
+      if (g.includes('男') || g.toLowerCase() === 'male') info.gender = '男';
+      else if (g.includes('女') || g.toLowerCase() === 'female') info.gender = '女';
+      else info.gender = '';
     }
-    return segments;
+    if (info.ageNum != null) {
+      const n = Number(info.ageNum);
+      info.ageNum = (Number.isFinite(n) && n > 15 && n < 80) ? n : null;
+    }
   }
 
-  private async extractBasicInfoSlice(slice: string) {
-    if (!slice || slice.length < 5) return {};
-    return this.llmClient.callAi([
-      { role: 'system', content: '提取：姓名(name)、性别(gender)、年龄(ageNum)、手机号(phoneNumber)、邮箱(personalEmail)、当前城市(currentLocation)。' },
-      { role: 'user', content: slice.slice(0, 2000) }
-    ], true);
+  /** 从原文中补充工作经历的 content 字段 */
+  private sanitizeWorkExp(workExp: any[], text: string): any[] {
+    for (const w of workExp) {
+      if (!w.content || w.content.length === 0) {
+        // 尝试从原文中提取该公司对应的工作内容
+        const company = (w.companyName || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (company) {
+          const regex = new RegExp(company + '.*?(?:内容:?|职责:?|\\n\\d\\)|\\n-)\\s*([\\s\\S]{10,300}?)(?=\\n\\n|\\n[A-Z]|$)', 'i');
+          const m = text.match(regex);
+          if (m) {
+            w.content = m[1].split(/\n/).map(s => s.replace(/^[\s\-\d\).]+/, '').trim()).filter(s => s.length > 5).slice(0, 5);
+          }
+        }
+      }
+    }
+    return workExp;
   }
 
-  private async extractWorkExpSlice(slice: string) {
-    if (!slice || slice.length < 10) return [];
-    return this.llmClient.callAi([
-      { role: 'system', content: '提取工作经历列表：companyName, position, duration, content(字符串数组)。' },
-      { role: 'user', content: slice.slice(0, 4000) }
-    ], true);
+  private sanitizeEducation(eduList: any[]): any[] {
+    const invalidSchools = ['教育经历', '教育背景', '作品展示', 'Boss', '直聘', '微信', '小程序', '资格证书'];
+    return eduList.filter(e => {
+      const school = (e.school || '').trim();
+      if (!school || school.length < 2) return false;
+      if (invalidSchools.some(k => school.includes(k))) return false;
+      return true;
+    });
   }
 
-  private async extractEduHistorySlice(slice: string) {
-    if (!slice || slice.length < 10) return [];
-    return this.llmClient.callAi([
-      { role: 'system', content: '提取教育背景列表：school, major, degreeLevel, duration。' },
-      { role: 'user', content: slice.slice(0, 2000) }
-    ], true);
+  private mergeSkills(llmSkills: any): string[] {
+    const merged = new Set<string>();
+    if (Array.isArray(llmSkills)) {
+      for (const s of llmSkills) {
+        if (typeof s === 'string' && s.trim()) merged.add(s.trim());
+      }
+    }
+    return Array.from(merged);
   }
 
-  private async extractProjectExpSlice(slice: string) {
-    if (!slice || slice.length < 10) return [];
-    return this.llmClient.callAi([
-      { role: 'system', content: '提取项目经历列表：projectName, role, duration, description。' },
-      { role: 'user', content: slice.slice(0, 3000) }
-    ], true);
-  }
-
-  public async parseResumeFullFallback(text: string, baseInfo: any) {
-    const result = await this.llmClient.callAi([
-      { role: 'system', content: '提取简历 JSON：basicInfo, workExperience, education。' },
-      { role: 'user', content: text.slice(0, 6000) }
-    ], true);
-    return { ...result, basicInfo: { ...baseInfo, ...result.basicInfo } };
+  private ensureArray(val: any): any[] {
+    if (Array.isArray(val)) return val;
+    if (val && typeof val === 'object') return [val];
+    return [];
   }
 
   async parseJobDescription(textContent: string) {

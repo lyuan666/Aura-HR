@@ -19,21 +19,27 @@ export class FollowUpService {
     private readonly aiService: AiService,
   ) {}
 
-  async findAll(targetType?: string, targetId?: string) {
+  async findAll(page = 1, pageSize = 20, targetType?: string, targetId?: string, tenantId?: string) {
     const where: any = {};
     if (targetType) where.targetType = targetType;
     if (targetId) where.targetId = targetId;
+    if (tenantId) where.tenantId = tenantId;
 
-    return this.followUpRepo.find({
+    const [items, total] = await this.followUpRepo.findAndCount({
       where,
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
+
+    return { items, total, page, pageSize };
   }
 
-  async create(dto: CreateFollowUpDto, userId: string = 'system') {
+  async create(dto: CreateFollowUpDto, tenantId?: string, userId: string = 'system') {
     const followUp = this.followUpRepo.create({
       ...dto,
       userId,
+      tenantId,
       nextFollowUpAt: dto.nextFollowUpAt ? new Date(dto.nextFollowUpAt) : undefined,
     });
 

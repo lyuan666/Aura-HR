@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Modal, Upload, Button, message, List, Progress, App, Tooltip } from 'antd';
-import { 
-  InboxOutlined, 
-  FilePdfOutlined, 
-  FileWordOutlined, 
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Upload, Button, Progress, App } from 'antd';
+import {
+  InboxOutlined,
+  FilePdfOutlined,
+  FileWordOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  CloudUploadOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const { Dragger } = Upload;
 
@@ -24,7 +27,7 @@ interface ResumeUploadModalProps {
 interface UploadQueueItem {
   id: string;
   name: string;
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: 'pending' | 'queued' | 'uploading' | 'success' | 'duplicate' | 'error';
   progress: number;
   message?: string;
 }
@@ -32,48 +35,144 @@ interface UploadQueueItem {
 export default function ResumeUploadModal({ visible, onClose, onSuccess }: ResumeUploadModalProps) {
   const { message: antMessage } = App.useApp();
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const pendingFilesRef = useRef<File[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const handleUpload = async (file: File) => {
-    const id = Math.random().toString(36).substring(7);
-    const newItem: UploadQueueItem = {
-      id,
-      name: file.name,
-      status: 'uploading',
-      progress: 0
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+      if (flushTimerRef.current) window.clearTimeout(flushTimerRef.current);
     };
-    
-    setQueue(prev => [...prev, newItem]);
+  }, []);
+
+  const openProgressStream = (batchId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    eventSourceRef.current?.close();
+    const stream = new EventSource(`/api/candidates/upload-progress/${batchId}?token=${encodeURIComponent(token)}`);
+    eventSourceRef.current = stream;
+
+    stream.onmessage = (event) => {
+      try {
+        const progressEvent = JSON.parse(event.data);
+        const isDone = ['completed', 'duplicate', 'failed'].includes(progressEvent.status);
+        const nextStatus: UploadQueueItem['status'] =
+          progressEvent.status === 'completed'
+            ? 'success'
+            : progressEvent.status === 'duplicate'
+              ? 'duplicate'
+              : progressEvent.status === 'failed'
+                ? 'error'
+                : 'uploading';
+
+        setQueue(prev => {
+          const next = prev.map(item =>
+            item.id === progressEvent.jobId
+              ? {
+                ...item,
+                status: nextStatus,
+                progress: Math.max(item.progress, progressEvent.progress || 0),
+                message: progressEvent.error || progressEvent.status,
+              }
+              : item,
+          );
+
+          if (isDone && next.every(item => ['success', 'duplicate', 'error'].includes(item.status))) {
+            stream.close();
+            eventSourceRef.current = null;
+          }
+
+          return next;
+        });
+      } catch {
+        // Ignore malformed SSE payloads; the queue item will remain visible.
+      }
+    };
+
+    stream.onerror = () => {
+      stream.close();
+      eventSourceRef.current = null;
+    };
+  };
+
+  const handleBatchUpload = async (files: File[]) => {
+    const localItems = files.map((file, index) => ({
+      id: `${Date.now()}-${index}-${file.name}`,
+      name: file.name,
+      status: 'uploading' as const,
+      progress: 3,
+    }));
 
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach(file => formData.append('files', file));
+
+    setQueue(prev => [...prev, ...localItems]);
 
     try {
-      const res = await api.post('/candidates/upload', formData, {
+      const res = await api.post('/candidates/batch-upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || progressEvent.loaded));
-          setQueue(prev => prev.map(item => item.id === id ? { ...item, progress: percent * 0.4 } : item)); // 上传占 40%
-        }
+          setQueue(prev =>
+            prev.map(item =>
+              localItems.some(local => local.id === item.id)
+                ? { ...item, progress: Math.max(item.progress, Math.min(20, Math.round(percent * 0.2))) }
+                : item,
+            ),
+          );
+        },
       });
 
-      if (res.data.success) {
-        // 模拟 AI 解析过程中的内部进度 (剩余 60%)
-        let aiProgress = 40;
-        const interval = setInterval(() => {
-          aiProgress += 15;
-          if (aiProgress >= 100) {
-            clearInterval(interval);
-            setQueue(prev => prev.map(item => item.id === id ? { ...item, status: 'success', progress: 100 } : item));
-          } else {
-            setQueue(prev => prev.map(item => item.id === id ? { ...item, progress: aiProgress } : item));
-          }
-        }, 400);
-      } else {
-        setQueue(prev => prev.map(item => item.id === id ? { ...item, status: 'error', message: res.data.message } : item));
+      const jobs = res.data.jobs || [];
+      setQueue(prev => prev.map(item => {
+        const localIndex = localItems.findIndex(local => local.id === item.id);
+        if (localIndex === -1) return item;
+
+        const job = jobs[localIndex];
+        if (!job || job.status === 'rejected') {
+          return {
+            ...item,
+            status: 'error',
+            progress: 100,
+            message: job?.error || '入队失败',
+          };
+        }
+
+        return {
+          ...item,
+          id: String(job.jobId),
+          status: 'queued',
+          progress: 20,
+          message: 'queued',
+        };
+      }));
+
+      if (res.data.batchId) {
+        openProgressStream(res.data.batchId);
       }
     } catch (e: any) {
-      setQueue(prev => prev.map(item => item.id === id ? { ...item, status: 'error', message: '服务链路超时' } : item));
+      setQueue(prev => prev.map(item =>
+        localItems.some(local => local.id === item.id)
+          ? { ...item, status: 'error', progress: 100, message: e?.response?.data?.message || '上传入队失败' }
+          : item,
+      ));
     }
+  };
+
+  const scheduleBatchUpload = (file: File) => {
+    pendingFilesRef.current.push(file);
+    if (flushTimerRef.current) return;
+
+    flushTimerRef.current = window.setTimeout(() => {
+      const files = pendingFilesRef.current.splice(0);
+      flushTimerRef.current = null;
+      if (files.length > 0) {
+        handleBatchUpload(files);
+      }
+    }, 80);
   };
 
   const uploadProps = {
@@ -83,21 +182,19 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     beforeUpload: (file: File) => {
       const isAllowed = /\.(pdf|docx|txt)$/i.test(file.name);
       if (!isAllowed) {
-        antMessage.error(`${file.name} 格式不支持，仅限 PDF/Docx/Txt`);
+        antMessage.error(`${file.name} 格式不支持`);
         return false;
       }
-      handleUpload(file);
+      scheduleBatchUpload(file);
       return false;
     },
   };
 
-  const currentSuccessCount = queue.filter(i => i.status === 'success').length;
-  const isAnyUploading = queue.some(i => i.status === 'uploading' && i.progress < 100);
+  const currentSuccessCount = queue.filter(i => ['success', 'duplicate'].includes(i.status)).length;
+  const isAnyUploading = queue.some(i => ['pending', 'queued', 'uploading'].includes(i.status));
 
   const handleFinished = () => {
-    if (currentSuccessCount > 0) {
-      onSuccess();
-    }
+    if (currentSuccessCount > 0) onSuccess();
     setQueue([]);
     onClose();
   };
@@ -105,85 +202,109 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
   return (
     <Modal
       title={
-        <div className="flex flex-col">
-          <span className="text-sm font-black text-slate-800 tracking-tight">人才库节点导入</span>
-          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Candidate Node Import</span>
+        <div className="flex flex-col py-2">
+          <span className="text-base font-black text-white tracking-tight flex items-center gap-2">
+            <CloudUploadOutlined className="text-[#6C5CE7]" /> 人才节点导入 (Node Ingestion)
+          </span>
+          <span className="text-[10px] text-[#555762] font-black uppercase tracking-[0.2em] mt-0.5">Automated Multi-modal Resume Parsing</span>
         </div>
       }
       open={visible}
       onCancel={onClose}
       footer={
-        <div className="flex justify-between items-center px-6 py-3 bg-slate-50 -mx-6 -mb-5 rounded-b-2xl border-t border-slate-100">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">入库进度: {currentSuccessCount} / {queue.length}</span>
-          <Button 
-            type="primary" 
-            disabled={isAnyUploading} 
+        <div className="flex justify-between items-center px-8 py-4 bg-[#11131A] -mx-6 -mb-5 rounded-b-3xl border-t border-white/5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#00E676] shadow-[0_0_8px_#00E676] animate-pulse" />
+            <span className="text-[10px] text-[#8B8D97] font-black uppercase tracking-widest">
+              解析进度: {currentSuccessCount} / {queue.length}
+            </span>
+          </div>
+          <Button
+            type="primary"
+            disabled={isAnyUploading || queue.length === 0}
             onClick={handleFinished}
-            className="h-8 rounded-lg bg-slate-900 border-none px-6 text-[10px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.02]"
+            className="h-10 rounded-xl bg-[#6C5CE7] hover:bg-[#5a4cdb] border-none px-8 text-[11px] font-black uppercase tracking-widest shadow-lg shadow-[#6C5CE7]/20 transition-all active:scale-95"
           >
-            完成并同步
+            完成并同步至库
           </Button>
         </div>
       }
-      width={520}
+      width={560}
       centered
-      styles={{ body: { padding: '24px 0 24px' } }}
+      styles={{
+        content: { backgroundColor: '#0B0D11', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px' },
+        header: { backgroundColor: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '0' },
+        body: { padding: '32px 32px 32px' }
+      }}
+      closeIcon={<span className="text-[#555762] hover:text-white transition-colors">✕</span>}
     >
-      <div className="px-6">
-        <Dragger 
-          {...uploadProps} 
-          className="group !bg-[#F9FAFB] !border-dashed !border-2 !border-[#E5E7EB] !rounded-2xl !p-10 hover:!border-indigo-400 hover:!bg-white transition-all cursor-pointer"
+      <div className="space-y-8">
+        <Dragger
+          {...uploadProps}
+          className="v2-dark-dragger group cursor-pointer overflow-hidden relative"
         >
-          <p className="ant-upload-drag-icon !text-slate-300 group-hover:!text-indigo-400 transition-colors !mb-4">
-            <InboxOutlined style={{ fontSize: 48 }} />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6C5CE7]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <p className="ant-upload-drag-icon !text-[#555762] group-hover:!text-[#6C5CE7] transition-all !mb-6 scale-125">
+            <InboxOutlined />
           </p>
-          <p className="text-[14px] font-black text-slate-700 mb-1">批量拖拽简历文件至此处，或点击浏览</p>
-          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">支持 PDF, Word, Txt | 智能提取人岗画像</p>
+          <p className="text-[15px] font-black text-white/90 mb-2">批量拖拽简历至此空间</p>
+          <p className="text-[10px] text-[#555762] font-black uppercase tracking-[0.15em]">支持 PDF, DOCX, TXT | AI 语义实时提取</p>
         </Dragger>
 
         {queue.length > 0 && (
-          <div className="mt-8 max-h-[320px] overflow-y-auto no-scrollbar space-y-3 pb-2">
-            {queue.map(item => (
-              <div key={item.id} className="p-3.5 bg-white border border-slate-100 rounded-xl flex items-center shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-slate-200">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center mr-4 shrink-0 transition-colors",
-                  item.status === 'success' ? "bg-emerald-50 text-emerald-500" : 
-                  item.status === 'error' ? "bg-rose-50 text-rose-500" : "bg-indigo-50 text-indigo-500 shadow-sm"
-                )}>
-                  {item.status === 'uploading' ? <LoadingOutlined /> : item.name.toLowerCase().endsWith('.pdf') ? <FilePdfOutlined /> : <FileWordOutlined />}
-                </div>
-                <div className="flex-1 min-w-0 mr-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-[12px] font-black text-slate-700 truncate mr-2">{item.name}</span>
-                    <Tooltip title={item.message}>
-                      <span className={cn(
-                        "text-[10px] font-black uppercase tracking-tight cursor-help",
-                        item.status === 'success' ? "text-emerald-500" : item.status === 'error' ? "text-rose-500 underline decoration-dotted" : "text-indigo-500"
-                      )}>
-                        {item.status === 'uploading' ? 'AI 深度理解中...' : item.status === 'success' ? '已入库' : (item.message || '解析异常')}
-                      </span>
-                    </Tooltip>
+          <div className="max-h-[340px] overflow-y-auto no-scrollbar space-y-3 pr-1">
+            <AnimatePresence>
+              {queue.map((item) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="p-4 bg-[#13161C] border border-white/5 rounded-2xl flex items-center shadow-2xl transition-all hover:border-white/10 group relative overflow-hidden"
+                >
+	                  <div className={cn(
+	                    "w-12 h-12 rounded-xl flex items-center justify-center mr-4 shrink-0 border border-white/5 transition-all",
+	                    ['success', 'duplicate'].includes(item.status) ? "bg-[#00E676]/10 text-[#00E676] border-[#00E676]/20" :
+	                      item.status === 'error' ? "bg-[#FF5252]/10 text-[#FF5252] border-[#FF5252]/20" : "bg-[#6C5CE7]/10 text-[#A29BFE] border-[#6C5CE7]/20"
+	                  )}>
+	                    {['queued', 'uploading'].includes(item.status) ? <LoadingOutlined /> : item.name.toLowerCase().endsWith('.pdf') ? <FilePdfOutlined /> : <FileWordOutlined />}
                   </div>
-                  <Progress
-                    percent={item.progress}
-                    size="small"
-                    showInfo={false}
-                    strokeColor={item.status === 'error' ? '#f43f5e' : item.status === 'success' ? '#10b981' : { '0%': '#6366f1', '100%': '#a855f7' }}
-                    trailColor="#f1f5f9"
-                  />
-                </div>
-                {item.status === 'error' && (
-                  <Button 
-                    size="small" 
-                    type="text" 
-                    danger 
-                    icon={<DeleteOutlined className="text-xs" />} 
-                    onClick={() => setQueue(q => q.filter(i => i.id !== item.id))}
-                  />
-                )}
-                {item.status === 'success' && <CheckCircleOutlined className="text-emerald-500" />}
-              </div>
-            ))}
+
+                  <div className="flex-1 min-w-0 mr-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-black text-white/80 truncate mr-2">{item.name}</span>
+                      <div className="flex items-center gap-2">
+                        {['queued', 'uploading'].includes(item.status) && <ThunderboltOutlined className="text-[#A29BFE] animate-pulse text-[10px]" />}
+                        <span className={cn(
+                          "text-[9px] font-black uppercase tracking-widest",
+                          ['success', 'duplicate'].includes(item.status) ? "text-[#00E676]" : item.status === 'error' ? "text-[#FF5252]" : "text-[#A29BFE]"
+                        )}>
+                          {item.status === 'queued' ? 'Queued' : item.status === 'uploading' ? 'AI 解析中...' : item.status === 'success' ? 'Ready' : item.status === 'duplicate' ? 'Duplicate' : (item.message || 'Error')}
+                        </span>
+                      </div>
+                    </div>
+                    <Progress
+                      percent={item.progress}
+                      size={[-1, 3]}
+                      showInfo={false}
+                      strokeColor={item.status === 'error' ? '#FF5252' : ['success', 'duplicate'].includes(item.status) ? '#00E676' : { '0%': '#6C5CE7', '100%': '#00D2FF' }}
+                      trailColor="rgba(255,255,255,0.02)"
+                    />
+                  </div>
+
+                  {item.status === 'error' && (
+                    <Button
+                      size="small"
+                      type="text"
+                      className="text-[#555762] hover:text-[#FF5252] transition-colors"
+                      icon={<DeleteOutlined />}
+                      onClick={() => setQueue(q => q.filter(i => i.id !== item.id))}
+                    />
+                  )}
+                  {['success', 'duplicate'].includes(item.status) && <CheckCircleOutlined className="text-[#00E676] text-lg" />}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

@@ -8,17 +8,21 @@ export class FollowUpController {
 
   @Get()
   findAll(
+    @Req() req: any,
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 20,
     @Query('targetType') targetType?: string,
     @Query('targetId') targetId?: string,
   ) {
-    return this.followUpService.findAll(targetType, targetId);
+    const tenantId = req.user?.tenantId;
+    return this.followUpService.findAll(Number(page), Number(pageSize), targetType, targetId, tenantId);
   }
 
   @Post()
   create(@Body() dto: CreateFollowUpDto, @Req() req: any) {
-    // 实际应从 JWT 中获取 userId，此处简化
     const userId = req.user?.id || 'system';
-    return this.followUpService.create(dto, userId);
+    const tenantId = req.user?.tenantId;
+    return this.followUpService.create(dto, tenantId, userId);
   }
 
   @Post('ai-strategy')

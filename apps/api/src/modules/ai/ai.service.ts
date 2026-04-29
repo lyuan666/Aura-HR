@@ -1,16 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ParsingService } from './parsing.service';
 import { InsightService } from './insight.service';
+import { LlmClientService } from './llm-client.service';
 
 @Injectable()
 export class AiService {
   constructor(
     private readonly parsingService: ParsingService,
     private readonly insightService: InsightService,
+    private readonly llmClient: LlmClientService,
   ) {}
 
   async parseResume(textContent: string) {
-    return this.parsingService.parseResumeFullFallback(textContent, {});
+    return this.llmClient.callAi([
+      { role: 'system', content: '提取简历 JSON：basicInfo, workExperience, education。' },
+      { role: 'user', content: textContent.slice(0, 6000) }
+    ], true);
   }
 
   async parseFile(buffer: Buffer, originalName: string, type: 'resume' | 'jd') {

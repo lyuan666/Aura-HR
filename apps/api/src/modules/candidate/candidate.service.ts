@@ -4,11 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { CreateCandidateDto } from './candidate.dto';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
-import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class CandidateService {
@@ -16,7 +17,7 @@ export class CandidateService {
     @InjectRepository(CandidateEntity)
     private readonly candidateRepo: Repository<CandidateEntity>,
     private readonly embeddingService: EmbeddingService,
-    private readonly queueService: QueueService,
+    @InjectQueue('vectorize') private readonly vectorizeQueue: Queue,
   ) {}
 
   async findAll(page = 1, pageSize = 20, tenantId?: string) {
@@ -30,7 +31,41 @@ export class CandidateService {
       .take(pageSize)
       .getManyAndCount();
 
-    return { items, total, page, pageSize };
+    return {
+      items: items.map((c) => this.dehydrate(c)),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  private dehydrate(c: CandidateEntity) {
+    return {
+      id: c.id,
+      name: c.name,
+      gender: c.gender,
+      age: c.age,
+      location: c.location,
+      phone: c.phone,
+      wechat: c.wechat,
+      email: c.email,
+      tenantId: c.tenantId,
+      currentCompany: c.currentCompany,
+      currentTitle: c.currentTitle,
+      totalYears: c.totalYears,
+      degree: c.degree,
+      school: c.school,
+      major: c.major,
+      status: c.status,
+      resumeUrl: c.resumeUrl,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      parsedTags: c.parsedTags,
+      workExperiences: c.workExperiences,
+      educationHistory: c.educationHistory,
+      projectExperiences: c.projectExperiences,
+      careerExpectations: c.careerExpectations,
+    };
   }
 
   async findOne(id: string, tenantId?: string) {
@@ -39,43 +74,59 @@ export class CandidateService {
     
     const candidate = await this.candidateRepo.findOne({ where });
     if (!candidate) throw new NotFoundException('候选人不存在');
-    return candidate;
+    return this.dehydrate(candidate);
   }
 
   // 查重并入库
   async create(dto: CreateCandidateDto, tenantId?: string) {
-    const qb = this.candidateRepo.createQueryBuilder('candidate');
+    // Fix: 分离 OR 条件为独立查询，避免全表扫描 + 误判
+    // Layer 2: 精确匹配 phone 或 email (各自带 tenantId 过滤)
+    if (dto.phone || dto.email) {
+      const exactQb = this.candidateRepo.createQueryBuilder('candidate');
+      const conditions: string[] = [];
+      const params: Record<string, string> = {};
 
-    // 查重逻辑：优先查是否有同平台的同样名字的人，或者同样 phone/email
-    qb.where(
-      new Brackets((qb2) => {
-        qb2.where(
-          'candidate.name = :name AND candidate.sourcePlatform = :sourcePlatform',
-          {
-            name: dto.name || '未命名',
-            sourcePlatform: dto.sourcePlatform || 'manual',
-          },
-        );
-        if (dto.phone) {
-          qb2.orWhere('candidate.phone = :phone', { phone: dto.phone });
-        }
-        if (dto.email) {
-          qb2.orWhere('candidate.email = :email', { email: dto.email });
-        }
-      }),
-    );
+      if (dto.phone) {
+        conditions.push('candidate.phone = :phone');
+        params.phone = dto.phone;
+      }
+      if (dto.email) {
+        conditions.push('candidate.email = :email');
+        params.email = dto.email;
+      }
 
-    if (tenantId) {
-      qb.andWhere('candidate.tenantId = :tenantId', { tenantId });
+      exactQb.where(`(${conditions.join(' OR ')})`, params);
+      if (tenantId) {
+        exactQb.andWhere('candidate.tenantId = :tenantId', { tenantId });
+      }
+
+      const exactDup = await exactQb.getOne().catch(() => null);
+      if (exactDup) {
+        throw new ConflictException({
+          message: '检测到重复候选人 (手机号或邮箱匹配)',
+          data: exactDup,
+        });
+      }
     }
 
-    const duplicate = await qb.getOne().catch(() => null);
+    // Layer 3: 同平台 + 同姓名 (补充检查，仅在有 phone/email 以外的匹配需求时)
+    if (dto.name && dto.sourcePlatform) {
+      const nameDup = await this.candidateRepo
+        .createQueryBuilder('candidate')
+        .where('candidate.name = :name AND candidate.sourcePlatform = :sourcePlatform', {
+          name: dto.name,
+          sourcePlatform: dto.sourcePlatform,
+        })
+        .andWhere(tenantId ? 'candidate.tenantId = :tenantId' : '1=1', { tenantId })
+        .getOne()
+        .catch(() => null);
 
-    if (duplicate) {
-      throw new ConflictException({
-        message: '检测到重复候选人',
-        data: duplicate,
-      });
+      if (nameDup) {
+        throw new ConflictException({
+          message: '检测到重复候选人 (同平台同名)',
+          data: nameDup,
+        });
+      }
     }
 
     const newCandidate = this.candidateRepo.create({
@@ -86,10 +137,14 @@ export class CandidateService {
 
     const saved = await this.candidateRepo.save(newCandidate);
 
-    // 触发持久化异步向量化
-    await this.queueService.enqueue('vectorize', { candidateId: saved.id }, tenantId);
+    // 触发异步向量化 (BullMQ)
+    await this.vectorizeQueue.add(
+      'vectorize',
+      { candidateId: saved.id, tenantId },
+      { jobId: `vec-${saved.id}`, removeOnComplete: { count: 100 } },
+    );
 
-    return saved;
+    return this.dehydrate(saved);
   }
 
   async vectorizeCandidate(id: string) {
@@ -124,15 +179,18 @@ export class CandidateService {
   }
 
   /**
-   * 语义搜索候选人
+   * 语义搜索候选人 (使用 HNSW 索引)
    */
   async semanticSearch(query: string, tenantId?: string) {
     const queryEmbedding = await this.embeddingService.generateEmbedding(query);
     if (!queryEmbedding || queryEmbedding.length === 0) return [];
 
-    const tenantFilter = tenantId ? 'AND tenant_id = $2' : '';
-    const params = [JSON.stringify(queryEmbedding)];
-    if (tenantId) params.push(tenantId);
+    const params: any[] = [JSON.stringify(queryEmbedding)];
+    let tenantFilter = '';
+    if (tenantId) {
+      tenantFilter = 'AND tenant_id = $2';
+      params.push(tenantId);
+    }
 
     const candidates = await this.candidateRepo.query(
       `SELECT *, 1 - (embedding <=> $1::vector) AS match_score

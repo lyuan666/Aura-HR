@@ -7,7 +7,6 @@ import { JobPositionEntity } from '../../entities/job-position.entity';
 import { AiModule } from '../ai/ai.module';
 import { CandidateModule } from '../candidate/candidate.module';
 import { JobModule } from '../job/job.module';
-import { MatchingListener } from './matching.listener';
 
 @Module({
   imports: [
@@ -17,7 +16,7 @@ import { MatchingListener } from './matching.listener';
     forwardRef(() => JobModule),
   ],
   controllers: [MatchingController],
-  providers: [MatchingService, MatchingListener],
+  providers: [MatchingService],
   exports: [MatchingService],
 })
 export class MatchingModule {}

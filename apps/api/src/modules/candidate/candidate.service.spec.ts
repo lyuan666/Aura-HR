@@ -3,14 +3,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { CandidateService } from './candidate.service';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
-import { QueueService } from '../queue/queue.service';
 import { ConflictException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 
 describe('CandidateService', () => {
   let service: CandidateService;
   let repo: any;
   let embeddingService: any;
-  let queueService: any;
+  let vectorizeQueue: any;
 
   beforeEach(async () => {
     repo = {
@@ -26,8 +26,8 @@ describe('CandidateService', () => {
       generateEmbedding: jest.fn(),
     };
 
-    queueService = {
-      enqueue: jest.fn(),
+    vectorizeQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'job-1' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -42,8 +42,8 @@ describe('CandidateService', () => {
           useValue: embeddingService,
         },
         {
-          provide: QueueService,
-          useValue: queueService,
+          provide: getQueueToken('vectorize'),
+          useValue: vectorizeQueue,
         },
       ],
     }).compile();
@@ -56,12 +56,11 @@ describe('CandidateService', () => {
   });
 
   describe('create', () => {
-    it('should throw ConflictException if duplicate found', async () => {
+    it('should throw ConflictException if phone duplicate found', async () => {
       const dto = { name: 'Test', phone: '123' } as any;
       const qb: any = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        orWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue({ id: 'existing' }),
       };
       repo.createQueryBuilder.mockReturnValue(qb);
@@ -69,12 +68,11 @@ describe('CandidateService', () => {
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
     });
 
-    it('should create and enqueue vectorization if no duplicate', async () => {
+    it('should create and enqueue BullMQ vectorization', async () => {
       const dto = { name: 'Test', phone: '123' } as any;
       const qb: any = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        orWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       };
       repo.createQueryBuilder.mockReturnValue(qb);
@@ -84,10 +82,54 @@ describe('CandidateService', () => {
       const result = await service.create(dto, 'tenant-1');
 
       expect(result.id).toBe('new-id');
-      expect(queueService.enqueue).toHaveBeenCalledWith(
+      expect(vectorizeQueue.add).toHaveBeenCalledWith(
         'vectorize',
-        { candidateId: 'new-id' },
-        'tenant-1',
+        { candidateId: 'new-id', tenantId: 'tenant-1' },
+        { jobId: 'vec-new-id', removeOnComplete: { count: 100 } },
+      );
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return paginated results', async () => {
+      const qb: any = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[{ id: '1' }], 1]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.findAll(1, 20, 'tenant-1');
+
+      expect(result).toEqual({ items: [{ id: '1' }], total: 1, page: 1, pageSize: 20 });
+    });
+  });
+
+  describe('semanticSearch', () => {
+    it('should return empty if no embedding generated', async () => {
+      embeddingService.generateEmbedding.mockResolvedValue([]);
+
+      const result = await service.semanticSearch('test query');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should query candidates with vector similarity', async () => {
+      const fakeEmbedding = new Array(1024).fill(0.1);
+      embeddingService.generateEmbedding.mockResolvedValue(fakeEmbedding);
+      repo.query.mockResolvedValue([
+        { id: 'c1', match_score: 0.95 },
+      ]);
+
+      const result = await service.semanticSearch('Python developer', 'tenant-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].matchScore).toBe(95);
+      expect(repo.query).toHaveBeenCalledWith(
+        expect.stringContaining('embedding <=> $1::vector'),
+        expect.arrayContaining([JSON.stringify(fakeEmbedding)]),
       );
     });
   });

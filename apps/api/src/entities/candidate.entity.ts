@@ -8,11 +8,16 @@ import {
 } from 'typeorm';
 
 @Entity('candidates')
+@Index(['tenantId', 'createdAt'])
+@Index(['tenantId', 'status'])
+@Index(['fileHash', 'tenantId'], { unique: true })
+@Index(['textHash', 'tenantId'], { unique: true })
 export class CandidateEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
+  @Index()
   name: string;
 
   @Column({
@@ -43,6 +48,14 @@ export class CandidateEntity {
   @Column({ name: 'tenant_id', nullable: true })
   @Index()
   tenantId: string;
+
+  // 文件指纹 (Phase 2 去重)
+  @Column({ name: 'file_hash', nullable: true })
+  fileHash: string;
+
+  // 文本内容指纹 (Phase 2 去重)
+  @Column({ name: 'text_hash', nullable: true })
+  textHash: string;
 
   // 职业信息
   @Column({ name: 'current_company', nullable: true })

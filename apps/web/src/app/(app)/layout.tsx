@@ -1,5 +1,7 @@
-import MainLayout from '@/components/MainLayout';
+'use client';
+
+import AppProLayout from '@/components/AppProLayout';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <MainLayout>{children}</MainLayout>;
+  return <AppProLayout>{children}</AppProLayout>;
 }

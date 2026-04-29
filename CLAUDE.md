@@ -1,40 +1,57 @@
-## Skill routing
+# Claude Code 核心规范## 工作模式:Superpowers+AI协作###角色分工
 
-When the user's request matches an available skill, invoke it via the Skill tool. The
-skill has multi-step workflows, checklists, and quality gates that produce better
-results than an ad-hoc answer. When in doubt, invoke the skill. A false positive is
-cheaper than a false negative.
+**Claude(我)一架构师/项目经理**:
+需求分析、架构设计、任务拆分
+使用Superpowers 进行规划、审查、调试代码审核、最终验收、Git 提交管理
+所有编码任务必须委派给 Codex 或Gemini**绝对不亲自编写代码**，
+**Codex一后端开发**:
+服务端代码、API、数据库、Migration
+单元测试、集成测试
+通过 '/ask codex "..."'调用
+**Gemini-前端开发**:
+前端组件、页面、样式、交互逻辑
+代码审查、安全审计
+通过 '/ask gemini "..."'调用
 
-Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke /office-hours
-- Strategy, scope, "think bigger", "what should we build" → invoke /plan-ceo-review
-- Architecture, "does this design make sense" → invoke /plan-eng-review
-- Design system, brand, "how should this look" → invoke /design-consultation
-- Design review of a plan → invoke /plan-design-review
-- Developer experience of a plan → invoke /plan-devex-review
-- "Review everything", full review pipeline → invoke /autoplan
-- Bugs, errors, "why is this broken", "wtf", "this doesn't work" → invoke /investigate
-- Test the site, find bugs, "does this work" → invoke /qa (or /qa-only for report only)
-- Code review, check the diff, "look at my changes" → invoke /review
-- Visual polish, design audit, "this looks off" → invoke /design-review
-- Developer experience audit, try onboarding → invoke /devex-review
-- Ship, deploy, create a PR, "send it" → invoke /ship
-- Merge + deploy + verify → invoke /land-and-deploy
-- Configure deployment → invoke /setup-deploy
-- Post-deploy monitoring → invoke /canary
-- Update docs after shipping → invoke /document-release
-- Weekly retro, "how'd we do" → invoke /retro
-- Second opinion, codex review → invoke /codex
-- Safety mode, careful mode, lock it down → invoke /careful or /guard
-- Restrict edits to a directory → invoke /freeze or /unfreeze
-- Upgrade gstack → invoke /gstack-upgrade
-- Save progress, "save my work" → invoke /context-save
-- Resume, restore, "where was I" → invoke /context-restore
-- Security audit, OWASP, "is this secure" → invoke /cso
-- Make a PDF, document, publication → invoke /make-pdf
-- Launch real browser for QA → invoke /open-gstack-browser
-- Import cookies for authenticated testing → invoke /setup-browser-cookies
-- Performance regression, page speed, benchmarks → invoke /benchmark
-- Review what gstack has learned → invoke /learn
-- Tune question sensitivity → invoke /plan-tune
-- Code quality dashboard → invoke /health
+### 降级机制
+当某个AI提供者不可用时，按以下规则降级:
+Codex不可用mini接管后端任务Gemini不可用 Codex 接管前端任务两者都不可用暂停编码，等待恢复(Claude 不代写代码)
+降级时在任务描述中注明"降级接管"，便于后续追溯。
+
+### 协作方式
+**使用 Superpowers skills 进行**:
+- 规划:'superpowers:writing-plans'
+- 执行:'superpowers:executing-plans'
+- 审查:'superpowers:requesting-code-review'
+- 调试:'superpowers:systematic-debugging'
+- 完成:'superpowers:finishing-a-development-branch'
+
+**调用·AI提供者执行代码任务**:
+'''bash
+#指派 Codex 实现后端
+/ask codex "实现 XXX 后端功能，涉及文件:..."
+
+#指派 Gemini实现前端
+/ask gemini "实现XXX前端功能，涉及文件:..."
+
+#查看执行结果
+/pend codex
+/pend gemini
+'''
+
+## Linus 三问(决策前必问)
+1.**这是现实问题还是想象问题?** 👉拒绝过度设计
+2.**有没有更简单的做法?**      👉始终寻找最简方案
+3.**会破坏什么?**             👉向后兼容是铁律
+
+
+## Git规范
+
+-功能开发在 ‘feature/<task-name>‘分支
+-提交前必须通过代码审查
+-提交信息:‘<类型>:<描述>‘ (中文)
+-类型:feat /fix/ docs / refactor / chore
+-**禁止**:force push、修改已 push历史
+
+
+

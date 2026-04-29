@@ -37,7 +37,12 @@ export class LlmClientService {
   private readonly logger = new Logger(LlmClientService.name);
   private readonly semaphore = new Semaphore(2);
 
-  // 云端配置 (智谱 AI)
+  // 主力云端配置 (DeepSeek)
+  private readonly deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+  private readonly deepseekApiUrl = 'https://api.deepseek.com/chat/completions';
+  private readonly deepseekModel = 'deepseek-chat';
+
+  // 备用云端配置 (智谱 AI) — Vision 用
   private readonly cloudApiKey = process.env.ZHIPU_API_KEY || process.env.BIGMODEL_API_KEY;
   private readonly cloudApiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
   private readonly cloudModel = 'glm-4-flash';
@@ -49,46 +54,56 @@ export class LlmClientService {
   private readonly localApiKey = process.env.LOCAL_AI_KEY || 'sk-local';
   private readonly localModel = process.env.LOCAL_AI_MODEL || 'qwen3.5-9b';
 
-  async callAi(messages: any[], jsonMode = false, retries = 5, targetModel?: string, forceCloud = false) {
+  async callAi(messages: any[], jsonMode = false, retries = 3, targetModel?: string, forceCloud = false, maxTokens?: number) {
     const useLocal = this.isLocalEnabled && !forceCloud;
-    const apiUrl = useLocal ? this.localApiUrl : this.cloudApiUrl;
-    const apiKey = useLocal ? this.localApiKey : this.cloudApiKey;
-    const currentModel = useLocal ? this.localModel : (targetModel || this.cloudModel);
-    const engineLabel = useLocal ? 'Local' : 'Cloud';
+    const isVision = targetModel === this.visionModel;
 
-    if (!apiKey && !useLocal) {
-      this.logger.error('API Key 未配置，且本地引擎未开启');
-      throw new Error('AI 服务配置缺失');
+    if (useLocal) {
+      return this.doCall(messages, jsonMode, retries, this.localApiUrl, this.localApiKey, this.localModel, 'Local', maxTokens);
     }
 
-    await this.semaphore.acquire();
+    // Vision 走智谱（DeepSeek 不支持 image_url）
+    if (isVision && this.cloudApiKey) {
+      return this.doCall(messages, jsonMode, retries, this.cloudApiUrl, this.cloudApiKey, this.visionModel, 'Vision(智谱)', maxTokens);
+    }
 
+    // 文本解析：主力 DeepSeek，备用智谱
+    if (this.deepseekApiKey) {
+      try {
+        return await this.doCall(messages, jsonMode, retries, this.deepseekApiUrl, this.deepseekApiKey, this.deepseekModel, 'DeepSeek', maxTokens);
+      } catch (e: any) {
+        if (!this.cloudApiKey) throw e;
+        this.logger.warn(`DeepSeek 失败 (${e.message})，切换智谱备用`);
+      }
+    }
+
+    if (this.cloudApiKey) {
+      return this.doCall(messages, jsonMode, retries, this.cloudApiUrl, this.cloudApiKey, targetModel || this.cloudModel, 'Cloud(智谱)', maxTokens);
+    }
+
+    throw new Error('AI 服务配置缺失：无可用 API Key');
+  }
+
+  private async doCall(
+    messages: any[], jsonMode: boolean, retries: number,
+    apiUrl: string, apiKey: string, model: string, label: string,
+    maxTokens?: number,
+  ) {
+    await this.semaphore.acquire();
     let lastError: any;
     try {
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          const payload: any = {
-            model: currentModel,
-            messages,
-            temperature: 0.1,
-          };
-
-          if (jsonMode && useLocal) {
-            payload.response_format = { type: 'json_object' };
-          }
-
-          const response = await axios.post(
-            apiUrl,
-            payload,
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
-              },
-              timeout: 90000,
+          const payload: any = { model, messages, temperature: 0.1 };
+          if (maxTokens) payload.max_tokens = maxTokens;
+          if (jsonMode) payload.response_format = { type: 'json_object' };
+          const response = await axios.post(apiUrl, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
             },
-          );
-
+            timeout: 60000,
+          });
           const content = response.data.choices[0].message.content;
           if (jsonMode) {
             return this.cleanAndParseJson(content);
@@ -96,20 +111,20 @@ export class LlmClientService {
           return content;
         } catch (e: any) {
           lastError = e;
-          if (e.response && e.response.status === 429 && attempt < retries) {
-            const delay = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
-            this.logger.warn(`${engineLabel} API 限流 (429)，将在 ${Math.round(delay)}ms 后重试...`);
+          if (e.response?.status === 429 && attempt < retries) {
+            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+            this.logger.warn(`${label} API 限流 (429)，将在 ${Math.round(delay)}ms 后重试...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
-          this.logger.error(`AI 接口失败 (${engineLabel}, ${attempt + 1}): ${e.message}`);
+          this.logger.error(`AI 接口失败 (${label}, ${attempt + 1}): ${e.message}`);
           if (attempt === retries) throw e;
         }
       }
     } finally {
       this.semaphore.release();
     }
-    throw new Error(`AI 服务异常: ${lastError?.message}`);
+    throw new Error(`AI 服务异常 (${label}): ${lastError?.message}`);
   }
 
   private cleanAndParseJson(content: string) {

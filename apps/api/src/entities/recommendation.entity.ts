@@ -5,7 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { CandidateEntity } from './candidate.entity';
+import { JobPositionEntity } from './job-position.entity';
 
 @Entity('recommendations')
 export class RecommendationEntity {
@@ -27,6 +31,14 @@ export class RecommendationEntity {
   @Column({ name: 'consultant_id' })
   @Index()
   consultantId: string;
+
+  @ManyToOne(() => CandidateEntity)
+  @JoinColumn({ name: 'candidate_id' })
+  candidate: CandidateEntity;
+
+  @ManyToOne(() => JobPositionEntity)
+  @JoinColumn({ name: 'job_position_id' })
+  jobPosition: JobPositionEntity;
 
   @Column({
     name: 'match_score',

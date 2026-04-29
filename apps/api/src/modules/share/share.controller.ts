@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Req } from '@nestjs/common';
 import { ShareService } from './share.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { IsString, IsBoolean, IsOptional } from 'class-validator';
@@ -22,8 +22,9 @@ export class ShareController {
   constructor(private readonly shareService: ShareService) {}
 
   @Post('generate')
-  generate(@Body() body: GenerateShareDto) {
-    return this.shareService.createShareLink(body.recommendationId, body.isAnonymized);
+  generate(@Body() body: GenerateShareDto, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.shareService.createShareLink(body.recommendationId, tenantId, body.isAnonymized);
   }
 
   @Public()

@@ -95,8 +95,19 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('用户不存在');
 
-    const { password: _, ...result } = user;
-    return result;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+      avatar: user.avatar,
+      phone: user.phone,
+      dashboardLayoutConfig: user.dashboardLayoutConfig,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async updateLayout(userId: string, layout: any) {
@@ -137,7 +148,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        dashboardLayoutConfig: user.dashboardLayoutConfig,
+        tenantId: user.tenantId,
+        dashboardLayoutConfig: user.dashboardLayoutConfig ? JSON.parse(JSON.stringify(user.dashboardLayoutConfig)) : null,
       },
     };
   }

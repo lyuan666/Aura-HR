@@ -20,13 +20,14 @@ export class ShareService {
     private jobRepo: Repository<JobPositionEntity>,
   ) {}
 
-  async createShareLink(recommendationId: string, isAnonymized = true) {
+  async createShareLink(recommendationId: string, tenantId?: string, isAnonymized = true) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 默认 7 天有效期
 
     const shareLink = this.shareRepo.create({
       token: nanoid(12),
       recommendationId,
+      tenantId,
       expiresAt,
       isAnonymized,
     });

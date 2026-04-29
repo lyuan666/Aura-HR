@@ -9,9 +9,12 @@ import {
 import { EnterpriseEntity } from '../../entities/enterprise.entity';
 import { ContactEntity } from '../../entities/contact.entity';
 import { FollowUpEntity } from '../../entities/follow-up.entity';
+import { StateMachine, ENTERPRISE_TRANSITIONS } from '../../common/utils/state-machine';
 
 @Injectable()
 export class EnterpriseService {
+  private readonly stateMachine = new StateMachine(ENTERPRISE_TRANSITIONS);
+
   constructor(
     @InjectRepository(EnterpriseEntity)
     private readonly entRepo: Repository<EnterpriseEntity>,
@@ -22,41 +25,88 @@ export class EnterpriseService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll() {
-    const enterprises = await this.entRepo.find({
+  async findAll(page = 1, pageSize = 20, tenantId?: string) {
+    const [items, total] = await this.entRepo.findAndCount({
+      where: tenantId ? { tenantId } : {},
       relations: ['contacts'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
 
-    return enterprises.map((ent) => {
+    const enterprises = items.map((ent) => {
       const primaryContact = ent.contacts?.find((c) => c.isPrimary);
       return {
-        ...ent,
+        ...this.dehydrateEnterprise(ent),
         contactName: primaryContact?.name || '无',
       };
     });
+
+    return { items: enterprises, total, page, pageSize };
   }
 
-  async findOne(id: string) {
+  private dehydrateEnterprise(e: EnterpriseEntity) {
+    return {
+      id: e.id,
+      name: e.name,
+      industry: e.industry,
+      scale: e.scale,
+      address: e.address,
+      website: e.website,
+      description: e.description,
+      status: e.status,
+      tags: e.tags,
+      tenantId: e.tenantId,
+      createdAt: e.createdAt,
+      updatedAt: e.updatedAt,
+      contacts: e.contacts?.map(c => this.dehydrateContact(c)),
+    };
+  }
+
+  private dehydrateContact(c: ContactEntity) {
+    return {
+      id: c.id,
+      name: c.name,
+      title: c.title,
+      phone: c.phone,
+      email: c.email,
+      wechat: c.wechat,
+      isPrimary: c.isPrimary,
+      notes: c.notes,
+      enterpriseId: c.enterpriseId,
+      tenantId: c.tenantId,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    };
+  }
+
+  async findOne(id: string, tenantId?: string) {
     const enterprise = await this.entRepo.findOne({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       relations: ['contacts'],
     });
 
     if (!enterprise) throw new NotFoundException('企业客户不存在');
 
     const followUps = await this.followUpRepo.find({
-      where: { targetId: id, targetType: 'enterprise' },
+      where: { targetId: id, targetType: 'enterprise', ...(tenantId ? { tenantId } : {}) },
       order: { createdAt: 'DESC' },
     });
 
     return {
-      ...enterprise,
-      followUps,
+      ...this.dehydrateEnterprise(enterprise),
+      followUps: followUps.map(f => ({
+        id: f.id,
+        targetType: f.targetType,
+        targetId: f.targetId,
+        content: f.content,
+        userId: f.userId,
+        createdAt: f.createdAt,
+      })),
     };
   }
 
-  async create(dto: CreateEnterpriseDto) {
+  async create(dto: CreateEnterpriseDto, tenantId?: string) {
     return await this.dataSource.transaction(async (manager) => {
       const newEnterprise = manager.create(EnterpriseEntity, {
         name: dto.name,
@@ -66,6 +116,7 @@ export class EnterpriseService {
         website: dto.website || '',
         description: dto.description || '',
         status: 'potential',
+        tenantId,
         tags: [],
       });
 
@@ -78,38 +129,63 @@ export class EnterpriseService {
           phone: dto.contactPhone || '',
           title: dto.contactTitle || '',
           isPrimary: true,
+          tenantId,
         });
         await manager.save(contact);
       }
 
-      return savedEnt;
+      return this.dehydrateEnterprise(savedEnt);
     });
   }
 
-  async updateStatus(id: string, dto: UpdateEnterpriseStatusDto) {
+  async findOrCreateByName(name: string, tenantId?: string) {
     return await this.dataSource.transaction(async (manager) => {
-      const enterprise = await manager.findOne(EnterpriseEntity, { where: { id } });
+      let enterprise = await manager.findOne(EnterpriseEntity, {
+        where: { name, ...(tenantId ? { tenantId } : {}) },
+      });
+
+      if (!enterprise) {
+        enterprise = manager.create(EnterpriseEntity, {
+          name,
+          industry: '未知',
+          status: 'potential',
+          tenantId,
+        });
+        enterprise = await manager.save(enterprise);
+      }
+
+      return this.dehydrateEnterprise(enterprise);
+    });
+  }
+
+  async updateStatus(id: string, dto: UpdateEnterpriseStatusDto, tenantId?: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      const enterprise = await manager.findOne(EnterpriseEntity, { 
+        where: { id, ...(tenantId ? { tenantId } : {}) } 
+      });
       if (!enterprise) throw new NotFoundException('企业客户不存在');
 
       const oldStatus = enterprise.status;
+      this.stateMachine.validateTransition(oldStatus, dto.status);
       enterprise.status = dto.status;
       const updated = await manager.save(enterprise);
 
       const log = manager.create(FollowUpEntity, {
         targetType: 'enterprise',
         targetId: id,
+        tenantId,
         content: `系统自动记录：将客户状态从 [${oldStatus}] 修改为 [${dto.status}]`,
       });
       await manager.save(log);
 
-      return updated;
+      return this.dehydrateEnterprise(updated);
     });
   }
 
-  async addContact(enterpriseId: string, dto: CreateContactDto) {
+  async addContact(enterpriseId: string, dto: CreateContactDto, tenantId?: string) {
     return await this.dataSource.transaction(async (manager) => {
       const enterprise = await manager.findOne(EnterpriseEntity, {
-        where: { id: enterpriseId },
+        where: { id: enterpriseId, ...(tenantId ? { tenantId } : {}) },
         relations: ['contacts'],
       });
       if (!enterprise) throw new NotFoundException('企业客户不存在');
@@ -118,7 +194,7 @@ export class EnterpriseService {
       if (dto.isPrimary) {
         await manager.update(
           ContactEntity,
-          { enterprise: { id: enterpriseId }, isPrimary: true },
+          { enterprise: { id: enterpriseId }, isPrimary: true, ...(tenantId ? { tenantId } : {}) },
           { isPrimary: false },
         );
       }
@@ -126,10 +202,12 @@ export class EnterpriseService {
       const contact = manager.create(ContactEntity, {
         enterprise,
         ...dto,
+        tenantId,
         isPrimary: dto.isPrimary || (enterprise.contacts?.length === 0),
       });
 
-      return await manager.save(contact);
+      const saved = await manager.save(contact);
+      return this.dehydrateContact(saved);
     });
   }
 }

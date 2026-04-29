@@ -1,22 +1,27 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Modal, Tabs, Button, Space, Typography, Tag, Avatar, Divider, Steps, Input } from 'antd';
-import { 
-  FileTextOutlined, 
-  PaperClipOutlined, 
-  HistoryOutlined, 
-  ShareAltOutlined,
-  DownloadOutlined,
-  MoreOutlined,
+import { Modal, Tabs, Space, Tag, Avatar, Input, Button, Tooltip } from 'antd';
+import {
+  CloseOutlined,
   StarOutlined,
-  PhoneOutlined,
-  MailOutlined,
-  SendOutlined
+  MoreOutlined,
+  PlusOutlined,
+  SendOutlined,
+  ThunderboltOutlined,
+  DownOutlined,
+  ClockCircleOutlined,
+  UserOutlined,
+  FileTextOutlined,
+  PaperClipOutlined,
+  HistoryOutlined,
+  MessageOutlined,
+  CalendarOutlined,
+  FolderOpenOutlined
 } from '@ant-design/icons';
 import StandardResumeContent from './StandardResumeContent';
-
-const { Title, Text, Paragraph } = Typography;
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CandidateDetailModalProps {
   visible: boolean;
@@ -24,59 +29,44 @@ interface CandidateDetailModalProps {
   onClose: () => void;
 }
 
+const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+  new: { label: '新简历', color: '#00D2D3', bg: 'bg-success/10' },
+  screening: { label: '初筛中', color: '#A29BFE', bg: 'bg-brand-light/10' },
+  interview: { label: '面试中', color: '#6C5CE7', bg: 'bg-brand-primary/10' },
+  offer: { label: 'Offer', color: '#FF9F43', bg: 'bg-warning/10' },
+  rejected: { label: '已淘汰', color: '#FF4D4F', bg: 'bg-error/10' },
+  hired: { label: '已入职', color: '#00D2D3', bg: 'bg-success/10' },
+};
+
+function formatTimeAgo(dateStr: string) {
+  if (!dateStr) return '--';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}天前`;
+  const months = Math.floor(days / 30);
+  return `${months}个月前`;
+}
+
 const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, candidate, onClose }) => {
   const [activeTab, setActiveTab] = useState('standard');
 
   if (!candidate) return null;
 
+  const status = statusMap[candidate.status] || statusMap.new;
+  const skills = candidate.parsedTags?.skills || [];
+
   const tabItems = [
-    {
-      key: 'standard',
-      label: (
-        <Space>
-          <FileTextOutlined />
-          标准简历
-        </Space>
-      ),
-      children: <StandardResumeContent candidate={candidate} />,
-    },
-    {
-      key: 'attachment',
-      label: (
-        <Space>
-          <PaperClipOutlined />
-          附件简历
-        </Space>
-      ),
-      children: (
-        <div className="flex flex-col items-center justify-center p-20 bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-200 m-8">
-           <PaperClipOutlined className="text-5xl text-gray-300 mb-6" />
-           <p className="text-gray-400 text-base mb-6">暂无原始附件简历，建议上传以保留排版样式</p>
-           <Button type="primary" size="large" className="rounded-xl px-10 h-12 bg-blue-600 shadow-lg shadow-blue-100">立即上传</Button>
-        </div>
-      ),
-    },
-    {
-      key: 'records',
-      label: (
-        <Space>
-          <HistoryOutlined />
-          流转记录
-        </Space>
-      ),
-      children: (
-        <div className="p-8">
-          <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 mb-8 flex items-start space-x-4">
-            <Avatar className="bg-blue-100 text-blue-600" icon={<StarOutlined />} />
-            <div>
-              <Text className="font-bold block mb-1">通过简历初筛</Text>
-              <Text type="secondary" className="text-xs">操作人：系统管理员 · 2023-11-20 14:30</Text>
-            </div>
-          </div>
-          <Paragraph className="text-gray-400 text-center py-20">更多记录正在实时同步中...</Paragraph>
-        </div>
-      ),
-    },
+    { key: 'attachment', label: '附件简历' },
+    { key: 'standard', label: '标准简历' },
+    { key: 'works', label: '作品附件' },
+    { key: 'interview', label: '面试' },
+    { key: 'delivery', label: '投递记录' },
+    { key: 'operation', label: '操作日志' },
+    { key: 'related', label: '关联人才' },
   ];
 
   return (
@@ -84,132 +74,221 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({ visible, ca
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={1300}
+      width="90%"
+      style={{ maxWidth: '1400px', top: '40px' }}
       centered
-      className="candidate-detail-modal"
-      styles={{ 
-        body: { padding: 0, overflow: 'hidden', height: '85vh' },
-        mask: { backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.45)' }
+      closeIcon={null}
+      className="candidate-detail-modal-v3"
+      styles={{
+        mask: {
+          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(0,0,0,0.8)'
+        },
+        body: {
+          padding: 0,
+          backgroundColor: 'var(--bg-surface)',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          height: 'calc(100vh - 120px)',
+          border: '1px solid var(--border-color)',
+        }
       }}
-      closeIcon={<div className="bg-gray-100 hover:bg-gray-200 transition-colors rounded-full p-1.5 flex items-center justify-center"><MoreOutlined className="text-gray-600" rotate={90} /></div>}
     >
-      <div className="flex h-full">
-        {/* 左侧主内容区 */}
-        <div className="flex-1 overflow-y-auto no-scrollbar bg-white flex flex-col">
-          {/* 模态框顶部信息卡片 */}
-          <div className="px-10 py-8 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 shrink-0">
-            <div className="flex justify-between items-start">
-              <div className="flex items-start space-x-6">
-                <Avatar src={candidate.avatar} size={72} className="border-4 border-white shadow-xl shadow-gray-200/50 shrink-0" />
-                <div>
-                  <div className="flex items-center mb-2">
-                    <h2 className="text-2xl font-black text-gray-900 m-0 mr-3">{candidate.name}</h2>
-                    <StarOutlined className="text-xl text-yellow-400 cursor-pointer hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="flex items-center space-x-4 text-gray-400 text-sm mb-4">
-                    <span>{candidate.gender} · {candidate.age}岁 · {candidate.education}</span>
-                    <Divider type="vertical" className="bg-gray-200" />
-                    <span className="flex items-center"><PhoneOutlined className="mr-1" /> {candidate.phone}</span>
-                    <Divider type="vertical" className="bg-gray-200" />
-                    <span className="flex items-center"><MailOutlined className="mr-1" /> {candidate.email}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {candidate.tags?.map((tag: string) => (
-                      <Tag key={tag} className="m-0 border-none bg-blue-50 text-blue-600 text-[11px] px-3 py-0.5 rounded-full font-medium">
-                        {tag}
-                      </Tag>
-                    ))}
-                    <Tag className="m-0 border-dashed border-gray-300 bg-transparent text-gray-400 text-[11px] px-3 py-0.5 rounded-full cursor-pointer hover:border-blue-300 hover:text-blue-400 transition-colors">
-                      + 添加标签
-                    </Tag>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col items-end space-y-4">
-                <Space size={12}>
-                  <Button icon={<ShareAltOutlined />} className="rounded-xl border-gray-200 text-gray-600 h-10 hover:text-blue-600 hover:border-blue-600">分享简历</Button>
-                  <Button icon={<DownloadOutlined />} className="rounded-xl border-gray-200 text-gray-600 h-10">下载 PDF</Button>
-                </Space>
-                <Text type="secondary" className="text-[10px] uppercase tracking-widest bg-gray-100 px-2 py-1 rounded">Resume ID: {candidate.id || '9256202'}</Text>
-              </div>
+      <div className="flex flex-col h-full text-text-main">
+
+        {/* 1. Window Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-bg-surface">
+          <div className="flex items-center gap-3">
+            <span className="text-[16px] font-bold text-text-main">人才详情</span>
+            <div className="flex items-center gap-1.5 text-[12px] text-text-sub/50">
+              <span className="font-mono">ID: {candidate.id?.slice(0, 8) || '--'}</span>
+              <span>·</span>
+              <span>{formatTimeAgo(candidate.createdAt)}入库</span>
+              <span>·</span>
+              <span>简历上传</span>
             </div>
           </div>
-
-          {/* Tab 导航区 */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            <Tabs 
-              activeKey={activeTab} 
-              onChange={setActiveTab}
-              items={tabItems} 
-              className="detail-tabs h-full"
-              tabBarStyle={{ paddingLeft: '40px', background: '#fff', marginBottom: 0, borderBottom: '1px solid #f8fafc' }}
-            />
-          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-text-sub"
+          >
+            <CloseOutlined style={{ fontSize: '14px' }} />
+          </button>
         </div>
 
-        {/* 右侧流程控制区 - 专业猎头视角 */}
-        <div className="w-[380px] bg-gray-50 border-l border-gray-100 overflow-y-auto no-scrollbar p-8 flex flex-col shrink-0">
-          <div className="mb-10">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-gray-800 m-0">当前流程</h3>
-              <Tag color="green" className="m-0 rounded-full px-3 text-[11px] border-none font-bold">在招中</Tag>
-            </div>
-            
-            <Steps
-              direction="vertical"
-              current={1}
-              size="small"
-              className="process-steps"
-              items={[
-                { title: '简历初筛', description: '2023-11-20' },
-                { title: '推荐给客户', description: '待推入' },
-                { title: '客户面试', description: '待安排' },
-                { title: '录用结果', description: '待反馈' },
-              ]}
-            />
-          </div>
+        {/* Main Content Area: 75:25 Split */}
+        <div className="flex-1 flex overflow-hidden">
 
-          <div className="flex-1 bg-white rounded-2xl p-6 shadow-sm border border-gray-200/50 flex flex-col">
-            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center">
-              <HistoryOutlined className="mr-2 text-blue-500" /> 
-              跟进操作
-            </h4>
-            
-            <div className="flex-1">
-              <Paragraph className="text-xs text-gray-400 mb-4 px-1">
-                输入您的跟进纪要或面试评价，支持 @ 团队成员协作
-              </Paragraph>
-              <Input.TextArea 
-                placeholder="在此输入跟进内容..." 
-                rows={4} 
-                className="rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white transition-all text-sm mb-4"
-              />
-              <div className="flex justify-between items-center mb-6 px-1">
-                <Button type="text" size="small" className="text-gray-400 text-xs hover:text-blue-500">选择模板</Button>
-                <Button type="primary" shape="circle" icon={<SendOutlined />} className="shadow-lg shadow-blue-100" />
+          {/* Left Area (75%) */}
+          <div className="w-3/4 flex flex-col border-r border-border-subtle overflow-y-auto no-scrollbar bg-bg-base">
+
+            {/* 2. Personal Panorama Card */}
+            <div className="px-10 pt-10 pb-6">
+              <div className="flex justify-between items-start">
+                <div className="flex items-start gap-6">
+                  <div className="relative">
+                    <Avatar
+                      src={candidate.avatar}
+                      size={80}
+                      className="border border-border-subtle bg-bg-elevated"
+                    >
+                      {candidate.name?.[0] || '?'}
+                    </Avatar>
+                    <div className={cn(
+                      "absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-bg-base border border-bg-base",
+                      candidate.gender === 'female' ? "bg-error" : "bg-brand-primary"
+                    )}>
+                      {candidate.gender === 'female' ? '♀' : '♂'}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[24px] font-bold text-text-main">{candidate.name || '未知'}</span>
+                      <StarOutlined className="text-text-sub/30 hover:text-brand-primary cursor-pointer transition-colors text-lg" />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[13px] text-text-sub font-medium">
+                      {candidate.age && <span>{candidate.age}岁</span>}
+                      {candidate.age && candidate.degree && <span className="opacity-20">|</span>}
+                      {candidate.degree && <span>{candidate.degree}</span>}
+                      {candidate.totalYears ? <><span className="opacity-20">|</span><span>{candidate.totalYears}年经验</span></> : null}
+                      {candidate.phone && (
+                        <span className="ml-4 flex items-center gap-1.5 text-text-main/80">
+                          <span className="w-4 h-4 rounded-full bg-bg-elevated flex items-center justify-center text-[10px]">📞</span>
+                          {candidate.phone}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <Tag className="m-0 bg-brand-primary/10 border-none text-brand-primary text-[11px] px-2 py-0.5 rounded-sm">
+                        {status.label}
+                      </Tag>
+                      {skills.slice(0, 2).map((s: string) => (
+                        <Tag key={s} className="m-0 bg-white/5 border border-border-subtle text-text-sub/80 text-[11px] px-2 py-0.5 rounded-sm">
+                          {s}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button className="h-9 px-4 rounded-md bg-white/5 border border-border-subtle text-text-main/80 text-[13px] font-medium hover:bg-white/10 transition-all flex items-center gap-2">
+                    <PlusOutlined size={14} /> 添加待办
+                  </button>
+                  <button className="h-9 px-4 rounded bg-white/5 border border-white/10 text-white/80 text-[13px] font-bold hover:bg-white/10 transition-all">
+                    加入分组
+                  </button>
+                  <button className="h-9 w-9 flex items-center justify-center rounded bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 transition-all">
+                    <MoreOutlined />
+                  </button>
+                </div>
+              </div>
+
+              {/* AI 折叠横幅 */}
+              {candidate.notes && (
+                <div className="mt-8 bg-bg-surface/50 border border-brand-primary/20 rounded-lg p-3 flex items-center justify-between cursor-pointer group hover:border-brand-primary/40 transition-all relative">
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div className="w-6 h-6 rounded bg-brand-primary/20 flex items-center justify-center text-[10px]">
+                      <ThunderboltOutlined className="text-brand-primary" />
+                    </div>
+                    <span className="text-[13px] font-medium text-text-main/80">AI 解析摘要: {candidate.notes}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Tabs */}
+            <div className="px-10 border-b border-border-subtle sticky top-0 bg-bg-base z-20">
+              <div className="flex gap-8">
+                {tabItems.map(tab => (
+                  <div
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      "py-4 text-[13px] font-bold cursor-pointer transition-all relative",
+                      activeTab === tab.key ? "text-brand-primary" : "text-text-sub/60 hover:text-text-sub"
+                    )}
+                  >
+                    {tab.label}
+                    {activeTab === tab.key && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary"
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <Divider className="my-6 border-gray-50" />
-
-            <div className="grid grid-cols-2 gap-4">
-              <Button 
-                type="primary" 
-                block 
-                className="h-12 rounded-xl bg-blue-600 shadow-xl shadow-blue-100 font-bold"
-              >
-                推进到下一阶段
-              </Button>
-              <Button 
-                danger 
-                block 
-                className="h-12 rounded-xl font-bold border-red-100 hover:bg-red-50"
-              >
-                淘汰候选人
-              </Button>
+            {/* 4. Content */}
+            <div className="flex-1">
+              <StandardResumeContent candidate={candidate} />
             </div>
-            <Button block className="mt-4 h-10 rounded-xl text-gray-500 border-gray-200">加入其他职位</Button>
+          </div>
+
+          {/* Right Sidebar (25%) */}
+          <div className="w-1/4 bg-bg-surface p-6 flex flex-col gap-6">
+            <Button
+              type="primary"
+              block
+              size="large"
+              className="h-12 bg-brand-primary hover:bg-brand-primary/80 border-none text-[14px] font-bold rounded-lg flex items-center justify-center gap-2"
+            >
+              加入职位 <DownOutlined />
+            </Button>
+
+            {/* 协同备注 */}
+            <div className="bg-bg-elevated/30 border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-text-sub/40 uppercase tracking-[0.2em] mb-1">
+                <MessageOutlined /> 协同备注
+              </div>
+              <Input.TextArea
+                placeholder="输入备注，支持@通知团队成员"
+                rows={4}
+                className="!bg-transparent !border-none !text-[13px] !text-text-main/80 placeholder:!text-white/10 !p-0 focus:!shadow-none resize-none no-scrollbar"
+              />
+              <div className="flex items-center justify-between mt-2 pt-3 border-t border-border-subtle">
+                <button className="text-[12px] text-text-sub hover:text-white flex items-center gap-1 transition-colors">
+                  选择模板 <DownOutlined style={{ fontSize: '10px' }} />
+                </button>
+                <button className="w-8 h-8 bg-brand-primary hover:bg-brand-dark text-white rounded-lg flex items-center justify-center transition-all active:scale-90 shadow-lg shadow-brand-primary/20">
+                  <SendOutlined />
+                </button>
+              </div>
+            </div>
+
+            {/* 快捷信息栏 */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-text-sub/60">当前状态</span>
+                <Tag className="m-0 border-none text-[11px] px-2 rounded" style={{ color: status.color, backgroundColor: `${status.color}15` }}>
+                  {status.label}
+                </Tag>
+              </div>
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-text-sub/60">入库时间</span>
+                <span className="text-text-main/80">{formatTimeAgo(candidate.createdAt)}</span>
+              </div>
+              {candidate.location && (
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-text-sub/60">所在城市</span>
+                  <span className="text-text-main/80">{candidate.location}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-auto space-y-3">
+              <button className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/80 hover:bg-white/10 hover:text-text-main transition-all">
+                移入公海池
+              </button>
+              <button className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/80 hover:bg-error/10 hover:text-error transition-all">
+                淘汰此候选人
+              </button>
+            </div>
           </div>
         </div>
       </div>

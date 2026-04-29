@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseInterceptors, UploadedFile, Req, Query } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JobService } from './job.service';
 import { AiService } from '../ai/ai.service';
@@ -11,8 +11,9 @@ export class JobController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateJobDto) {
-    return this.jobService.create(dto);
+  async create(@Body() dto: CreateJobDto, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.jobService.create(dto, tenantId);
   }
 
   @Post('parse')
@@ -36,17 +37,24 @@ export class JobController {
   }
 
   @Get()
-  async findAll() {
-    return this.jobService.findAll();
+  async findAll(
+    @Req() req: any,
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 20,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.jobService.findAll(Number(page), Number(pageSize), tenantId);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.jobService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.jobService.findOne(id, tenantId);
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateJobDto) {
-    return this.jobService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateJobDto, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.jobService.update(id, dto, tenantId);
   }
 }

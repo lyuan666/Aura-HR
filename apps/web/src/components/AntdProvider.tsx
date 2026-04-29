@@ -2,60 +2,68 @@
 
 import '@ant-design/v5-patch-for-react-19';
 import React from 'react';
-import { ConfigProvider, App as AntApp } from 'antd';
+import { ConfigProvider, App as AntApp, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 
-const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
-
 const antTheme = {
+  algorithm: theme.darkAlgorithm,
   token: {
-    colorPrimary: '#007AFF',
-    borderRadius: 10,
+    colorPrimary: '#B0C4DE',
+    borderRadius: 8,
     fontSize: 14,
-    colorLink: '#007AFF',
-    colorBgLayout: '#F5F5F7',
-    fontFamily: SF_FONT,
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
-    colorText: '#1D1D1F',
-    colorTextSecondary: '#8E8E93',
+    colorLink: '#B0C4DE',
+    colorBgLayout: '#121212',
+    colorBgContainer: '#1C2128',
+    colorBgElevated: '#2D333B',
+    colorBorder: 'rgba(205, 217, 229, 0.1)',
+    colorText: 'rgba(255, 255, 255, 0.9)',
+    colorTextSecondary: '#768390',
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   },
   components: {
-    Card: {
-      borderRadiusLG: 20,
-      colorBgContainer: '#ffffff',
-      paddingLG: 24,
-      boxShadowTertiary: '0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
-    },
-    Button: {
-      borderRadius: 10,
-      fontWeight: 500,
-      controlHeight: 40,
-      paddingInline: 20,
-      primaryShadow: 'none',
+    Layout: {
+      siderBg: '#1C2128',
+      headerBg: '#121212',
+      bodyBg: '#121212',
     },
     Menu: {
-      itemBorderRadius: 8,
+      itemBorderRadius: 4,
       itemHeight: 40,
-      itemMarginBlock: 2,
-      itemMarginInline: 10,
+      itemMarginBlock: 4,
+      itemMarginInline: 8,
       activeBarBorderWidth: 0,
+      iconSize: 18,
+      darkItemSelectedBg: 'rgba(176, 196, 222, 0.1)',
+      darkItemSelectedColor: '#B0C4DE',
     },
-    Table: {
-      borderRadius: 16,
+    Button: {
+      borderRadius: 6,
+      controlHeight: 36,
+      colorPrimary: '#B0C4DE',
+      colorPrimaryHover: '#CEDBEB',
     },
     Input: {
-      borderRadius: 10,
-      controlHeight: 40,
+      borderRadius: 6,
+      controlHeight: 36,
+      colorBgContainer: 'rgba(45, 51, 59, 0.5)',
     },
-    Select: {
-      borderRadius: 10,
+    Card: {
+      borderRadiusLG: 8,
+      colorBgContainer: 'rgba(28, 33, 40, 0.8)',
+      colorBorderSecondary: 'rgba(205, 217, 229, 0.08)',
+    },
+    Table: {
+      borderRadius: 8,
+      colorBgContainer: 'rgba(28, 33, 40, 0.5)',
+      headerBg: 'rgba(45, 51, 59, 0.3)',
     },
     Modal: {
-      borderRadiusLG: 16,
+      borderRadiusLG: 12,
+      colorBgElevated: '#1C2128',
     },
-    Tag: {
-      borderRadiusSM: 8,
-    },
+    Tooltip: {
+      colorBgSpotlight: '#2D333B',
+    }
   },
 };
 

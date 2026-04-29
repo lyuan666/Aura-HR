@@ -8,7 +8,7 @@ export class GuaranteeTrackingEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'tenant_id' })
   @Index()
   tenantId: string;
 

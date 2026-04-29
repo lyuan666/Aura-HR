@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { UserEntity } from '../../entities/user.entity';
+import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -22,6 +23,15 @@ describe('AuthService', () => {
             findOne: jest.fn(),
             create: jest.fn().mockImplementation(dto => dto),
             save: jest.fn().mockImplementation(u => Promise.resolve({ id: 'u1', ...u })),
+          },
+        },
+        {
+          provide: getRepositoryToken(RefreshTokenEntity),
+          useValue: {
+            create: jest.fn().mockImplementation(dto => dto),
+            save: jest.fn().mockImplementation(t => Promise.resolve({ id: 'rt1', ...t })),
+            findOne: jest.fn(),
+            update: jest.fn(),
           },
         },
         {
