@@ -1,4 +1,19 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Sse, UseInterceptors, UploadedFile, UploadedFiles, BadRequestException, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  Sse,
+  UnauthorizedException,
+  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { Observable, throwError } from 'rxjs';
@@ -12,6 +27,7 @@ import { AiService } from '../ai/ai.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateCandidateDto } from './candidate.dto';
+import { PageQueryDto } from '../../common/dto/page-query.dto';
 
 const UPLOAD_LIMITS = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -39,19 +55,18 @@ export class CandidateController {
   ) {}
 
   @Get()
-  findAll(
-    @Req() req: any,
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 20,
-  ) {
-    const tenantId = req.user?.tenantId;
-    return this.candidateService.findAll(Number(page), Number(pageSize), tenantId);
+  findAll(@Req() req: any, @Query() query: PageQueryDto) {
+    const tenantId = this.requireTenantId(req);
+    return this.candidateService.findAll(query.page, query.pageSize, tenantId);
   }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadResume(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
+  async uploadResume(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const tenantId = this.requireTenantId(req);
     if (!file) {
       throw new BadRequestException('未检测到上传的文件');
     }
@@ -60,24 +75,32 @@ export class CandidateController {
       console.log('--- 开始 Omni-Parse v4 全模态解析 ---');
       console.log('文件名称:', file.originalname);
 
-      
       // 1. 调用极速混合解析流水线
-      const parsedData: any = await this.aiService.parseFile(file.buffer, file.originalname, 'resume');
+      const parsedData: any = await this.aiService.parseFile(
+        file.buffer,
+        file.originalname,
+        'resume',
+      );
       const parseTime = parsedData.metadata?.parseTime || 'unknown';
       console.log(`解析耗时: ${parseTime}，开始构造 DTO...`);
 
       // 2. 提取结构化数据
       const basicInfo = parsedData.basicInfo || {};
-      const workExp = Array.isArray(parsedData.workExperience) ? parsedData.workExperience : [];
-      const eduList = Array.isArray(parsedData.education) ? parsedData.education : [];
-      const projectExp = Array.isArray(parsedData.projectExperience) ? parsedData.projectExperience : [];
-      
+      const workExp = Array.isArray(parsedData.workExperience)
+        ? parsedData.workExperience
+        : [];
+      const eduList = Array.isArray(parsedData.education)
+        ? parsedData.education
+        : [];
+      const projectExp = Array.isArray(parsedData.projectExperience)
+        ? parsedData.projectExperience
+        : [];
+
       const latestWork = workExp[0] || {};
       const latestEdu = eduList[0] || {};
 
-
       // 后端映射：中文性别 -> Enum
-      const genderMap: Record<string, string> = { '男': 'male', '女': 'female' };
+      const genderMap: Record<string, string> = { 男: 'male', 女: 'female' };
       const gender = genderMap[basicInfo.gender] || 'unknown';
 
       // 3. 映射为 CreateCandidateDto
@@ -110,31 +133,29 @@ export class CandidateController {
         notes: `Omni-Parse v4 | 耗时 ${parseTime} | ${workExp.length}经历/${eduList.length}教育/${(parsedData.skills || []).length}技能`,
       };
 
-
-
       // 4. 物理入库
       const result = await this.candidateService.create(candidateDto, tenantId);
       console.log('候选人数据已成功存入 PostgreSQL 数据库:', result.id);
-      
+
       return {
         success: true,
         data: result,
-        message: '简历解析入库成功'
+        message: '简历解析入库成功',
       };
     } catch (e: any) {
       console.error('❌ [简历解析链路崩溃]:', e);
-      
+
       return {
         success: false,
         message: e.message || '解析链路异常',
-        debug: process.env.NODE_ENV === 'development' ? e.stack : undefined
+        debug: process.env.NODE_ENV === 'development' ? e.stack : undefined,
       };
     }
   }
 
   @Get('search')
   search(@Query('q') query: string, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
+    const tenantId = this.requireTenantId(req);
     return this.candidateService.semanticSearch(query, tenantId);
   }
 
@@ -155,7 +176,7 @@ export class CandidateController {
       throw new BadRequestException('未检测到上传的文件');
     }
 
-    const tenantId = req.user?.tenantId;
+    const tenantId = this.requireTenantId(req);
     const batchId = uuid();
     const jobs: any[] = new Array(files.length);
     const enqueueFile = async (file: Express.Multer.File, index: number) => {
@@ -174,7 +195,13 @@ export class CandidateController {
       const fileKey = `resumes/${tenantId}/${batchId}/${uuid()}-${safeName}`;
 
       // 存原始文件到 MinIO
-      await this.storage.putObject('uploads', fileKey, file.buffer, file.size, file.mimetype);
+      await this.storage.putObject(
+        'uploads',
+        fileKey,
+        file.buffer,
+        file.size,
+        file.mimetype,
+      );
 
       const job = await this.parseQueue.add(
         'parse-resume',
@@ -204,7 +231,11 @@ export class CandidateController {
 
     const concurrency = 4;
     for (let i = 0; i < files.length; i += concurrency) {
-      await Promise.all(files.slice(i, i + concurrency).map((file, offset) => enqueueFile(file, i + offset)));
+      await Promise.all(
+        files
+          .slice(i, i + concurrency)
+          .map((file, offset) => enqueueFile(file, i + offset)),
+      );
     }
 
     return {
@@ -225,7 +256,8 @@ export class CandidateController {
     // SSE 无法设 header，用 query param 传 JWT
     try {
       this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET') || 'dev-secret-key',
+        secret:
+          this.configService.get<string>('JWT_SECRET') || 'dev-secret-key',
       });
     } catch {
       return throwError(() => new UnauthorizedException('无效或过期的 token'));
@@ -235,13 +267,21 @@ export class CandidateController {
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
+    const tenantId = this.requireTenantId(req);
     return this.candidateService.findOne(id, tenantId);
   }
 
   @Post()
   create(@Body() dto: CreateCandidateDto, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
+    const tenantId = this.requireTenantId(req);
     return this.candidateService.create(dto, tenantId);
+  }
+
+  private requireTenantId(req: any) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('当前账号缺少租户信息，请先完成租户初始化');
+    }
+    return tenantId;
   }
 }

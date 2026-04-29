@@ -19,8 +19,12 @@ describe('RecommendationService', () => {
         {
           provide: getRepositoryToken(RecommendationEntity),
           useValue: {
-            create: jest.fn().mockImplementation(dto => dto),
-            save: jest.fn().mockImplementation(rec => Promise.resolve({ id: 'rec1', ...rec })),
+            create: jest.fn().mockImplementation((dto) => dto),
+            save: jest
+              .fn()
+              .mockImplementation((rec) =>
+                Promise.resolve({ id: 'rec1', ...rec }),
+              ),
             findOne: jest.fn(),
             update: jest.fn(),
             findAndCount: jest.fn().mockResolvedValue([[], 0]),
@@ -44,26 +48,36 @@ describe('RecommendationService', () => {
     }).compile();
 
     service = module.get<RecommendationService>(RecommendationService);
-    recRepo = module.get<Repository<RecommendationEntity>>(getRepositoryToken(RecommendationEntity));
+    recRepo = module.get<Repository<RecommendationEntity>>(
+      getRepositoryToken(RecommendationEntity),
+    );
   });
 
   it('should validate status transitions using state machine', async () => {
     const mockRec = { id: 'rec1', status: 'pending' };
     jest.spyOn(recRepo, 'findOne').mockResolvedValue(mockRec as any);
+    jest.spyOn(recRepo, 'save').mockImplementation(async (rec) => rec as any);
 
     // Valid transition: pending -> submitted
     await service.updateStatus('rec1', 'submitted');
-    expect(recRepo.update).toHaveBeenCalledWith('rec1', { status: 'submitted' });
+    expect(recRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'submitted' }),
+    );
 
     // Invalid transition: pending -> interviewed
-    await expect(service.updateStatus('rec1', 'interviewed'))
-      .rejects.toThrow(BadRequestException);
+    jest
+      .spyOn(recRepo, 'findOne')
+      .mockResolvedValue({ id: 'rec1', status: 'pending' } as any);
+    await expect(service.updateStatus('rec1', 'interviewed')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should prevent cross-tenant access in updateStatus', async () => {
     jest.spyOn(recRepo, 'findOne').mockResolvedValue(null); // Not found because of tenant filter
 
-    await expect(service.updateStatus('rec1', 'submitted', 'wrong-tenant'))
-      .rejects.toThrow('Recommendation not found');
+    await expect(
+      service.updateStatus('rec1', 'submitted', 'wrong-tenant'),
+    ).rejects.toThrow('Recommendation not found');
   });
 });

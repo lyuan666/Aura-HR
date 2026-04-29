@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AiService } from './ai.service';
 import { ParsingService } from './parsing.service';
 import { InsightService } from './insight.service';
+import { LlmClientService } from './llm-client.service';
 
 describe('AiService', () => {
   let service: AiService;
@@ -15,13 +16,24 @@ describe('AiService', () => {
         {
           provide: ParsingService,
           useValue: {
-            parseResumeFast: jest.fn().mockResolvedValue({ success: true, basicInfo: { name: 'Test' } }),
+            parseResumeFast: jest
+              .fn()
+              .mockResolvedValue({
+                success: true,
+                basicInfo: { name: 'Test' },
+              }),
           },
         },
         {
           provide: InsightService,
           useValue: {
             generateMatchingReport: jest.fn().mockResolvedValue({ score: 90 }),
+          },
+        },
+        {
+          provide: LlmClientService,
+          useValue: {
+            callAi: jest.fn(),
           },
         },
       ],
@@ -33,7 +45,11 @@ describe('AiService', () => {
   });
 
   it('should delegate parseFile to ParsingService.parseResumeFast', async () => {
-    const result = await service.parseFile(Buffer.from(''), 'test.pdf', 'resume');
+    const result = await service.parseFile(
+      Buffer.from(''),
+      'test.pdf',
+      'resume',
+    );
     expect(parsingService.parseResumeFast).toHaveBeenCalled();
     expect(result.basicInfo.name).toBe('Test');
   });

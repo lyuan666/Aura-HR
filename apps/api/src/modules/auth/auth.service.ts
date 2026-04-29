@@ -26,12 +26,15 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.userRepo.findOne({ where: { email: dto.email } });
+    const existing = await this.userRepo.findOne({
+      where: { email: dto.email },
+    });
     if (existing) throw new ConflictException('该邮箱已注册');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepo.create({
       ...dto,
+      tenantId: crypto.randomUUID(),
       password: hashedPassword,
       role: 'consultant',
       isActive: true,
@@ -45,10 +48,7 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { email: dto.email } });
     if (!user) throw new UnauthorizedException('邮箱或密码错误');
 
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
-      user.password,
-    );
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('邮箱或密码错误');
     if (!user.isActive) throw new UnauthorizedException('账号已被禁用');
 
@@ -59,7 +59,9 @@ export class AuthService {
     const tokenHash = this.hashToken(refreshToken);
 
     // Check if token was stored and not revoked
-    const stored = await this.refreshTokenRepo.findOne({ where: { tokenHash } });
+    const stored = await this.refreshTokenRepo.findOne({
+      where: { tokenHash },
+    });
     if (!stored || stored.isRevoked) {
       // If a revoked token was reused, invalidate entire family (rotation attack detection)
       if (stored?.familyId) {
@@ -72,10 +74,15 @@ export class AuthService {
     }
 
     try {
-      const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'dev-refresh-secret';
-      const payload = this.jwtService.verify(refreshToken, { secret: refreshSecret });
+      const refreshSecret =
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        'dev-refresh-secret';
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: refreshSecret,
+      });
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
-      if (!user || !user.isActive) throw new UnauthorizedException('用户不存在或已禁用');
+      if (!user || !user.isActive)
+        throw new UnauthorizedException('用户不存在或已禁用');
 
       // Revoke the used token
       stored.isRevoked = true;
@@ -88,7 +95,10 @@ export class AuthService {
   }
 
   async revokeAllUserTokens(userId: string) {
-    await this.refreshTokenRepo.update({ userId, isRevoked: false }, { isRevoked: true });
+    await this.refreshTokenRepo.update(
+      { userId, isRevoked: false },
+      { isRevoked: true },
+    );
   }
 
   async getProfile(userId: string) {
@@ -121,9 +131,19 @@ export class AuthService {
   }
 
   private async generateTokens(user: UserEntity, familyId?: string) {
-    const payload = { sub: user.id, email: user.email, role: user.role, tenantId: user.tenantId };
-    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'dev-refresh-secret';
-    const refreshExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '30d');
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+    };
+    const refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      'dev-refresh-secret';
+    const refreshExpiresIn = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+      '30d',
+    );
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: refreshSecret,
@@ -149,7 +169,9 @@ export class AuthService {
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
-        dashboardLayoutConfig: user.dashboardLayoutConfig ? JSON.parse(JSON.stringify(user.dashboardLayoutConfig)) : null,
+        dashboardLayoutConfig: user.dashboardLayoutConfig
+          ? JSON.parse(JSON.stringify(user.dashboardLayoutConfig))
+          : null,
       },
     };
   }

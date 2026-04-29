@@ -1,10 +1,24 @@
-import { IsString, IsOptional, IsNumber, IsArray, IsObject } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { CandidateStatus } from '../../common/constants/status.enums';
+
+export enum CandidateGender {
+  Male = 'male',
+  Female = 'female',
+  Unknown = 'unknown',
+}
 
 export class CreateCandidateDto {
   @IsString()
   name: string;
 
-  @IsString()
+  @IsEnum(CandidateGender)
   @IsOptional()
   gender?: string;
 
@@ -88,7 +102,7 @@ export class CreateCandidateDto {
   @IsOptional()
   importedBy?: string;
 
-  @IsString()
+  @IsEnum(CandidateStatus)
   @IsOptional()
   status?: string;
 

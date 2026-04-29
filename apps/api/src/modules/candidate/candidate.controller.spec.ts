@@ -71,7 +71,7 @@ describe('CandidateController', () => {
   it('should pass tenantId and pagination from request to service', async () => {
     const req = { user: { tenantId: 't1' } };
 
-    await controller.findAll(req as any, 2, 50);
+    await controller.findAll(req as any, { page: 2, pageSize: 50 });
 
     expect(service.findAll).toHaveBeenCalledWith(2, 50, 't1');
   });

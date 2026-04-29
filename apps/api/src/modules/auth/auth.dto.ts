@@ -1,4 +1,12 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsObject, ValidateNested, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsObject,
+  ValidateNested,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RegisterDto {
@@ -14,6 +22,7 @@ export class RegisterDto {
   name: string;
 
   @IsString()
+  @IsOptional()
   phone?: string;
 }
 
