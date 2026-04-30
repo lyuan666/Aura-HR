@@ -100,6 +100,7 @@ export class ParsingV2Service {
       fileHash: data.fileHash,
       textHash,
       resumeText: content.text.substring(0, 5000),
+      resumeUrl: data.fileKey,
     });
 
     emit('completed', 100);
@@ -227,6 +228,7 @@ ${text.substring(0, 4000)}
       'school', 'major', 'workExperiences', 'projectExperiences',
       'educationHistory', 'skills', 'summary',
       'tenantId', 'sourcePlatform', 'fileHash', 'textHash', 'resumeText',
+      'resumeUrl',
     ]);
     const safeDto: Record<string, any> = {};
     for (const [key, value] of Object.entries(dto)) {

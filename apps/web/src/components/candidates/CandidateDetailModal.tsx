@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Modal, Tabs, Space, Tag, Avatar, Input, Button, Tooltip } from 'antd';
+import { Modal, Tag, Avatar, Input, Button, Tooltip } from 'antd';
 import {
   CloseOutlined,
   StarOutlined,
@@ -10,22 +10,56 @@ import {
   SendOutlined,
   ThunderboltOutlined,
   DownOutlined,
-  ClockCircleOutlined,
-  UserOutlined,
-  FileTextOutlined,
-  PaperClipOutlined,
-  HistoryOutlined,
   MessageOutlined,
-  CalendarOutlined,
-  FolderOpenOutlined,
 } from '@ant-design/icons';
 import StandardResumeContent from './StandardResumeContent';
+import ResumePreview from './ResumePreview';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+
+interface CandidateDetail {
+  id?: string;
+  status?: string;
+  parsedTags?: {
+    skills?: string[];
+  };
+  createdAt?: string;
+  avatar?: string;
+  name?: string;
+  gender?: string;
+  age?: number;
+  degree?: string;
+  totalYears?: number;
+  phone?: string;
+  notes?: string;
+  location?: string;
+  resumeUrl?: string;
+  workExperiences?: Array<{
+    companyName?: string;
+    company?: string;
+    position?: string;
+    duration?: string;
+    content?: string | string[];
+    description?: string;
+  }>;
+  educationHistory?: Array<{
+    school?: string;
+    degree?: string;
+    degreeLevel?: string;
+    major?: string;
+    duration?: string;
+  }>;
+  projectExperiences?: Array<{
+    projectName?: string;
+    role?: string;
+    duration?: string;
+    description?: string;
+  }>;
+}
 
 interface CandidateDetailModalProps {
   visible: boolean;
-  candidate: any;
+  candidate: CandidateDetail | null;
   onClose: () => void;
 }
 
@@ -38,7 +72,7 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
   hired: { label: '已入职', color: '#00D2D3', bg: 'bg-success/10' },
 };
 
-function formatTimeAgo(dateStr: string) {
+function formatTimeAgo(dateStr?: string) {
   if (!dateStr) return '--';
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -56,12 +90,12 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
   candidate,
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState('standard');
+  const [activeTab, setActiveTab] = useState('attachment');
 
   if (!candidate) return null;
 
-  const status = statusMap[candidate.status] || statusMap.new;
-  const skills = candidate.parsedTags?.skills || [];
+  const status = (candidate.status ? statusMap[candidate.status] : null) || statusMap.new;
+  const skills = Array.isArray(candidate.parsedTags?.skills) ? candidate.parsedTags.skills : [];
   const pendingFeatureTip = '该操作需要接入职位/跟进工作流 API 后启用';
 
   const tabItems = [
@@ -260,8 +294,23 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
             </div>
 
             {/* 4. Content */}
-            <div className="flex-1">
-              <StandardResumeContent candidate={candidate} />
+            <div className="flex-1 overflow-auto">
+              {activeTab === 'attachment' && (
+                <ResumePreview
+                  candidateId={candidate.id || ''}
+                  resumeUrl={candidate.resumeUrl}
+                />
+              )}
+              {activeTab === 'standard' && (
+                <StandardResumeContent candidate={candidate} />
+              )}
+              {activeTab !== 'attachment' && activeTab !== 'standard' && (
+                <div className="flex items-center justify-center h-full min-h-[300px]">
+                  <span className="text-[13px] text-text-sub/40">
+                    功能开发中...
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

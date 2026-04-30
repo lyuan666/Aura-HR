@@ -1,16 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  MoreHorizontal,
-  ChevronDown,
-  Star,
-  Settings2,
-  Eraser,
-  Briefcase,
-  GraduationCap,
-} from 'lucide-react';
+import { ChevronDown, Star, Settings2, Eraser, Briefcase, GraduationCap } from 'lucide-react';
 import api from '@/lib/api';
 import CandidateDetailModal from '@/components/candidates/CandidateDetailModal';
 import ResumeUploadModal from '@/components/candidates/ResumeUploadModal';
@@ -18,14 +10,56 @@ import { App, Skeleton, Empty, Tag, Checkbox, Button, Input, Avatar } from 'antd
 import { UploadOutlined, MailOutlined } from '@ant-design/icons';
 import { cn } from '@/lib/utils';
 
-const formatPeriod = (item: any) => {
+interface TimelineItem {
+  startDate?: string;
+  start?: string;
+  from?: string;
+  endDate?: string;
+  end?: string;
+  to?: string;
+  duration?: string;
+}
+
+interface WorkExperience extends TimelineItem {
+  companyName?: string;
+  company?: string;
+  position?: string;
+  title?: string;
+}
+
+interface EducationExperience extends TimelineItem {
+  school?: string;
+  schoolName?: string;
+  degree?: string;
+  degreeLevel?: string;
+}
+
+interface CandidateRecord {
+  id?: string;
+  avatar?: string;
+  name?: string;
+  gender?: string;
+  age?: number;
+  degree?: string;
+  totalYears?: number;
+  status?: string;
+  currentCompany?: string;
+  currentTitle?: string;
+  school?: string;
+  resumeUrl?: string;
+  workExperiences?: WorkExperience[];
+  educationHistory?: EducationExperience[];
+}
+
+const formatPeriod = (item?: TimelineItem | null) => {
   const start = item?.startDate || item?.start || item?.from;
   const end = item?.endDate || item?.end || item?.to || (start ? '至今' : '');
+  if (!start && !end && item?.duration) return item.duration;
   if (!start && !end) return '';
   return `${start || '--'}-${end || '--'}`;
 };
 
-const getLatestWork = (candidate: any) => {
+const getLatestWork = (candidate: CandidateRecord) => {
   const firstWork = Array.isArray(candidate.workExperiences) ? candidate.workExperiences[0] : null;
   return {
     period: formatPeriod(firstWork),
@@ -34,7 +68,7 @@ const getLatestWork = (candidate: any) => {
   };
 };
 
-const getPreviousWork = (candidate: any) => {
+const getPreviousWork = (candidate: CandidateRecord) => {
   const secondWork = Array.isArray(candidate.workExperiences) ? candidate.workExperiences[1] : null;
   if (!secondWork) return null;
 
@@ -45,7 +79,7 @@ const getPreviousWork = (candidate: any) => {
   };
 };
 
-const getEducation = (candidate: any) => {
+const getEducation = (candidate: CandidateRecord) => {
   const firstEdu = Array.isArray(candidate.educationHistory) ? candidate.educationHistory[0] : null;
   return {
     period: formatPeriod(firstEdu),
@@ -57,13 +91,13 @@ const getEducation = (candidate: any) => {
 export default function CandidatesPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
-  const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidates, setCandidates] = useState<CandidateRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/candidates');
@@ -74,11 +108,11 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   useEffect(() => {
     fetchCandidates();
-  }, []);
+  }, [fetchCandidates]);
 
   const filteredCandidates = useMemo(() => {
     return candidates.filter(

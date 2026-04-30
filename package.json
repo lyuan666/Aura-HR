@@ -12,6 +12,7 @@
     "build:extension": "pnpm --filter @yzschros/extension build",
     "dev": "concurrently \"pnpm dev:api\" \"pnpm dev:web\"",
     "lint": "pnpm -r lint",
+    "lint:ci": "pnpm --filter @yzschros/api lint:ci && pnpm --filter @yzschros/web lint:ci",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:migrate": "pnpm --filter @yzschros/api migration:run",
     "db:generate": "pnpm --filter @yzschros/api migration:generate",

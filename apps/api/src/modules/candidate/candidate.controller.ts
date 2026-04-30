@@ -4,10 +4,12 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   Param,
   Post,
   Query,
   Req,
+  Res,
   Sse,
   UnauthorizedException,
   UploadedFile,
@@ -22,6 +24,7 @@ import { v4 as uuid } from 'uuid';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { JwtService } from '@nestjs/jwt';
+import type { Response } from 'express';
 import { CandidateService } from './candidate.service';
 import { AiService } from '../ai/ai.service';
 import { ProgressService } from './progress.service';
@@ -158,6 +161,45 @@ export class CandidateController {
   search(@Query('q') query: string, @Req() req: any) {
     const tenantId = this.requireTenantId(req);
     return this.candidateService.semanticSearch(query, tenantId);
+  }
+
+  @Get(':id/resume')
+  async getResumeFile(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.requireTenantId(req);
+    const candidate = await this.candidateService.findOne(id, tenantId);
+    if (!candidate.resumeUrl) {
+      return res.status(404).json({ success: false, message: '该候选人暂无附件简历' });
+    }
+
+    const buffer = await this.storage.getObject('uploads', candidate.resumeUrl);
+    const fileName = encodeURIComponent(
+      candidate.resumeUrl.split('/').pop() || 'resume',
+    );
+
+    const ext = candidate.resumeUrl.split('.').pop()?.toLowerCase() || '';
+    const contentTypes: Record<string, string> = {
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      txt: 'text/plain',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+    };
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${fileName}"`,
+    );
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
   }
 
   // ========== V2 批量上传 + SSE 进度 ==========
