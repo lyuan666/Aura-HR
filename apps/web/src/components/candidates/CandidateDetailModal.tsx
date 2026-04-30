@@ -74,7 +74,9 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
 
 function formatTimeAgo(dateStr?: string) {
   if (!dateStr) return '--';
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return '--';
+  const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}分钟前`;
   const hours = Math.floor(mins / 60);
