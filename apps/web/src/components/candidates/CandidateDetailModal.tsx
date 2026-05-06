@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Modal, Tag, Avatar, Input, Button, Tooltip } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, Tag, Avatar, Input, Button, Tooltip, Spin } from 'antd';
 import {
   CloseOutlined,
   StarOutlined,
@@ -13,9 +13,19 @@ import {
   MessageOutlined,
 } from '@ant-design/icons';
 import StandardResumeContent from './StandardResumeContent';
-import ResumePreview from './ResumePreview';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import api from '@/lib/api';
+import dynamic from 'next/dynamic';
+
+const ResumePreview = dynamic(() => import('./ResumePreview'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[360px] items-center justify-center text-[13px] text-text-sub/60">
+      正在加载简历预览...
+    </div>
+  ),
+});
 
 interface CandidateDetail {
   id?: string;
@@ -93,11 +103,56 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState('attachment');
+  const [resolvedCandidate, setResolvedCandidate] = useState<CandidateDetail | null>(candidate);
+  const [loading, setLoading] = useState(false);
 
-  if (!candidate) return null;
+  useEffect(() => {
+    setResolvedCandidate(candidate);
+  }, [candidate]);
 
-  const status = (candidate.status ? statusMap[candidate.status] : null) || statusMap.new;
-  const skills = Array.isArray(candidate.parsedTags?.skills) ? candidate.parsedTags.skills : [];
+  useEffect(() => {
+    if (!visible || !candidate?.id) return;
+
+    let active = true;
+
+    const fetchCandidateDetail = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get(`/candidates/${candidate.id}`);
+        if (active) {
+          setResolvedCandidate((prev) => ({
+            ...(prev || {}),
+            ...(res.data || {}),
+          }));
+        }
+      } catch (error) {
+        console.error('加载候选人详情失败', error);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCandidateDetail();
+
+    return () => {
+      active = false;
+    };
+  }, [candidate?.id, visible]);
+
+  const currentCandidate = useMemo(
+    () => resolvedCandidate || candidate,
+    [candidate, resolvedCandidate],
+  );
+
+  if (!currentCandidate) return null;
+
+  const status =
+    (currentCandidate.status ? statusMap[currentCandidate.status] : null) || statusMap.new;
+  const skills = Array.isArray(currentCandidate.parsedTags?.skills)
+    ? currentCandidate.parsedTags.skills
+    : [];
   const pendingFeatureTip = '该操作需要接入职位/跟进工作流 API 后启用';
 
   const tabItems = [
@@ -141,9 +196,9 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-[16px] font-bold text-text-main">人才详情</span>
             <div className="flex items-center gap-1.5 text-[12px] text-text-sub/50">
-              <span className="font-mono">ID: {candidate.id?.slice(0, 8) || '--'}</span>
+              <span className="font-mono">ID: {currentCandidate.id?.slice(0, 8) || '--'}</span>
               <span>·</span>
-              <span>{formatTimeAgo(candidate.createdAt)}入库</span>
+              <span>{formatTimeAgo(currentCandidate.createdAt)}入库</span>
               <span>·</span>
               <span>简历上传</span>
             </div>
@@ -166,46 +221,48 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
                 <div className="flex items-start gap-6">
                   <div className="relative">
                     <Avatar
-                      src={candidate.avatar}
+                      src={currentCandidate.avatar}
                       size={80}
                       className="border border-border-subtle bg-bg-elevated"
                     >
-                      {candidate.name?.[0] || '?'}
+                      {currentCandidate.name?.[0] || '?'}
                     </Avatar>
                     <div
                       className={cn(
                         'absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-bg-base border border-bg-base',
-                        candidate.gender === 'female' ? 'bg-error' : 'bg-brand-primary',
+                        currentCandidate.gender === 'female' ? 'bg-error' : 'bg-brand-primary',
                       )}
                     >
-                      {candidate.gender === 'female' ? '♀' : '♂'}
+                      {currentCandidate.gender === 'female' ? '♀' : '♂'}
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
                       <span className="text-[24px] font-bold text-text-main">
-                        {candidate.name || '未知'}
+                        {currentCandidate.name || '未知'}
                       </span>
                       <StarOutlined className="text-text-sub/30 hover:text-brand-primary cursor-pointer transition-colors text-lg" />
                     </div>
 
                     <div className="flex items-center gap-2 text-[13px] text-text-sub font-medium">
-                      {candidate.age && <span>{candidate.age}岁</span>}
-                      {candidate.age && candidate.degree && <span className="opacity-20">|</span>}
-                      {candidate.degree && <span>{candidate.degree}</span>}
-                      {candidate.totalYears ? (
+                      {currentCandidate.age && <span>{currentCandidate.age}岁</span>}
+                      {currentCandidate.age && currentCandidate.degree && (
+                        <span className="opacity-20">|</span>
+                      )}
+                      {currentCandidate.degree && <span>{currentCandidate.degree}</span>}
+                      {currentCandidate.totalYears ? (
                         <>
                           <span className="opacity-20">|</span>
-                          <span>{candidate.totalYears}年经验</span>
+                          <span>{currentCandidate.totalYears}年经验</span>
                         </>
                       ) : null}
-                      {candidate.phone && (
+                      {currentCandidate.phone && (
                         <span className="ml-4 flex items-center gap-1.5 text-text-main/80">
                           <span className="w-4 h-4 rounded-full bg-bg-elevated flex items-center justify-center text-[10px]">
                             📞
                           </span>
-                          {candidate.phone}
+                          {currentCandidate.phone}
                         </span>
                       )}
                     </div>
@@ -255,14 +312,14 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
               </div>
 
               {/* AI 折叠横幅 */}
-              {candidate.notes && (
+              {currentCandidate.notes && (
                 <div className="mt-8 bg-bg-surface/50 border border-brand-primary/20 rounded-lg p-3 flex items-center justify-between cursor-pointer group hover:border-brand-primary/40 transition-all relative">
                   <div className="flex items-center gap-3 relative z-10">
                     <div className="w-6 h-6 rounded bg-brand-primary/20 flex items-center justify-center text-[10px]">
                       <ThunderboltOutlined className="text-brand-primary" />
                     </div>
                     <span className="text-[13px] font-medium text-text-main/80">
-                      AI 解析摘要: {candidate.notes}
+                      AI 解析摘要: {currentCandidate.notes}
                     </span>
                   </div>
                 </div>
@@ -297,20 +354,22 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
 
             {/* 4. Content */}
             <div className="flex-1 overflow-auto">
+              {loading && (
+                <div className="flex items-center justify-center border-b border-border-subtle bg-bg-surface/40 py-2 text-[12px] text-text-sub/70">
+                  <Spin size="small" className="mr-2" />
+                  正在同步数据库中的最新详情...
+                </div>
+              )}
               {activeTab === 'attachment' && (
                 <ResumePreview
-                  candidateId={candidate.id || ''}
-                  resumeUrl={candidate.resumeUrl}
+                  candidateId={currentCandidate.id || ''}
+                  resumeUrl={currentCandidate.resumeUrl}
                 />
               )}
-              {activeTab === 'standard' && (
-                <StandardResumeContent candidate={candidate} />
-              )}
+              {activeTab === 'standard' && <StandardResumeContent candidate={currentCandidate} />}
               {activeTab !== 'attachment' && activeTab !== 'standard' && (
                 <div className="flex items-center justify-center h-full min-h-[300px]">
-                  <span className="text-[13px] text-text-sub/40">
-                    功能开发中...
-                  </span>
+                  <span className="text-[13px] text-text-sub/40">功能开发中...</span>
                 </div>
               )}
             </div>
@@ -377,12 +436,14 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
               </div>
               <div className="flex items-center justify-between text-[12px]">
                 <span className="text-text-sub/60">入库时间</span>
-                <span className="text-text-main/80">{formatTimeAgo(candidate.createdAt)}</span>
+                <span className="text-text-main/80">
+                  {formatTimeAgo(currentCandidate.createdAt)}
+                </span>
               </div>
-              {candidate.location && (
+              {currentCandidate.location && (
                 <div className="flex items-center justify-between text-[12px]">
                   <span className="text-text-sub/60">所在城市</span>
-                  <span className="text-text-main/80">{candidate.location}</span>
+                  <span className="text-text-main/80">{currentCandidate.location}</span>
                 </div>
               )}
             </div>

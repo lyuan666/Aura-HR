@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Button, Empty, Spin, Tooltip } from 'antd';
+import { Button, Empty, Spin, Tag, Tooltip } from 'antd';
 import {
   DownloadOutlined,
   FilePdfOutlined,
@@ -24,49 +24,119 @@ interface ResumePreviewProps {
   resumeUrl?: string;
 }
 
-const ResumePreview: React.FC<ResumePreviewProps> = ({
-  candidateId,
-  resumeUrl,
-}) => {
+interface ResumeTextPreview {
+  previewType: 'text' | 'download';
+  fileName: string;
+  extension?: string;
+  text?: string;
+  format?: 'markdown' | 'plain';
+  method?: string;
+  message?: string;
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response &&
+    typeof error.response.data === 'object' &&
+    error.response.data !== null &&
+    'message' in error.response.data &&
+    typeof error.response.data.message === 'string'
+  ) {
+    return error.response.data.message;
+  }
+
+  return fallback;
+};
+
+const ResumePreview: React.FC<ResumePreviewProps> = ({ candidateId, resumeUrl }) => {
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [downloadBlobUrl, setDownloadBlobUrl] = useState<string | null>(null);
+  const [textPreview, setTextPreview] = useState<ResumeTextPreview | null>(null);
 
   const isPdf = /\.(pdf)$/i.test(resumeUrl || '');
-  const isDoc = /\.(doc|docx)$/i.test(resumeUrl || '');
+  const isWord = /\.(doc|docx)$/i.test(resumeUrl || '');
+  const isTextPreviewable = /\.(docx|txt)$/i.test(resumeUrl || '');
   const fileName = resumeUrl?.split('/').pop() || 'resume';
 
-  const loadPdf = useCallback(async () => {
+  const loadResumeBlob = useCallback(async () => {
     if (!candidateId || !resumeUrl) return;
+
+    const res = await api.get(`/candidates/${candidateId}/resume`, {
+      responseType: 'blob',
+    });
+    const blob = res.data instanceof Blob ? res.data : new Blob([res.data]);
+    return URL.createObjectURL(blob);
+  }, [candidateId, resumeUrl]);
+
+  const loadPdf = useCallback(async () => {
     setLoading(true);
     setError('');
+    setTextPreview(null);
 
     try {
-      const res = await api.get(`/candidates/${candidateId}/resume`, {
-        responseType: 'blob',
-      });
-      // Revoke previous blob URL to avoid memory leak
+      const url = await loadResumeBlob();
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPdfBlobUrl(url);
-    } catch (e: any) {
-      setError(e.response?.data?.message || '加载简历文件失败');
+      setPdfBlobUrl(url || null);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, '加载简历文件失败'));
     } finally {
       setLoading(false);
     }
-  }, [candidateId, resumeUrl]);
+  }, [loadResumeBlob, pdfBlobUrl]);
+
+  const loadTextPreview = useCallback(async () => {
+    if (!candidateId || !resumeUrl) return;
+    setLoading(true);
+    setError('');
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+    }
+    setPdfBlobUrl(null);
+
+    try {
+      const res = await api.get(`/candidates/${candidateId}/resume-preview`);
+      setTextPreview(res.data || null);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, '加载简历预览失败'));
+    } finally {
+      setLoading(false);
+    }
+  }, [candidateId, pdfBlobUrl, resumeUrl]);
 
   useEffect(() => {
     if (isPdf) {
       loadPdf();
+    } else if (isTextPreviewable || isWord) {
+      loadTextPreview();
+    } else {
+      setTextPreview(null);
     }
+  }, [candidateId, resumeUrl, isPdf, isTextPreviewable, isWord, loadPdf, loadTextPreview]);
+
+  useEffect(() => {
     return () => {
-      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
     };
-  }, [candidateId, resumeUrl]);
+  }, [pdfBlobUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (downloadBlobUrl) {
+        URL.revokeObjectURL(downloadBlobUrl);
+      }
+    };
+  }, [downloadBlobUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -84,26 +154,32 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
     }
   };
 
-  const handleDownload = () => {
-    if (!pdfBlobUrl) return;
-    const a = document.createElement('a');
-    a.href = pdfBlobUrl;
-    a.download = fileName;
-    a.click();
-  };
+  const handleDownload = useCallback(async () => {
+    try {
+      const url = pdfBlobUrl || downloadBlobUrl || (await loadResumeBlob());
+      if (!url) return;
+      if (!downloadBlobUrl && url !== pdfBlobUrl) {
+        setDownloadBlobUrl(url);
+      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, '下载简历失败'));
+    }
+  }, [downloadBlobUrl, fileName, loadResumeBlob, pdfBlobUrl]);
+
+  const retryPreview = isPdf ? loadPdf : loadTextPreview;
 
   if (!resumeUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={
-            <span className="text-text-sub/50">暂未检测到原始简历附件</span>
-          }
+          description={<span className="text-text-sub/50">暂未检测到原始简历附件</span>}
         />
-        <p className="text-[12px] text-text-sub/30">
-          简历文件将在上传时自动关联
-        </p>
+        <p className="text-[12px] text-text-sub/30">简历文件将在上传时自动关联</p>
       </div>
     );
   }
@@ -123,18 +199,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={<span className="text-red-400">{error}</span>}
         />
-        <Button type="primary" size="small" onClick={loadPdf}>
+        <Button type="primary" size="small" onClick={retryPreview}>
           重试
         </Button>
       </div>
     );
   }
 
-  const FileIcon = isPdf
-    ? FilePdfOutlined
-    : isDoc
-      ? FileWordOutlined
-      : FileUnknownOutlined;
+  const FileIcon = isPdf ? FilePdfOutlined : isWord ? FileWordOutlined : FileUnknownOutlined;
 
   return (
     <div className="flex flex-col h-full">
@@ -143,9 +215,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
         <div className="flex items-center gap-2 text-[13px] text-text-sub/70">
           <FileIcon className="text-lg" />
           <span className="truncate max-w-[300px]">{fileName}</span>
-          {numPages > 0 && (
-            <span className="text-text-sub/40">({numPages} 页)</span>
-          )}
+          {numPages > 0 && <span className="text-text-sub/40">({numPages} 页)</span>}
         </div>
         <div className="flex items-center gap-1">
           {isPdf && (
@@ -173,22 +243,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
               </Tooltip>
               <div className="w-px h-4 bg-border-subtle mx-1" />
               <Tooltip title="打印">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<PrinterOutlined />}
-                  onClick={handlePrint}
-                />
+                <Button type="text" size="small" icon={<PrinterOutlined />} onClick={handlePrint} />
               </Tooltip>
             </>
           )}
           <Tooltip title="下载">
-            <Button
-              type="text"
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={handleDownload}
-            />
+            <Button type="text" size="small" icon={<DownloadOutlined />} onClick={handleDownload} />
           </Tooltip>
         </div>
       </div>
@@ -209,9 +269,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
               error={
                 <div className="flex flex-col items-center py-12 gap-3">
                   <FileUnknownOutlined style={{ fontSize: 32, opacity: 0.3 }} />
-                  <span className="text-[13px] text-gray-400">
-                    {error || 'PDF 文件加载失败'}
-                  </span>
+                  <span className="text-[13px] text-gray-400">{error || 'PDF 文件加载失败'}</span>
                 </div>
               }
             >
@@ -227,17 +285,26 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
               ))}
             </Document>
           </div>
+        ) : textPreview?.previewType === 'text' ? (
+          <div className="mx-auto flex max-w-4xl flex-col gap-4 px-6 py-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tag color="processing">在线文本预览</Tag>
+              {textPreview.method && <Tag>{textPreview.method}</Tag>}
+              {textPreview.format && <Tag>{textPreview.format}</Tag>}
+            </div>
+            <div className="rounded-xl border border-border-subtle bg-bg-base p-6 shadow-sm">
+              <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-7 text-text-main">
+                {textPreview.text || '未提取到可展示内容'}
+              </pre>
+            </div>
+          </div>
         ) : !isPdf ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
             <FileIcon style={{ fontSize: 48, opacity: 0.3 }} />
             <p className="text-[14px] text-text-sub/50">
-              此文件格式暂不支持在线预览
+              {textPreview?.message || '此文件格式暂不支持在线预览'}
             </p>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleDownload}
-            >
+            <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownload}>
               下载文件查看
             </Button>
           </div>

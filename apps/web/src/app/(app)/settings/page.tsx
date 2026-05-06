@@ -53,7 +53,7 @@ export default function SettingsPage() {
         message.error('加载用户信息失败');
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     api

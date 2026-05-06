@@ -7,9 +7,7 @@ import {
   UserOutlined,
   ShopOutlined,
   FileTextOutlined,
-  SettingOutlined,
   BellOutlined,
-  SearchOutlined,
   AppstoreOutlined,
   SendOutlined,
   BarChartOutlined,
@@ -36,7 +34,8 @@ export default function AppProLayout({ children }: { children: React.ReactNode }
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   if (!mounted) {
@@ -46,7 +45,15 @@ export default function AppProLayout({ children }: { children: React.ReactNode }
   return (
     <ProLayout
       title="天选OS"
-      logo={<Image src="/logo-tx-v2.png" alt="天选OS" width={36} height={36} style={{ objectFit: 'contain' }} />}
+      logo={
+        <Image
+          src="/logo-tx-v2.png"
+          alt="天选OS"
+          width={36}
+          height={36}
+          style={{ objectFit: 'contain' }}
+        />
+      }
       layout="side"
       navTheme="light"
       fixSiderbar
@@ -64,12 +71,7 @@ export default function AppProLayout({ children }: { children: React.ReactNode }
         </a>
       )}
       actionsRender={() => [
-        <Input.Search
-          key="search"
-          placeholder="搜索全库..."
-          style={{ width: 240 }}
-          allowClear
-        />,
+        <Input.Search key="search" placeholder="搜索全库..." style={{ width: 240 }} allowClear />,
         <Badge key="bell" count={1} size="small">
           <BellOutlined style={{ fontSize: 18, cursor: 'pointer', color: '#666' }} />
         </Badge>,
@@ -88,7 +90,9 @@ export default function AppProLayout({ children }: { children: React.ReactNode }
           onClick={() => router.push('/settings')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Avatar size="small" style={{ backgroundColor: '#1677ff' }}>F</Avatar>
+            <Avatar size="small" style={{ backgroundColor: '#1677ff' }}>
+              F
+            </Avatar>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>Franklin Jr.</div>
               <div style={{ fontSize: 12, color: '#999' }}>超级管理员</div>

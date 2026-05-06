@@ -1,7 +1,7 @@
 'use client';
 
-import AppProLayout from '@/components/AppProLayout';
+import { V2Layout } from '@/components/v2/V2Layout';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AppProLayout>{children}</AppProLayout>;
+  return <V2Layout>{children}</V2Layout>;
 }

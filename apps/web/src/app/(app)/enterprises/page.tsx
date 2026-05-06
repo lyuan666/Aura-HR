@@ -1,23 +1,34 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Button, Tag, Space, App, Avatar, Card, Row, Col, Statistic } from 'antd';
+import { Button, Space, App, Avatar, Form, Input, Modal } from 'antd';
 import {
   PlusOutlined,
   GlobalOutlined,
-  SafetyCertificateOutlined,
-  TeamOutlined,
-  ShopOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+
+interface EnterpriseListItem {
+  id: string;
+  name?: string;
+  industry?: string;
+  status?: string;
+  activeJobCount?: number;
+  pendingCandidateCount?: number;
+}
 
 export default function EnterprisesPage() {
   const { message } = App.useApp();
   const router = useRouter();
   const actionRef = useRef<ActionType>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [toolbarKeyword, setToolbarKeyword] = useState('');
+  const [form] = Form.useForm();
 
   const statusMap = {
     signed: { text: '已签约', status: 'success' },
@@ -27,12 +38,13 @@ export default function EnterprisesPage() {
     churned: { text: '已流失', status: 'error' },
   };
 
-  const columns: ProColumns[] = [
+  const columns: ProColumns<EnterpriseListItem>[] = [
     {
       title: '企业名称',
       dataIndex: 'name',
       key: 'name',
-      render: (_, record: any) => (
+      copyable: false,
+      render: (_, record) => (
         <Space>
           <Avatar style={{ backgroundColor: '#1677ff' }}>{record.name?.[0] || 'E'}</Avatar>
           <div>
@@ -66,7 +78,7 @@ export default function EnterprisesPage() {
       key: 'activeJobCount',
       hideInSearch: true,
       width: 100,
-      render: (_, record: any) => (
+      render: (_, record) => (
         <span>{record.activeJobCount || 0}</span>
       ),
     },
@@ -75,7 +87,7 @@ export default function EnterprisesPage() {
       key: 'pendingCandidateCount',
       hideInSearch: true,
       width: 100,
-      render: (_, record: any) => (
+      render: (_, record) => (
         <span>{record.pendingCandidateCount || 0}</span>
       ),
     },
@@ -84,10 +96,13 @@ export default function EnterprisesPage() {
       key: 'action',
       hideInSearch: true,
       width: 100,
-      render: (_, record: any) => (
+      render: (_, record) => (
         <Button
           type="link"
-          onClick={(e) => { e.stopPropagation(); router.push(`/enterprises/${record.id}`); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            router.push(`/enterprises/${record.id}`);
+          }}
         >
           查看详情
         </Button>
@@ -95,36 +110,63 @@ export default function EnterprisesPage() {
     },
   ];
 
+  const handleCreateEnterprise = async () => {
+    try {
+      const values = await form.validateFields();
+      setCreating(true);
+      await api.post('/enterprises', values);
+      message.success('客户已创建');
+      setCreateOpen(false);
+      form.resetFields();
+      actionRef.current?.reload();
+    } catch (error: unknown) {
+      if (!(error && typeof error === 'object' && 'errorFields' in error)) {
+        message.error('创建客户失败');
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
-    <PageContainer
-      header={{
-        title: '客户矩阵',
-        subTitle: '企业客户管理',
-        extra: [
-          <Button
-            key="create"
-            type="primary"
-            icon={<PlusOutlined />}
-          >
-            新增客户
-          </Button>,
-        ],
-      }}
-    >
+    <>
+      <PageContainer
+        header={{
+          title: '客户矩阵',
+          subTitle: '企业客户管理',
+          extra: [
+            <Button
+              key="create"
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setCreateOpen(true)}
+            >
+              新增客户
+            </Button>,
+          ],
+        }}
+      >
       <ProTable
         columns={columns}
         actionRef={actionRef}
         cardBordered
         request={async (params) => {
           try {
-            const res = await api.get('/enterprises', { params });
+            const res = await api.get('/enterprises', {
+              params: {
+                page: params.current,
+                pageSize: params.pageSize,
+                name: params.name || toolbarKeyword || undefined,
+                status: params.status || undefined,
+              },
+            });
             const items = res.data?.items || res.data || [];
             return {
               data: Array.isArray(items) ? items : [],
               success: true,
               total: res.data?.total || items.length,
             };
-          } catch (e) {
+          } catch {
             message.error('客户数据加载失败');
             return { data: [], success: false };
           }
@@ -132,8 +174,9 @@ export default function EnterprisesPage() {
         rowKey="id"
         search={{
           labelWidth: 'auto',
+          defaultCollapsed: false,
         }}
-        onRow={(record: any) => ({
+        onRow={(record) => ({
           onClick: () => router.push(`/enterprises/${record.id}`),
           style: { cursor: 'pointer' },
         })}
@@ -144,12 +187,73 @@ export default function EnterprisesPage() {
         dateFormatter="string"
         toolbar={{
           search: {
+            placeholder: '搜索客户名称',
             onSearch: (value: string) => {
-              console.log('search', value);
+              setToolbarKeyword(value.trim());
+              actionRef.current?.reload();
             },
           },
+          actions: [
+            <Button
+              key="reload"
+              icon={<ReloadOutlined />}
+              onClick={() => actionRef.current?.reload()}
+            >
+              刷新
+            </Button>,
+          ],
         }}
+        options={{ reload: true, density: true, setting: true }}
       />
-    </PageContainer>
+      </PageContainer>
+
+      <Modal
+        title="新增客户"
+        open={createOpen}
+        onCancel={() => {
+          setCreateOpen(false);
+          form.resetFields();
+        }}
+        onOk={handleCreateEnterprise}
+        confirmLoading={creating}
+        okText="保存"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            label="企业名称"
+            name="name"
+            rules={[{ required: true, message: '请输入企业名称' }]}
+          >
+            <Input placeholder="例如：天选科技" />
+          </Form.Item>
+          <Form.Item label="所属行业" name="industry">
+            <Input placeholder="例如：互联网 / 金融科技" />
+          </Form.Item>
+          <Form.Item label="企业规模" name="scale">
+            <Input placeholder="例如：100-499人" />
+          </Form.Item>
+          <Form.Item label="联系人姓名" name="contactName">
+            <Input placeholder="例如：张经理" />
+          </Form.Item>
+          <Form.Item label="联系人职位" name="contactTitle">
+            <Input placeholder="例如：招聘负责人" />
+          </Form.Item>
+          <Form.Item label="联系电话" name="contactPhone">
+            <Input placeholder="请输入联系电话" />
+          </Form.Item>
+          <Form.Item label="官网" name="website">
+            <Input placeholder="https://example.com" />
+          </Form.Item>
+          <Form.Item label="办公地址" name="address">
+            <Input placeholder="请输入办公地址" />
+          </Form.Item>
+          <Form.Item label="企业简介" name="description">
+            <Input.TextArea rows={4} placeholder="补充客户背景、招聘方向或合作备注" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 }

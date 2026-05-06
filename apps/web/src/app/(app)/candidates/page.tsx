@@ -6,6 +6,7 @@ import { ChevronDown, Star, Settings2, Eraser, Briefcase, GraduationCap } from '
 import api from '@/lib/api';
 import CandidateDetailModal from '@/components/candidates/CandidateDetailModal';
 import ResumeUploadModal from '@/components/candidates/ResumeUploadModal';
+import { demoCandidates } from '@/data/demoCandidates';
 import { App, Skeleton, Empty, Tag, Checkbox, Button, Input, Avatar } from 'antd';
 import { UploadOutlined, MailOutlined } from '@ant-design/icons';
 import { cn } from '@/lib/utils';
@@ -96,15 +97,26 @@ export default function CandidatesPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [usingDemoData, setUsingDemoData] = useState(false);
 
   const fetchCandidates = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/candidates');
-      setCandidates(res.data?.items || []);
+      const items = res.data?.items || [];
+      if (Array.isArray(items) && items.length > 0) {
+        setCandidates(items);
+        setUsingDemoData(false);
+        return;
+      }
+
+      setCandidates(demoCandidates);
+      setUsingDemoData(true);
     } catch (e) {
       console.error(e);
-      message.error('数据加载失败');
+      setCandidates(demoCandidates);
+      setUsingDemoData(true);
+      message.warning('当前还没有正式人才数据，先展示演示卡片');
     } finally {
       setLoading(false);
     }
@@ -125,13 +137,23 @@ export default function CandidatesPage() {
   }, [candidates, searchQuery]);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden p-6 bg-bg-base text-text-main">
+    <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg-base px-0 py-2 text-text-main">
       {/* 1. Header Area */}
-      <div className="flex items-center justify-between mb-5 flex-shrink-0">
+      <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold tracking-wide text-text-main" style={{ margin: 0 }}>
-            全部简历
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              className="shrink-0 whitespace-nowrap text-xl font-bold tracking-wide text-text-main"
+              style={{ margin: 0 }}
+            >
+              全部简历
+            </h1>
+            {usingDemoData && (
+              <Tag className="m-0 rounded-full border-none bg-brand-primary/12 px-3 py-1 text-[11px] font-semibold text-brand-primary">
+                演示数据
+              </Tag>
+            )}
+          </div>
           <Input
             placeholder="在结果中搜索姓名、职位、公司..."
             value={searchQuery}
@@ -158,7 +180,7 @@ export default function CandidatesPage() {
       </div>
 
       {/* 2. Filter Bar */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="mb-3 flex flex-shrink-0 items-center justify-between">
         <div className="flex flex-wrap gap-2">
           {['标签', '上传方式', '当前职位', '当前流程'].map((label) => (
             <Tag
@@ -190,7 +212,7 @@ export default function CandidatesPage() {
       </div>
 
       {/* 3. Bulk Action Bar */}
-      <div className="flex items-center justify-between py-3 flex-shrink-0 border-b border-border-subtle mb-2">
+      <div className="mb-2 flex flex-shrink-0 items-center justify-between border-b border-border-subtle py-2">
         <div className="flex items-center gap-4">
           <Checkbox />
           <span className="text-[12px] text-text-sub/50">
