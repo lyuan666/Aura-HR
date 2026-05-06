@@ -15,9 +15,14 @@ export class EnterpriseController {
     @Req() req: any,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 20,
+    @Query('name') name?: string,
+    @Query('status') status?: string,
   ) {
     const tenantId = req.user?.tenantId;
-    return this.enterpriseService.findAll(Number(page), Number(pageSize), tenantId);
+    return this.enterpriseService.findAll(Number(page), Number(pageSize), tenantId, {
+      name,
+      status,
+    });
   }
 
   @Post()

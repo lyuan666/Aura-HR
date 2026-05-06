@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import type { StringValue } from 'ms';
 import { AuthController } from './auth.controller';
 import { SettingsController } from './settings.controller';
 import { AuthService } from './auth.service';
@@ -20,7 +21,10 @@ import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'dev-secret-key',
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d') as any,
+          expiresIn: configService.get<string>(
+            'JWT_EXPIRES_IN',
+            '7d',
+          ) as StringValue,
         },
       }),
     }),

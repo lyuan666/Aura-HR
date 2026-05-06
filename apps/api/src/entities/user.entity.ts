@@ -42,7 +42,7 @@ export class UserEntity {
   isActive: boolean;
 
   @Column({ name: 'dashboard_layout_config', type: 'jsonb', nullable: true })
-  dashboardLayoutConfig: any;
+  dashboardLayoutConfig: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

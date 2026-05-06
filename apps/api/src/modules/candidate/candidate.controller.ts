@@ -27,6 +27,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Response } from 'express';
 import { CandidateService } from './candidate.service';
 import { AiService } from '../ai/ai.service';
+import { PdfExtractionService } from '../ai/pdf-extraction.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateCandidateDto } from './candidate.dto';
@@ -51,6 +52,7 @@ export class CandidateController {
   constructor(
     private readonly candidateService: CandidateService,
     private readonly aiService: AiService,
+    private readonly pdfExtractionService: PdfExtractionService,
     private readonly progressService: ProgressService,
     private readonly storage: StorageService,
     private readonly jwtService: JwtService,
@@ -102,6 +104,16 @@ export class CandidateController {
 
       const latestWork = workExp[0] || {};
       const latestEdu = eduList[0] || {};
+      const safeName = file.originalname.replace(/[/\\]/g, '_');
+      const resumeKey = `resumes/${tenantId}/single/${uuid()}-${safeName}`;
+
+      await this.storage.putObject(
+        'uploads',
+        resumeKey,
+        file.buffer,
+        file.size,
+        file.mimetype,
+      );
 
       // 后端映射：中文性别 -> Enum
       const genderMap: Record<string, string> = { 男: 'male', 女: 'female' };
@@ -125,6 +137,7 @@ export class CandidateController {
         workExperiences: workExp,
         educationHistory: eduList,
         projectExperiences: projectExp,
+        resumeUrl: resumeKey,
         resumeText: JSON.stringify(parsedData, null, 2),
         parsedTags: {
           desiredLocation: basicInfo.desiredLocation || [],
@@ -172,7 +185,9 @@ export class CandidateController {
     const tenantId = this.requireTenantId(req);
     const candidate = await this.candidateService.findOne(id, tenantId);
     if (!candidate.resumeUrl) {
-      return res.status(404).json({ success: false, message: '该候选人暂无附件简历' });
+      return res
+        .status(404)
+        .json({ success: false, message: '该候选人暂无附件简历' });
     }
 
     const buffer = await this.storage.getObject('uploads', candidate.resumeUrl);
@@ -193,13 +208,46 @@ export class CandidateController {
     const contentType = contentTypes[ext] || 'application/octet-stream';
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="${fileName}"`,
-    );
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('Content-Length', buffer.length);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(buffer);
+  }
+
+  @Get(':id/resume-preview')
+  async getResumePreview(@Param('id') id: string, @Req() req: any) {
+    const tenantId = this.requireTenantId(req);
+    const candidate = await this.candidateService.findOne(id, tenantId);
+    if (!candidate.resumeUrl) {
+      throw new BadRequestException('该候选人暂无附件简历');
+    }
+
+    const fileName = candidate.resumeUrl.split('/').pop() || 'resume';
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+    if (ext === 'doc') {
+      return {
+        previewType: 'download',
+        fileName,
+        extension: ext,
+        message: 'DOC 格式暂不支持在线解析，请下载原文件查看',
+      };
+    }
+
+    const buffer = await this.storage.getObject('uploads', candidate.resumeUrl);
+    const extracted = await this.pdfExtractionService.extractStructuredText(
+      buffer,
+      fileName,
+    );
+
+    return {
+      previewType: 'text',
+      fileName,
+      extension: ext,
+      text: extracted.text,
+      format: extracted.format,
+      method: extracted.method,
+    };
   }
 
   // ========== V2 批量上传 + SSE 进度 ==========

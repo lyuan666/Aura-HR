@@ -8,18 +8,29 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import type { StringValue } from 'ms';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import {
   LoginDto,
   RegisterDto,
+  UpdateLayoutDto,
   UpdateProfileDto,
   UpdateSettingsConfigDto,
 } from './auth.dto';
 import { UserEntity } from '../../entities/user.entity';
 import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
 
-const DEFAULT_SETTINGS_CONFIG: Required<UpdateSettingsConfigDto> = {
+type SettingsConfig = Required<UpdateSettingsConfigDto>;
+
+interface JwtRefreshPayload {
+  sub: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
+
+const DEFAULT_SETTINGS_CONFIG: SettingsConfig = {
   mfa: false,
   auditLog: false,
   apiKey: false,
@@ -91,7 +102,7 @@ export class AuthService {
       const refreshSecret =
         this.configService.get<string>('JWT_REFRESH_SECRET') ||
         'dev-refresh-secret';
-      const payload = this.jwtService.verify(refreshToken, {
+      const payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken, {
         secret: refreshSecret,
       });
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
@@ -146,9 +157,8 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('用户不存在');
 
-    return this.normalizeSettingsConfig(
-      user.dashboardLayoutConfig?.settingsConfig,
-    );
+    const dashboardConfig = this.asConfigObject(user.dashboardLayoutConfig);
+    return this.normalizeSettingsConfig(dashboardConfig.settingsConfig);
   }
 
   async updateSettingsConfig(userId: string, dto: UpdateSettingsConfigDto) {
@@ -170,7 +180,7 @@ export class AuthService {
     return nextSettings;
   }
 
-  async updateLayout(userId: string, layout: any) {
+  async updateLayout(userId: string, layout: UpdateLayoutDto) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('用户不存在');
 
@@ -199,20 +209,20 @@ export class AuthService {
     };
   }
 
-  private asConfigObject(value: any) {
+  private asConfigObject(value: unknown): Record<string, unknown> {
     return value && typeof value === 'object' && !Array.isArray(value)
-      ? value
+      ? { ...(value as Record<string, unknown>) }
       : {};
   }
 
-  private normalizeSettingsConfig(value: any) {
+  private normalizeSettingsConfig(value: unknown): SettingsConfig {
     const source = this.asConfigObject(value);
     return Object.fromEntries(
       Object.entries(DEFAULT_SETTINGS_CONFIG).map(([key, defaultValue]) => [
         key,
         typeof source[key] === 'boolean' ? source[key] : defaultValue,
       ]),
-    ) as Required<UpdateSettingsConfigDto>;
+    ) as SettingsConfig;
   }
 
   private async generateTokens(user: UserEntity, familyId?: string) {
@@ -229,11 +239,11 @@ export class AuthService {
     const refreshExpiresIn = this.configService.get<string>(
       'JWT_REFRESH_EXPIRES_IN',
       '30d',
-    );
+    ) as StringValue;
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: refreshSecret,
-      expiresIn: refreshExpiresIn as any,
+      expiresIn: refreshExpiresIn,
     });
 
     // Store refresh token hash for revocation tracking
@@ -255,9 +265,7 @@ export class AuthService {
         name: userWithTenant.name,
         role: userWithTenant.role,
         tenantId: userWithTenant.tenantId,
-        dashboardLayoutConfig: userWithTenant.dashboardLayoutConfig
-          ? JSON.parse(JSON.stringify(userWithTenant.dashboardLayoutConfig))
-          : null,
+        dashboardLayoutConfig: userWithTenant.dashboardLayoutConfig,
       },
     };
   }

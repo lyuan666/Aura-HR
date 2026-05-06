@@ -59,6 +59,22 @@ describe('EnterpriseService', () => {
     }));
   });
 
+  it('should include name and status filters when provided', async () => {
+    await service.findAll(1, 10, 't1', { name: '天选', status: 'following' });
+
+    expect(enterpriseRepo.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: 't1',
+          status: 'following',
+        }),
+      }),
+    );
+
+    const [lastCall] = (enterpriseRepo.findAndCount as jest.Mock).mock.calls.slice(-1);
+    expect(lastCall[0].where.name).toEqual(expect.objectContaining({ value: '%天选%' }));
+  });
+
   it('should find or create enterprise within a transaction', async () => {
     const name = 'New Corp';
     const tenantId = 't1';

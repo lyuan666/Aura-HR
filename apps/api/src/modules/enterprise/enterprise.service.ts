@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Like } from 'typeorm';
 import {
   CreateEnterpriseDto,
   CreateContactDto,
@@ -25,9 +25,25 @@ export class EnterpriseService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll(page = 1, pageSize = 20, tenantId?: string) {
+  async findAll(
+    page = 1,
+    pageSize = 20,
+    tenantId?: string,
+    filters?: { name?: string; status?: string },
+  ) {
+    const where: Record<string, unknown> = tenantId ? { tenantId } : {};
+    const trimmedName = filters?.name?.trim();
+
+    if (trimmedName) {
+      where.name = Like(`%${trimmedName}%`);
+    }
+
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+
     const [items, total] = await this.entRepo.findAndCount({
-      where: tenantId ? { tenantId } : {},
+      where,
       relations: ['contacts'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * pageSize,

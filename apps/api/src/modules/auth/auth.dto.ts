@@ -49,7 +49,7 @@ export class LayoutConfigDto {
   key?: string;
 
   @IsOptional()
-  layout?: any;
+  layout?: unknown;
 }
 
 export class UpdateLayoutDto {
@@ -61,7 +61,7 @@ export class UpdateLayoutDto {
 
   @IsObject()
   @IsOptional()
-  layouts?: Record<string, any>;
+  layouts?: Record<string, unknown>;
 
   @IsArray()
   @IsOptional()
