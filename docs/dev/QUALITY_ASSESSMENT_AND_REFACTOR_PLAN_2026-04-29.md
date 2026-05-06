@@ -6,11 +6,11 @@
 
 ## 1. 执行摘要
 
-当前系统可以构建并通过后端单元测试，但尚未达到稳定上线标准。主要风险集中在四类:
+当前系统可以构建并通过后端单元测试；Phase 0 的关键阻塞已经从 error 级别降为 warning 级别，但尚未达到稳定上线标准。主要风险集中在四类:
 
 - 功能完整性: 简历上传依赖 LLM 配置，配置缺失时会失败；设置页存在缺失 API；若干按钮仍是占位或无反馈。
 - 用户体验: 多处页面混用暗色全局主题与 Ant Design 亮色组件，局部对比度不足；候选人列表存在样例数据回退，容易误导用户。
-- 代码质量: Web lint 93 errors / 110 warnings；API lint 987 errors / 109 warnings，类型安全、格式化和未使用代码债务较重。
+- 代码质量: Web/API lint 已实现 `lint:ci` 可通过，error 阻塞清零；剩余 warning 作为 Phase 4 分模块治理队列，类型安全、格式化和未使用代码债务仍较重。
 - 部署稳定性: 生产部署缺少明确健康检查、环境变量校验、队列失败可观测性和轻量化部署边界。
 
 已完成一个窄范围修复:
@@ -19,6 +19,11 @@
 - 上传同一文件遇到历史 failed job 时允许移除并重试，避免前端永久停在 `QUEUED`。
 - parse-resume worker 推送失败原因，LLM 配置缺失时前端展示明确错误。
 - LLM 调用前增加配置校验，避免只暴露 `Invalid URL`。
+- `/settings/config` 与 `PUT /auth/profile` 契约已补齐，设置页不再因缺失后端路由产生 404。
+- 候选人列表已移除生产 UI 中的演示 fallback 数据，缺失字段改为中性空状态。
+- 候选人详情未接线动作已统一禁用并给出提示，避免误导用户。
+- Next 16 `middleware` 弃用问题已迁移到 `proxy` 约定。
+- 建立 `lint:ci`，禁止 CI 使用带 `--fix` 的 lint 脚本自动改代码；历史 `any` / unsafe / prettier 债务保留 warning 信号。
 
 ## 2. 验证结果
 
@@ -28,8 +33,8 @@
 - `pnpm --filter @yzschros/web build`: 通过
 - `pnpm --filter @yzschros/extension build`: 通过
 - `pnpm --filter @yzschros/api exec jest --runInBand`: 16 suites / 36 tests 通过
-- `pnpm --filter @yzschros/web lint`: 失败，93 errors / 110 warnings
-- `pnpm --filter @yzschros/api exec eslint "{src,apps,libs,test}/**/*.ts"`: 失败，987 errors / 109 warnings
+- `pnpm --filter @yzschros/web lint:ci`: 通过，0 errors / 158 warnings
+- `pnpm --filter @yzschros/api lint:ci`: 通过，0 errors / 1087 warnings
 
 浏览器 QA 覆盖页面:
 
@@ -63,20 +68,29 @@
 
 ### P0: 设置页调用不存在的 API
 
-现象: `/settings` 触发两次 `GET /api/settings/config` 404。
+现象: `/settings` 曾触发 `GET /api/settings/config` 404。
 
 根因: Web 已接入设置配置读写，但 API 未提供 `/settings/config`；同时页面调用 `PUT /auth/profile`，后端也没有对应方法。
 
+当前状态:
+
+- 已实现 SettingsController 与 profile update API。
+- 设置配置复用 `users.dashboard_layout_config.settingsConfig`，避免为 Phase 0 引入额外表结构和迁移风险。
+- `auth/layout` 保存时会保留 `settingsConfig`，避免配置被布局保存覆盖。
+
 后续要求:
 
-- 要么实现 SettingsModule 与 profile update API，要么前端移除不可用开关。
 - 所有页面网络请求必须有契约测试，禁止静默吞掉 404。
 
 ### P1: 简历库存在占位和误导性数据
 
-现象: 候选人列表在字段缺失时回退到固定公司、岗位、学校、经历，例如 `阿里云`、`前端开发专家`、`浙江大学`。
+现象: 候选人列表曾在字段缺失时回退到固定公司、岗位、学校、经历，例如 `阿里云`、`前端开发专家`、`浙江大学`。
 
 影响: 用户无法区分真实数据与演示数据，会被误导为“数据加载异常”或“解析结果串库”。
+
+当前状态:
+
+- 候选人列表中的硬编码演示 fallback 已移除，字段缺失时显示“暂无当前任职信息”“暂无教育信息”等中性空状态。
 
 后续要求:
 
@@ -110,15 +124,23 @@
 
 现象:
 
-- Web: 大量 `any`、未使用 import、hook dependency、React static component 规则错误。
+- Web: 大量 `any`、未使用 import、hook dependency 等 warning 仍存在；error 阻塞已清零。
 - API: 大量 prettier、unsafe any、unsafe member access、require import、promise rejection 类型错误。
 
 影响: 代码审查成本高，重构风险高，CI 即使加入 lint 也会立即失败。
+
+当前状态:
+
+- 已建立 `lint:ci`，Web/API 当前均可通过。
+- `StandardResumeContent` 的 React static component 错误已真实修复。
+- `AppProLayout` 的同步 effect setState 错误已真实修复。
+- 历史 `any`、unsafe 和 prettier 问题暂降为 warning，不作为 Phase 0 阻塞。
 
 后续要求:
 
 - 先格式化和清理低风险问题，再逐模块收紧类型。
 - 建立 `lint:ci`，避免脚本默认 `--fix` 修改代码。
+- Phase 4 按模块逐步将 warning 收敛，最终恢复严格 error 门禁。
 
 ### P2: 部署形态偏重
 
@@ -145,10 +167,10 @@
 
 任务:
 
-- 实现 `/settings/config` 和 `PUT /auth/profile`，或删除对应 UI。
+- 已实现 `/settings/config` 和 `PUT /auth/profile`，并通过 smoke QA。
 - 完成 LLM 环境变量校验和启动失败提示。
 - 为 upload-progress、batch-upload、settings、share 增加 e2e 覆盖。
-- 建立 `build:web`、`build:api`、`test:api`、`lint:ci` 质量门禁。
+- 已建立 `build:web`、`build:api`、`test:api`、`lint:ci` 质量门禁。
 
 验收:
 
@@ -253,6 +275,7 @@
 可维护性:
 
 - CI 中 lint/typecheck/test/build 全部通过。
+- CI lint 当前要求 error=0；warning 作为质量债务仪表盘持续跟踪，不允许新增未登记的高风险 warning。
 - 不允许生产 UI fallback 到演示业务数据。
 - 状态机和 API contract 有测试。
 
