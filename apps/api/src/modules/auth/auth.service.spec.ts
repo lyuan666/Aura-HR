@@ -68,11 +68,11 @@ describe('AuthService', () => {
     expect(result.accessToken).toBe('mock-token');
   });
 
-  it('should login and include tenantId in token payload', async () => {
-    const dto = { email: 'test@example.com', password: 'password123' };
+  it('should login with email and include tenantId in token payload', async () => {
+    const dto = { account: 'test@example.com', password: 'password123' };
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const mockUser = { id: 'u1', email: dto.email, password: hashedPassword, tenantId: 't1', isActive: true };
-    
+    const mockUser = { id: 'u1', email: dto.account, password: hashedPassword, tenantId: 't1', isActive: true };
+
     jest.spyOn(userRepo, 'findOne').mockResolvedValue(mockUser as any);
 
     const result = await service.login(dto);
@@ -81,5 +81,35 @@ describe('AuthService', () => {
       tenantId: 't1',
     }));
     expect(result.user.id).toBe('u1');
+  });
+
+  it('should login with phone number', async () => {
+    const dto = { account: '13248880301', password: 'password123' };
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const mockUser = { id: 'u2', phone: dto.account, password: hashedPassword, tenantId: 't1', isActive: true };
+
+    jest.spyOn(userRepo, 'findOne').mockResolvedValue(mockUser as any);
+
+    const result = await service.login(dto);
+
+    expect(userRepo.findOne).toHaveBeenCalledWith({ where: { phone: dto.account } });
+    expect(result.user.id).toBe('u2');
+  });
+
+  it('should reject login with wrong password', async () => {
+    const dto = { account: 'test@example.com', password: 'wrongpassword' };
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    const mockUser = { id: 'u1', email: dto.account, password: hashedPassword, tenantId: 't1', isActive: true };
+
+    jest.spyOn(userRepo, 'findOne').mockResolvedValue(mockUser as any);
+
+    await expect(service.login(dto)).rejects.toThrow('账号或密码错误');
+  });
+
+  it('should reject login for non-existent account', async () => {
+    const dto = { account: 'nobody@example.com', password: 'password123' };
+    jest.spyOn(userRepo, 'findOne').mockResolvedValue(null);
+
+    await expect(service.login(dto)).rejects.toThrow('账号或密码错误');
   });
 });

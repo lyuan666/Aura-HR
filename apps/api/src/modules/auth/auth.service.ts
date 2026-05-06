@@ -70,11 +70,15 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new UnauthorizedException('邮箱或密码错误');
+    const isEmail = dto.account.includes('@');
+    const where = isEmail
+      ? { email: dto.account }
+      : { phone: dto.account };
+    const user = await this.userRepo.findOne({ where });
+    if (!user) throw new UnauthorizedException('账号或密码错误');
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('邮箱或密码错误');
+    if (!isPasswordValid) throw new UnauthorizedException('账号或密码错误');
     if (!user.isActive) throw new UnauthorizedException('账号已被禁用');
 
     return this.generateTokens(user);

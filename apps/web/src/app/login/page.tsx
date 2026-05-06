@@ -14,7 +14,7 @@ export default function LoginPage() {
   const handleSubmit = async (values: any) => {
     try {
       const res = await api.post('/auth/login', {
-        email: values.email,
+        account: values.account,
         password: values.password,
       });
 
@@ -52,13 +52,13 @@ export default function LoginPage() {
         }
       >
         <ProFormText
-          name="email"
+          name="account"
           fieldProps={{
             size: 'large',
             prefix: <UserOutlined />,
           }}
-          placeholder="邮箱地址"
-          rules={[{ required: true, message: '请输入您的邮箱' }]}
+          placeholder="邮箱/手机号"
+          rules={[{ required: true, message: '请输入邮箱或手机号' }]}
         />
         <ProFormText.Password
           name="password"
