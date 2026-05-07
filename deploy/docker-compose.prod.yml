@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: ankane/pgvector:v0.5.1
+    container_name: yzschros-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-yzschros}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-yzschros_prod_2026}
+      POSTGRES_DB: ${DATABASE_NAME:-yzschros}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=100"]
+
+  minio:
+    image: minio/minio:RELEASE.2023-11-20T22-40-07Z
+    container_name: yzschros-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_prod_2026}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+
+  mineru:
+    image: opendatalab/miner_u:latest
+    container_name: yzschros-mineru
+    restart: always
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  pgdata:
+  miniodata:
