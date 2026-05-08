@@ -69,6 +69,8 @@ interface CandidateProfile {
     skills?: string[];
     desiredLocation?: string[];
     placeOfOrigin?: string;
+    selfEvaluation?: string;
+    [key: string]: unknown;
   };
   selfEvaluation?: string;
 }
@@ -167,6 +169,7 @@ const StandardResumeContent: React.FC<CandidateProps> = ({ candidate }) => {
   const projList = candidate.projectExperiences || [];
   const skills = Array.isArray(candidate.parsedTags?.skills) ? candidate.parsedTags.skills : [];
   const career = candidate.careerExpectations;
+  const selfEval = candidate.selfEvaluation || candidate.parsedTags?.selfEvaluation;
   const genderText = candidate.gender === 'female' ? '女' : candidate.gender === 'male' ? '男' : '--';
 
   return (
@@ -414,12 +417,12 @@ const StandardResumeContent: React.FC<CandidateProps> = ({ candidate }) => {
       </section>
 
       {/* ── 7. 自我评价 ── */}
-      {candidate.selfEvaluation && (
+      {selfEval && (
         <section>
           <SectionHeader title="自我评价" />
           <div className="bg-bg-elevated/20 border border-border-subtle rounded-xl p-6">
             <p className="text-[13px] leading-7 text-text-main/75 m-0 whitespace-pre-wrap">
-              {candidate.selfEvaluation}
+              {selfEval}
             </p>
           </div>
         </section>

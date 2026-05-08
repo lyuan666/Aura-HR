@@ -200,21 +200,48 @@ export class ParsingV2Service {
 - degree: 最高学历
 - school: 毕业院校
 - major: 专业
-- workExperiences: 工作经历数组 [{company, title, startDate, endDate, description}]
-- projectExperiences: 项目经历数组 [{name, role, description}]
-- educationHistory: 教育经历数组 [{school, degree, major, startDate, endDate}]
+- workExperiences: 工作经历数组，每个元素包含:
+  {companyName, position, duration(格式"YYYY.MM-YYYY.MM"), description(详细工作内容，用分号分隔多条)}
+- projectExperiences: 项目经历数组，每个元素包含:
+  {projectName, role, duration, description, achievements}
+- educationHistory: 教育经历数组 [{school, degreeLevel, major, duration}]
+- careerExpectations: 求职期望 {desiredPosition, desiredLocation(数组), desiredSalary, jobType}
 - skills: 技能标签数组
+- selfEvaluation: 自我评价（原文提取，保留完整内容）
 - summary: 一句话总结
+
+重要规则:
+1. workExperiences.description 尽量保留原文的完整描述，不要过度概括
+2. projectExperiences 如果简历中有项目经历，必须提取，包括项目描述和业绩
+3. selfEvaluation 如果简历中有"自我评价"/"个人评价"/"个人优势"等章节，完整提取
+4. careerExpectations 如果简历中有求职意向/期望，提取出来
+5. skills 尽量从工作经历和技能栏中提取所有技能关键词
 
 简历文本:
 ${text.substring(0, 4000)}
 
 返回纯 JSON，不要任何其他文字。`;
 
-    return await this.llmRouter.callForJson('resume', [
+    const result = await this.llmRouter.callForJson('resume', [
       { role: 'system', content: '你是专业简历信息提取系统。只返回 JSON，不添加任何解释。' },
       { role: 'user', content: prompt },
     ]);
+
+    // selfEvaluation 存到 parsedTags 避免改表
+    if (result.selfEvaluation && !result.parsedTags) {
+      result.parsedTags = {};
+    }
+    if (result.selfEvaluation) {
+      result.parsedTags.selfEvaluation = result.selfEvaluation;
+      delete result.selfEvaluation;
+    }
+
+    // careerExpectations 提到顶层
+    if (result.careerExpectations) {
+      // keep as is
+    }
+
+    return result;
   }
 
   /**
@@ -226,7 +253,8 @@ ${text.substring(0, 4000)}
       'name', 'gender', 'phone', 'email', 'age', 'location',
       'currentCompany', 'currentTitle', 'totalYears', 'degree',
       'school', 'major', 'workExperiences', 'projectExperiences',
-      'educationHistory', 'skills', 'summary',
+      'educationHistory', 'careerExpectations', 'skills', 'summary',
+      'parsedTags',
       'tenantId', 'sourcePlatform', 'fileHash', 'textHash', 'resumeText',
       'resumeUrl',
     ]);
