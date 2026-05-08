@@ -421,9 +421,18 @@ const StandardResumeContent: React.FC<CandidateProps> = ({ candidate }) => {
         <section>
           <SectionHeader title="自我评价" />
           <div className="bg-bg-elevated/20 border border-border-subtle rounded-xl p-6">
-            <p className="text-[13px] leading-7 text-text-main/75 m-0 whitespace-pre-wrap">
-              {selfEval}
-            </p>
+            <div className="flex flex-col gap-2">
+              {selfEval
+                .split(/[；;]\s*(?=\d+[.、])/)
+                .flatMap((s) => s.split(/\n/))
+                .filter(Boolean)
+                .map((line, i) => (
+                  <div key={i} className="flex gap-2 items-start text-[13px] leading-6 text-text-main/75">
+                    <span className="text-text-sub/20 mt-[2px] shrink-0">•</span>
+                    <span>{line.replace(/^\d+[.、．]\s*/, '')}</span>
+                  </div>
+                ))}
+            </div>
           </div>
         </section>
       )}
