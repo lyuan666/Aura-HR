@@ -1,68 +1,29 @@
 #!/bin/bash
-# setup-mac-mini-worker.sh — 在 Mac Mini 上运行
-# 一键配置 Mac Mini 作为 YZSCHROS 的 BullMQ Worker 节点
+# setup-mac-mini-worker.sh — Mac Mini 一键部署 YZSCHROS Worker
 #
 # 用法:
-#   chmod +x setup-mac-mini-worker.sh
-#   ./setup-mac-mini-worker.sh <ECS_TAILSCALE_IP>
+#   bash <(curl -fsSL https://raw.githubusercontent.com/lyuan666/Aura-HR/main/deploy/setup-mac-mini-worker.sh)
 #
-# 示例:
-#   ./setup-mac-mini-worker.sh 100.64.0.1
+# 或者先 clone 再运行:
+#   git clone https://github.com/lyuan666/Aura-HR.git ~/yzschros
+#   cd ~/yzschros && bash deploy/setup-mac-mini-worker.sh
 
 set -euo pipefail
 
-ECS_IP="${1:?Usage: $0 <ECS_TAILSCALE_IP>}"
+REPO_URL="https://github.com/lyuan666/Aura-HR.git"
 REPO_DIR="${REPO_DIR:-$HOME/yzschros}"
 BRANCH="${BRANCH:-main}"
+ECS_IP="100.85.253.6"
 
-echo "=== YZSCHROS Mac Mini Worker Setup ==="
-echo "ECS Tailscale IP: $ECS_IP"
-echo "Repo directory:   $REPO_DIR"
+echo "=== YZSCHROS Mac Mini Worker 一键部署 ==="
 echo ""
 
 # ──────────────────────────────────────────────
-# Step 1: 安装 Tailscale
+# Step 1: 检查 Node.js
 # ──────────────────────────────────────────────
-echo "[1/7] Checking Tailscale..."
-if ! command -v tailscale &>/dev/null; then
-  if [ -d "/Applications/Tailscale.app" ]; then
-    echo "  Tailscale app installed"
-  else
-    echo "  Installing Tailscale..."
-    brew install --cask tailscale 2>/dev/null || {
-      echo "  ERROR: brew not found. Install Tailscale manually:"
-      echo "  https://tailscale.com/download/mac"
-      exit 1
-    }
-  fi
-else
-  echo "  Tailscale CLI available"
-fi
-
-# 检查 Tailscale 是否已连接
-if ! tailscale status &>/dev/null 2>&1; then
-  echo "  WARNING: Tailscale not connected. Open the Tailscale app and log in."
-  echo "  Press Enter when connected..."
-  read -r
-fi
-
-# 验证到 ECS 的连通性
-echo "  Testing connection to ECS ($ECS_IP)..."
-if tailscale ping -c 1 "$ECS_IP" &>/dev/null 2>&1; then
-  echo "  Connection OK"
-else
-  echo "  WARNING: Cannot reach ECS via Tailscale."
-  echo "  Make sure both devices are on the same Tailscale network."
-  echo "  Press Enter to continue anyway, or Ctrl+C to abort..."
-  read -r
-fi
-
-# ──────────────────────────────────────────────
-# Step 2: 安装 Node.js
-# ──────────────────────────────────────────────
-echo "[2/7] Checking Node.js..."
-if ! command -v node &>/dev/null || [[ "$(node -v)" != v20* ]]; then
-  echo "  Installing Node.js 20 via nvm..."
+echo "[1/6] 检查 Node.js..."
+if ! command -v node &>/dev/null; then
+  echo "  安装 Node.js 20..."
   if ! command -v nvm &>/dev/null; then
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
@@ -74,30 +35,20 @@ fi
 echo "  Node.js $(node -v)"
 
 # ──────────────────────────────────────────────
-# Step 3: 安装 pnpm 和 PM2
+# Step 2: 安装 pnpm + PM2
 # ──────────────────────────────────────────────
-echo "[3/7] Checking pnpm and PM2..."
-if ! command -v pnpm &>/dev/null; then
-  echo "  Installing pnpm..."
-  npm install -g pnpm
-fi
-echo "  pnpm $(pnpm -v)"
-
-if ! command -v pm2 &>/dev/null; then
-  echo "  Installing PM2..."
-  npm install -g pm2
-fi
-echo "  PM2 $(pm2 -v)"
+echo "[2/6] 安装 pnpm + PM2..."
+command -v pnpm &>/dev/null || npm install -g pnpm
+command -v pm2 &>/dev/null || npm install -g pm2
+echo "  pnpm $(pnpm -v) / PM2 $(pm2 -v)"
 
 # ──────────────────────────────────────────────
-# Step 4: 克隆代码 (如果不存在)
+# Step 3: 克隆代码
 # ──────────────────────────────────────────────
-echo "[4/7] Setting up codebase..."
+echo "[3/6] 获取代码..."
 if [ ! -d "$REPO_DIR" ]; then
-  echo "  Cloning repository..."
-  git clone https://github.com/your-org/YZSCHROS.git "$REPO_DIR" --branch "$BRANCH"
+  git clone "$REPO_URL" "$REPO_DIR" --branch "$BRANCH"
 else
-  echo "  Updating existing repository..."
   cd "$REPO_DIR"
   git fetch origin
   git checkout "$BRANCH"
@@ -105,54 +56,24 @@ else
 fi
 
 cd "$REPO_DIR"
-echo "  Installing dependencies..."
-pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
-echo "  Building API..."
+# ──────────────────────────────────────────────
+# Step 4: 安装依赖 + 构建
+# ──────────────────────────────────────────────
+echo "[4/6] 安装依赖 + 构建 API..."
+pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 pnpm build:api
 
 # ──────────────────────────────────────────────
-# Step 5: 创建 .env.worker 配置
+# Step 5: 创建配置
 # ──────────────────────────────────────────────
-echo "[5/7] Creating .env.worker..."
-
-# 从 ECS 复制关键配置 (需要 ECS SSH 访问)
-DB_PASSWORD="${DB_PASSWORD:-}"
-MINIO_PASSWORD="${MINIO_PASSWORD:-}"
-LLM_KEY="${LLM_KEY:-}"
-LLM_FALLBACK_KEY="${LLM_FALLBACK_KEY:-}"
-
-# 如果没提供密码, 尝试从 ECS 读取
-if [ -z "$DB_PASSWORD" ]; then
-  echo "  Reading config from ECS..."
-  if command -v ssh &>/dev/null; then
-    ECS_ENV=$(ssh -o ConnectTimeout=5 "root@$ECS_IP" "cat /opt/yzschros/.env" 2>/dev/null || echo "")
-    if [ -n "$ECS_ENV" ]; then
-      DB_PASSWORD=$(echo "$ECS_ENV" | grep "^DATABASE_PASSWORD=" | cut -d= -f2)
-      MINIO_PASSWORD=$(echo "$ECS_ENV" | grep "^MINIO_ROOT_PASSWORD=" | cut -d= -f2)
-      LLM_KEY=$(echo "$ECS_ENV" | grep "^LLM_RESUME_KEY=" | cut -d= -f2)
-      LLM_FALLBACK_KEY=$(echo "$ECS_ENV" | grep "^LLM_RESUME_FALLBACK_KEY=" | cut -d= -f2)
-      echo "  Config loaded from ECS"
-    fi
-  fi
-fi
-
-# 如果还没拿到, 提示手动输入
-if [ -z "$DB_PASSWORD" ]; then
-  echo ""
-  echo "  Could not auto-read config from ECS."
-  read -p "  DATABASE_PASSWORD: " DB_PASSWORD
-  read -p "  MINIO_ROOT_PASSWORD: " MINIO_PASSWORD
-  read -p "  LLM_RESUME_KEY (DeepSeek): " LLM_KEY
-  read -p "  LLM_RESUME_FALLBACK_KEY (ZhiPu): " LLM_FALLBACK_KEY
-fi
+echo "[5/6] 创建 .env.worker..."
 
 cat > "$REPO_DIR/.env.worker" << EOF
-# === YZSCHROS Worker Configuration ===
-# Auto-generated by setup-mac-mini-worker.sh on $(date)
-# ECS Tailscale IP: $ECS_IP
+# === YZSCHROS Worker ===
+# 生成时间: $(date)
 
-# Worker mode: skip HTTP listen
+# Worker 模式: 不启动 HTTP
 WORKER_ONLY=true
 
 # Redis (via Tailscale)
@@ -162,41 +83,32 @@ REDIS_URL=redis://${ECS_IP}:6379
 DATABASE_HOST=${ECS_IP}
 DATABASE_PORT=5432
 DATABASE_USER=yzschros
-DATABASE_PASSWORD=${DB_PASSWORD}
+DATABASE_PASSWORD=yzschros_prod_2026
 DATABASE_NAME=yzschros
 
 # MinIO (via Tailscale)
 MINIO_ENDPOINT=${ECS_IP}
 MINIO_PORT=9000
 MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+MINIO_ROOT_PASSWORD=minioadmin_prod_2026
 MINIO_USE_SSL=false
 
-# LLM (local, not via ECS)
+# LLM (本地调用)
 LLM_RESUME_URL=https://api.deepseek.com/chat/completions
 LLM_RESUME_MODEL=deepseek-chat
-LLM_RESUME_KEY=${LLM_KEY}
+LLM_RESUME_KEY=sk-9b7db7ebeca54ec080ccb66db30369f7
 LLM_RESUME_FALLBACK_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 LLM_RESUME_FALLBACK_MODEL=glm-4-flash
-LLM_RESUME_FALLBACK_KEY=${LLM_FALLBACK_KEY}
+LLM_RESUME_FALLBACK_KEY=9f1925f431c44aaab72caf2fd427966f.My5sSrunPXET0jTX
 
 NODE_ENV=production
 MINERU_URL=
 EOF
 
 chmod 600 "$REPO_DIR/.env.worker"
-echo "  .env.worker created"
 
-# ──────────────────────────────────────────────
-# Step 6: 启动 Worker
-# ──────────────────────────────────────────────
-echo "[6/7] Starting Worker..."
-
-# 停止旧的 (如果存在)
-pm2 delete yzschros-worker 2>/dev/null || true
-
-# 用 ecosystem.config.js 更精确地控制
-cat > "$REPO_DIR/ecosystem.worker.config.js" << 'EOF'
+# PM2 ecosystem
+cat > "$REPO_DIR/ecosystem.worker.config.js" << 'CONF'
 module.exports = {
   apps: [{
     name: 'yzschros-worker',
@@ -210,33 +122,24 @@ module.exports = {
     autorestart: true,
   }],
 };
-EOF
+CONF
 
-cd "$REPO_DIR"
+echo "  配置完成"
+
+# ──────────────────────────────────────────────
+# Step 6: 启动 Worker
+# ──────────────────────────────────────────────
+echo "[6/6] 启动 Worker..."
+pm2 delete yzschros-worker 2>/dev/null || true
 pm2 start ecosystem.worker.config.js
 pm2 save
+pm2 startup 2>/dev/null || echo "  手动运行 'pm2 startup' 配置开机自启"
 
-echo "  Worker started"
-
-# ──────────────────────────────────────────────
-# Step 7: 配置开机自启
-# ──────────────────────────────────────────────
-echo "[7/7] Configuring auto-start..."
-pm2 startup 2>/dev/null || echo "  Run 'pm2 startup' manually to configure auto-start"
-pm2 save
-
-# ──────────────────────────────────────────────
 echo ""
-echo "=== Setup Complete ==="
+echo "=== 部署完成 ==="
 echo ""
-echo "Worker status:"
 pm2 status
 echo ""
-echo "Useful commands:"
-echo "  pm2 logs yzschros-worker   # 查看日志"
-echo "  pm2 restart yzschros-worker # 重启"
-echo "  pm2 stop yzschros-worker    # 停止"
-echo "  pm2 monit                   # 监控面板"
-echo ""
-echo "Update workflow:"
-echo "  cd $REPO_DIR && git pull && pnpm build:api && pm2 restart yzschros-worker"
+echo "日志: pm2 logs yzschros-worker"
+echo "重启: pm2 restart yzschros-worker"
+echo "更新: cd $REPO_DIR && git pull && pnpm build:api && pm2 restart yzschros-worker"
