@@ -6,9 +6,10 @@ import { ChevronDown, Star, Settings2, Eraser, Briefcase, GraduationCap } from '
 import api from '@/lib/api';
 import CandidateDetailModal from '@/components/candidates/CandidateDetailModal';
 import ResumeUploadModal from '@/components/candidates/ResumeUploadModal';
+import FeishuImportModal from '@/components/candidates/FeishuImportModal';
 import { demoCandidates } from '@/data/demoCandidates';
-import { App, Skeleton, Empty, Tag, Checkbox, Button, Input, Avatar } from 'antd';
-import { UploadOutlined, MailOutlined } from '@ant-design/icons';
+import { App, Skeleton, Empty, Tag, Checkbox, Button, Input, Avatar, Pagination, Dropdown } from 'antd';
+import { UploadOutlined, MailOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { cn } from '@/lib/utils';
 
 interface TimelineItem {
@@ -97,15 +98,26 @@ export default function CandidatesPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isFeishuModalOpen, setIsFeishuModalOpen] = useState(false);
   const [usingDemoData, setUsingDemoData] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  // Selection State
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const fetchCandidates = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/candidates');
-      const items = res.data?.items || [];
-      if (Array.isArray(items) && items.length > 0) {
-        setCandidates(items);
+      const res = await api.get('/candidates', {
+        params: { page: currentPage, pageSize },
+      });
+      if (res.data?.success) {
+        setCandidates(res.data.data.items || []);
+        setTotal(res.data.data.meta?.totalItems || 0);
         setUsingDemoData(false);
         return;
       }
@@ -120,7 +132,7 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [message, currentPage, pageSize]);
 
   useEffect(() => {
     fetchCandidates();
@@ -135,6 +147,27 @@ export default function CandidatesPage() {
         ),
     );
   }, [candidates, searchQuery]);
+
+  const handleSelectAll = (e: any) => {
+    if (e.target.checked) {
+      setSelectedRowKeys(filteredCandidates.map(c => c.id as string));
+    } else {
+      setSelectedRowKeys([]);
+    }
+  };
+
+  const handleRowSelect = (id: string | undefined, checked: boolean) => {
+    if (!id) return;
+    if (checked) {
+      setSelectedRowKeys(prev => [...prev, id]);
+    } else {
+      setSelectedRowKeys(prev => prev.filter(k => k !== id));
+    }
+  };
+
+  const handleMailboxIntegration = () => {
+    message.info('邮箱归集服务已在队列中，即将开放设置入口');
+  };
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg-base px-0 py-2 text-text-main">
@@ -172,20 +205,66 @@ export default function CandidatesPage() {
           </Button>
           <Button
             icon={<MailOutlined />}
-            className="bg-bg-surface border-border-subtle text-text-sub rounded-md"
+            onClick={handleMailboxIntegration}
+            className="bg-bg-surface border-border-subtle text-text-sub rounded-md hover:text-brand-primary"
           >
             邮箱归集
+          </Button>
+          <Button
+            icon={<MailOutlined />}
+            onClick={() => setIsFeishuModalOpen(true)}
+            className="bg-bg-surface border-border-subtle text-text-sub rounded-md hover:text-brand-primary"
+          >
+            飞书导入
           </Button>
         </div>
       </div>
 
-      {/* 2. Filter Bar */}
-      <div className="mb-3 flex flex-shrink-0 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          {['标签', '上传方式', '当前职位', '当前流程'].map((label) => (
+      {/* 2. Filter Bar & Bulk Actions */}
+      <div className="mb-3 flex flex-shrink-0 items-center justify-between bg-bg-surface p-2 rounded-lg border border-border-subtle">
+        <div className="flex items-center gap-4 pl-2">
+          <Checkbox 
+            checked={filteredCandidates.length > 0 && selectedRowKeys.length === filteredCandidates.length}
+            indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < filteredCandidates.length}
+            onChange={handleSelectAll}
+          >
+            全选
+          </Checkbox>
+          
+          <div className="h-4 w-px bg-border-subtle mx-2" />
+          
+          <div className="flex gap-2">
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<ShareAltOutlined />}
+              disabled={selectedRowKeys.length === 0}
+              className="text-text-sub hover:text-brand-primary"
+            >
+              批量分享
+            </Button>
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<DownloadOutlined />}
+              disabled={selectedRowKeys.length === 0}
+              className="text-text-sub hover:text-brand-primary"
+            >
+              导出简历
+            </Button>
+            <Dropdown menu={{ items: [{ key: 'time', label: '按更新时间' }, { key: 'match', label: '按匹配度' }] }}>
+              <Button type="text" size="small" className="text-text-sub">
+                排序 <ChevronDown size={12} className="ml-1" />
+              </Button>
+            </Dropdown>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pr-2">
+          {['当前职位', '当前流程'].map((label) => (
             <Tag
               key={label}
-              className="m-0 bg-bg-surface border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-lg"
+              className="m-0 bg-transparent border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-md hover:border-brand-primary/50"
             >
               {label} <ChevronDown size={10} className="inline ml-1 opacity-50" />
             </Tag>
@@ -271,9 +350,16 @@ export default function CandidatesPage() {
                     className="group flex items-start py-5 border-b border-border-subtle hover:bg-bg-elevated/30 transition-colors cursor-pointer"
                   >
                     {/* Left Column: Identity */}
-                    <div className="flex items-start w-[320px] flex-shrink-0 pl-1 relative">
-                      <Checkbox className="mt-2" onClick={(e) => e.stopPropagation()} />
-                      <div className="ml-4 flex gap-4">
+                    <div className="w-10 flex-shrink-0 flex items-center justify-center relative z-10 pt-4">
+                      <Checkbox 
+                        checked={selectedRowKeys.includes(c.id || '')}
+                        onChange={(e) => handleRowSelect(c.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className="flex items-start flex-1 gap-4">
                         <div className="relative flex-shrink-0">
                           <Avatar
                             src={c.avatar}
@@ -316,8 +402,6 @@ export default function CandidatesPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-
                     {/* Middle Column: Timeline */}
                     <div className="flex-1 px-4 relative flex flex-col gap-3 pb-1">
                       <div className="absolute left-[23px] top-[18px] bottom-4 border-l border-dashed border-border-subtle/50" />
@@ -432,6 +516,21 @@ export default function CandidatesPage() {
         )}
       </div>
 
+      <div className="py-4 flex justify-end">
+        <Pagination
+          current={currentPage}
+          pageSize={pageSize}
+          total={total || demoCandidates.length}
+          onChange={(page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          }}
+          showSizeChanger
+          showQuickJumper
+          showTotal={(total) => `共 ${total} 条候选人记录`}
+        />
+      </div>
+
       <CandidateDetailModal
         visible={isModalOpen}
         candidate={selectedCandidate}
@@ -440,6 +539,11 @@ export default function CandidatesPage() {
       <ResumeUploadModal
         visible={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={fetchCandidates}
+      />
+      <FeishuImportModal
+        visible={isFeishuModalOpen}
+        onClose={() => setIsFeishuModalOpen(false)}
         onSuccess={fetchCandidates}
       />
     </div>

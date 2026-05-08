@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -44,43 +44,46 @@ import {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../../.env',
+      envFilePath: '.env',
     }),
 
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
 
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432', 10),
-      username: process.env.DATABASE_USER || 'yzschros',
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME || 'yzschros',
-      entities: [
-        UserEntity,
-        CandidateEntity,
-        EnterpriseEntity,
-        ContactEntity,
-        JobPositionEntity,
-        RecommendationEntity,
-        ContractEntity,
-        InvoiceEntity,
-        FollowUpEntity,
-        AuditLogEntity,
-        ShareLinkEntity,
-        PendingJobEntity,
-        GuaranteeTrackingEntity,
-        RefreshTokenEntity,
-      ],
-      synchronize: process.env.NODE_ENV !== 'production',
-      logging: process.env.NODE_ENV !== 'production',
-      poolSize: 20,
-      extra: {
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      },
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('DATABASE_HOST') || 'localhost',
+        port: parseInt(configService.get('DATABASE_PORT') || '5432', 10),
+        username: configService.get('DATABASE_USER') || 'yzschros',
+        password: configService.get('DATABASE_PASSWORD'),
+        database: configService.get('DATABASE_NAME') || 'yzschros',
+        entities: [
+          UserEntity,
+          CandidateEntity,
+          EnterpriseEntity,
+          ContactEntity,
+          JobPositionEntity,
+          RecommendationEntity,
+          ContractEntity,
+          InvoiceEntity,
+          FollowUpEntity,
+          AuditLogEntity,
+          ShareLinkEntity,
+          PendingJobEntity,
+          GuaranteeTrackingEntity,
+          RefreshTokenEntity,
+        ],
+        synchronize: configService.get('NODE_ENV') !== 'production',
+        logging: configService.get('NODE_ENV') !== 'production',
+        poolSize: 20,
+        extra: {
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        },
+      }),
     }),
 
     RedisModule,

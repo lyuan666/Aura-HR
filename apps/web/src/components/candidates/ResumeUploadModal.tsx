@@ -113,7 +113,7 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     try {
       const res = await api.post('/candidates/batch-upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 30000,
+        timeout: 120000,
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || progressEvent.loaded));
           setQueue(prev =>

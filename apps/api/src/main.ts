@@ -29,8 +29,14 @@ async function bootstrap() {
   app.useGlobalInterceptors(new SafetyGuardInterceptor());
 
   const port = process.env.API_PORT || 3001;
-  await app.listen(port);
-  console.log(`API 服务已启动: http://localhost:${port}/api`);
+  if (process.env.WORKER_ONLY === 'true') {
+    // Worker 模式: 只启动 BullMQ processors, 不监听 HTTP
+    await app.init();
+    console.log(`Worker 模式已启动 (PID: ${process.pid})`);
+  } else {
+    await app.listen(port);
+    console.log(`API 服务已启动: http://localhost:${port}/api`);
+  }
 }
 bootstrap().catch((err) => {
   console.error('Failed to start API:', err);

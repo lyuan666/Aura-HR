@@ -65,13 +65,14 @@ export class PdfExtractionService {
         this.mineruConsecutiveFailures = 0;
       }
 
-      // Level 2: pdf-parse 降级
+      // Level 2: pdf-parse 降级 (v2 API: PDFParse class)
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const pdfParse = require('pdf-parse');
-        const text = await pdfParse(buffer);
-        if (text && text.text && text.text.length > 50) {
-          return { text: text.text, format: 'plain', method: 'pdf-parse' };
+        const { PDFParse } = require('pdf-parse');
+        const parser = new PDFParse({ data: new Uint8Array(buffer) });
+        const result = await parser.getText();
+        if (result && result.text && result.text.length > 50) {
+          return { text: result.text, format: 'plain', method: 'pdf-parse' };
         }
       } catch (e: any) {
         this.logger.warn(`pdf-parse 失败: ${e.message}`);

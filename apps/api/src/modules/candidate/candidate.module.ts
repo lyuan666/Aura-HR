@@ -8,6 +8,7 @@ import { CandidateEntity } from '../../entities/candidate.entity';
 import { AiModule } from '../ai/ai.module';
 import { EmbeddingModule } from '../embedding/embedding.module';
 import { ProgressService } from './progress.service';
+import { FeishuService } from './feishu.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
@@ -20,7 +21,7 @@ import { StorageModule } from '../storage/storage.module';
     BullModule.registerQueue({ name: 'vectorize' }, { name: 'parse-resume' }),
   ],
   controllers: [CandidateController],
-  providers: [CandidateService, ProgressService],
-  exports: [CandidateService, ProgressService],
+  providers: [CandidateService, ProgressService, FeishuService],
+  exports: [CandidateService, ProgressService, FeishuService],
 })
 export class CandidateModule {}

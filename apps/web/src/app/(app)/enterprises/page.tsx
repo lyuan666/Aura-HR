@@ -160,11 +160,12 @@ export default function EnterprisesPage() {
                 status: params.status || undefined,
               },
             });
-            const items = res.data?.items || res.data || [];
+            const responseData = res.data?.data || res.data || {};
+            const items = responseData.items || (Array.isArray(responseData) ? responseData : []);
             return {
-              data: Array.isArray(items) ? items : [],
+              data: items,
               success: true,
-              total: res.data?.total || items.length,
+              total: responseData.meta?.totalItems || items.length || 0,
             };
           } catch {
             message.error('客户数据加载失败');

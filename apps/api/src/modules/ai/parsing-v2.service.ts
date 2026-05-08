@@ -244,8 +244,8 @@ ${text.substring(0, 4000)}
         ...safeDto,
         status: 'new',
       })
-      .onConflict('("fileHash", "tenantId") DO UPDATE SET "updatedAt" = "updatedAt"')
-      .returning(['id', 'createdAt', 'updatedAt'])
+      .onConflict('("file_hash", "tenant_id") DO UPDATE SET "updated_at" = now()')
+      .returning(['id', 'created_at', 'updated_at'])
       .execute();
 
     const row = result.raw[0];

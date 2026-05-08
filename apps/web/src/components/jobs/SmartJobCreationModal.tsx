@@ -81,16 +81,16 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
       const saveRes = await api.post('/job-positions', {
         title: parsedData.title || 'AI 解析职位',
         description: values.description,
-        salaryMin: parsedData.salaryMin,
-        salaryMax: parsedData.salaryMax,
-        skillTags: parsedData.requiredSkills || ['AI', 'Tech']
+        salaryMin: parseInt(parsedData.salaryMin) || undefined,
+        salaryMax: parseInt(parsedData.salaryMax) || undefined,
       });
       
       onSuccess(saveRes.data);
       message.success('AI 节点构建成功，职位已入库');
       form.resetFields();
-    } catch (e) {
-      message.error('智能解析服务暂不可用');
+    } catch (e: any) {
+      console.error(e);
+      message.error(e.response?.data?.message || '智能解析服务暂不可用');
     } finally {
       setParsing(false);
     }

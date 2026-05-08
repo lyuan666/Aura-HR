@@ -128,12 +128,19 @@ export default function JobsPage() {
         cardBordered
         request={async (params) => {
           try {
-            const res = await api.get('/job-positions', { params });
-            const items = res.data?.items || res.data || [];
+            const res = await api.get('/job-positions', {
+              params: {
+                page: params.current,
+                pageSize: params.pageSize,
+                title: params.title || undefined,
+              },
+            });
+            const responseData = res.data?.data || res.data || {};
+            const items = responseData.items || (Array.isArray(responseData) ? responseData : []);
             return {
-              data: Array.isArray(items) ? items : [],
+              data: items,
               success: true,
-              total: res.data?.total || items.length,
+              total: responseData.meta?.totalItems || items.length || 0,
             };
           } catch (e) {
             message.error('职位数据加载失败');

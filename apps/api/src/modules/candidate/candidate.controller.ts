@@ -30,6 +30,7 @@ import { AiService } from '../ai/ai.service';
 import { PdfExtractionService } from '../ai/pdf-extraction.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
+import { FeishuService } from './feishu.service';
 import { CreateCandidateDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -55,6 +56,7 @@ export class CandidateController {
     private readonly pdfExtractionService: PdfExtractionService,
     private readonly progressService: ProgressService,
     private readonly storage: StorageService,
+    private readonly feishuService: FeishuService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     @InjectQueue('parse-resume') private readonly parseQueue: Queue,
@@ -64,6 +66,52 @@ export class CandidateController {
   findAll(@Req() req: any, @Query() query: PageQueryDto) {
     const tenantId = this.requireTenantId(req);
     return this.candidateService.findAll(query.page, query.pageSize, tenantId);
+  }
+
+  @Post('feishu-import')
+  async importFromFeishu(
+    @Body('appToken') appToken: string,
+    @Body('tableId') tableId: string,
+    @Body('personalToken') personalToken: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.requireTenantId(req);
+    if (!appToken || !tableId || !personalToken) {
+      throw new BadRequestException('缺失飞书多维表格的凭证参数 (appToken, tableId, personalToken)');
+    }
+    
+    // 1. 获取飞书数据
+    const result = await this.feishuService.importFromBitable(appToken, tableId, personalToken);
+    
+    // 2. 将获取到的 candidates 存入数据库
+    // 简化处理：将飞书的每行数据直接转化为 CandidateDto 并批量入库
+    let successCount = 0;
+    for (const item of result.items) {
+      try {
+        const dto: CreateCandidateDto = {
+          name: item.name,
+          phone: item.phone,
+          email: item.email,
+          gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : 'unknown',
+          currentCompany: item.currentCompany,
+          currentTitle: item.currentTitle,
+          status: 'new',
+          parsedTags: {
+            source: 'feishu_bitable'
+          },
+          notes: `导入自飞书多维表格: ${appToken}`
+        };
+        await this.candidateService.create(dto, tenantId);
+        successCount++;
+      } catch (err) {
+        console.error(`导入飞书记录 ${item.id} 失败`, err);
+      }
+    }
+    
+    return {
+      success: true,
+      message: `成功从飞书读取 ${result.total} 条记录，成功入库 ${successCount} 条`
+    };
   }
 
   @Post('upload')
