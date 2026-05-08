@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Button, Empty, Spin, Tag, Tooltip } from 'antd';
 import {
@@ -14,10 +14,7 @@ import {
 } from '@ant-design/icons';
 import api from '@/lib/api';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface ResumePreviewProps {
   candidateId: string;
@@ -60,6 +57,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ candidateId, resumeUrl })
   const [error, setError] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [downloadBlobUrl, setDownloadBlobUrl] = useState<string | null>(null);
+  const pdfBlobUrlRef = useRef<string | null>(null);
   const [textPreview, setTextPreview] = useState<ResumeTextPreview | null>(null);
 
   const isPdf = /\.(pdf)$/i.test(resumeUrl || '');
@@ -84,21 +82,23 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ candidateId, resumeUrl })
 
     try {
       const url = await loadResumeBlob();
-      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+      if (pdfBlobUrlRef.current) URL.revokeObjectURL(pdfBlobUrlRef.current);
+      pdfBlobUrlRef.current = url || null;
       setPdfBlobUrl(url || null);
     } catch (error: unknown) {
       setError(getErrorMessage(error, '加载简历文件失败'));
     } finally {
       setLoading(false);
     }
-  }, [loadResumeBlob, pdfBlobUrl]);
+  }, [loadResumeBlob]);
 
   const loadTextPreview = useCallback(async () => {
     if (!candidateId || !resumeUrl) return;
     setLoading(true);
     setError('');
-    if (pdfBlobUrl) {
-      URL.revokeObjectURL(pdfBlobUrl);
+    if (pdfBlobUrlRef.current) {
+      URL.revokeObjectURL(pdfBlobUrlRef.current);
+      pdfBlobUrlRef.current = null;
     }
     setPdfBlobUrl(null);
 
@@ -110,7 +110,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ candidateId, resumeUrl })
     } finally {
       setLoading(false);
     }
-  }, [candidateId, pdfBlobUrl, resumeUrl]);
+  }, [candidateId, resumeUrl]);
 
   useEffect(() => {
     if (isPdf) {
@@ -124,11 +124,11 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ candidateId, resumeUrl })
 
   useEffect(() => {
     return () => {
-      if (pdfBlobUrl) {
-        URL.revokeObjectURL(pdfBlobUrl);
+      if (pdfBlobUrlRef.current) {
+        URL.revokeObjectURL(pdfBlobUrlRef.current);
       }
     };
-  }, [pdfBlobUrl]);
+  }, []);
 
   useEffect(() => {
     return () => {
