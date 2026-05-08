@@ -32,6 +32,8 @@ interface CandidateDetail {
   status?: string;
   parsedTags?: {
     skills?: string[];
+    desiredLocation?: string[];
+    placeOfOrigin?: string;
   };
   createdAt?: string;
   avatar?: string;
@@ -44,6 +46,20 @@ interface CandidateDetail {
   notes?: string;
   location?: string;
   resumeUrl?: string;
+  wechat?: string;
+  email?: string;
+  school?: string;
+  major?: string;
+  currentCompany?: string;
+  currentTitle?: string;
+  selfEvaluation?: string;
+  careerExpectations?: {
+    desiredPosition?: string;
+    desiredLocation?: string[];
+    desiredSalary?: string;
+    jobType?: string;
+    industry?: string;
+  } | null;
   workExperiences?: Array<{
     companyName?: string;
     company?: string;
@@ -51,6 +67,12 @@ interface CandidateDetail {
     duration?: string;
     content?: string | string[];
     description?: string;
+    department?: string;
+    reportTo?: string;
+    subordinates?: string | number;
+    achievements?: string;
+    awards?: string;
+    leaveReason?: string;
   }>;
   educationHistory?: Array<{
     school?: string;
@@ -58,12 +80,14 @@ interface CandidateDetail {
     degreeLevel?: string;
     major?: string;
     duration?: string;
+    activities?: string;
   }>;
   projectExperiences?: Array<{
     projectName?: string;
     role?: string;
     duration?: string;
     description?: string;
+    achievements?: string;
   }>;
 }
 
