@@ -49,8 +49,22 @@ LOCAL_AI_ENABLED=false
 EOF
 
 echo ">>> 6/6 启动"
+cat > ecosystem.worker.config.js << 'ECO'
+module.exports = {
+  apps: [{
+    name: 'yzschros-worker',
+    script: 'apps/api/dist/main.js',
+    env_file: '.env.worker',
+    node_args: '--max-old-space-size=1024',
+    max_memory_restart: '1200M',
+    autorestart: true,
+    max_restarts: 10,
+    restart_delay: 5000,
+  }],
+};
+ECO
 pm2 delete yzschros-worker 2>/dev/null || true
-pm2 start apps/api/dist/main.js --name yzschros-worker --env-file .env.worker
+pm2 start ecosystem.worker.config.js
 pm2 save
 pm2 startup 2>/dev/null || true
 pm2 status
