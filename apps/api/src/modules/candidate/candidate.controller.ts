@@ -185,17 +185,25 @@ export class CandidateController {
         workExperiences: workExp,
         educationHistory: eduList,
         projectExperiences: projectExp,
+        careerExpectations: basicInfo.desiredPosition || basicInfo.desiredLocation?.length
+          ? {
+              desiredPosition: basicInfo.desiredPosition || '',
+              desiredLocation: basicInfo.desiredLocation || [],
+              desiredSalary: basicInfo.desiredSalary || '',
+            }
+          : null,
         resumeUrl: resumeKey,
         resumeText: JSON.stringify(parsedData, null, 2),
         parsedTags: {
           desiredLocation: basicInfo.desiredLocation || [],
           placeOfOrigin: basicInfo.placeOfOrigin || '',
           skills: parsedData.skills || [],
+          selfEvaluation: parsedData.selfEvaluation || '',
           source: 'Omni-Parse-v4',
           engine: parsedData.metadata?.engine || 'v4',
           parseTime,
         },
-        notes: `Omni-Parse v4 | 耗时 ${parseTime} | ${workExp.length}经历/${eduList.length}教育/${(parsedData.skills || []).length}技能`,
+        notes: `Omni-Parse v4 | 耗时 ${parseTime} | ${workExp.length}经历/${eduList.length}教育/${projectExp.length}项目/${(parsedData.skills || []).length}技能`,
       };
 
       // 4. 物理入库

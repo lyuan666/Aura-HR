@@ -2,10 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as mammoth from 'mammoth';
 import { LlmClientService } from './llm-client.service';
 
-// 精简 prompt：只提取核心字段，详细内容在 resumeText 原文中有
+// 精简 prompt：提取核心字段 + 项目经历 + 自我评价 + 求职期望
 const SYSTEM_PROMPT = `提取简历JSON，只输出JSON不要其他文字：
-{"basicInfo":{"name":"","gender":"男或女","ageNum":0,"phoneNumber":"","personalEmail":"","currentLocation":"城市"},"workExperience":[{"companyName":"","position":"","duration":"","description":""}],"education":[{"school":"","major":"","degreeLevel":"","duration":""}],"skills":[]}
-规则：location只填城市名；school必须是真实学校；skills提取专业关键词；description用1-3句概括主要工作职责和业绩；找不到填null或[]`;
+{"basicInfo":{"name":"","gender":"男或女","ageNum":0,"phoneNumber":"","personalEmail":"","currentLocation":"城市","desiredLocation":[],"desiredPosition":"","desiredSalary":""},"workExperience":[{"companyName":"","position":"","duration":"","description":"","department":"","reportTo":"","subordinates":"","achievements":"","awards":"","leaveReason":""}],"projectExperience":[{"projectName":"","role":"","duration":"","description":"","achievements":""}],"education":[{"school":"","major":"","degreeLevel":"","duration":"","activities":""}],"skills":[],"selfEvaluation":"","summary":""}
+规则：location只填城市名；school必须是真实学校；skills提取所有专业关键词；description尽量保留原文完整描述，用分号分隔多条；projectExperience必须提取简历中所有项目经历，包括项目描述和业绩；selfEvaluation提取"自我评价"/"个人评价"/"个人优势"章节的完整内容；basicInfo.desiredLocation填期望城市数组；找不到的字段填null或[]`;
 
 @Injectable()
 export class ParsingService {
@@ -62,21 +62,26 @@ export class ParsingService {
     const parsed: any = await this.llmClient.callAi([
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: text.slice(0, 5000) },
-    ], true, 2, undefined, true, 1000);
+    ], true, 2, undefined, true, 3000);
 
     const basicInfo = { ...ruleContact, ...(parsed?.basicInfo || {}) };
     this.sanitizeBasicInfo(basicInfo);
 
     const workExperience = this.sanitizeWorkExp(this.ensureArray(parsed?.workExperience), text);
     const education = this.sanitizeEducation(this.ensureArray(parsed?.education));
+    const projectExperience = this.ensureArray(parsed?.projectExperience);
     const skills = this.mergeSkills(parsed?.skills);
+    const selfEvaluation = parsed?.selfEvaluation || '';
+    const summary = parsed?.summary || '';
 
     return {
       basicInfo,
       workExperience,
       education,
-      projectExperience: [],
+      projectExperience,
       skills,
+      selfEvaluation,
+      summary,
       metadata: {
         parseTime: `${((Date.now() - start) / 1000).toFixed(2)}s`,
         engine: 'Omni-Parse-v5',
