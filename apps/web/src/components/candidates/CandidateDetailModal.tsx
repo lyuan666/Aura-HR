@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Tag, Avatar, Input, Button, Tooltip, Spin } from 'antd';
+import { Modal, Tag, Avatar, Input, Button, Tooltip, Spin, Dropdown, App, message } from 'antd';
 import {
   CloseOutlined,
   StarOutlined,
@@ -104,6 +104,7 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
   offer: { label: 'Offer', color: '#FF9F43', bg: 'bg-warning/10' },
   rejected: { label: '已淘汰', color: '#FF4D4F', bg: 'bg-error/10' },
   hired: { label: '已入职', color: '#00D2D3', bg: 'bg-success/10' },
+  inactive: { label: '不活跃', color: '#636E72', bg: 'bg-text-sub/10' },
 };
 
 function formatTimeAgo(dateStr?: string) {
@@ -129,6 +130,9 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState('attachment');
   const [resolvedCandidate, setResolvedCandidate] = useState<CandidateDetail | null>(candidate);
   const [loading, setLoading] = useState(false);
+  const [jobs, setJobs] = useState<Array<{ id: string; title: string }>>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsFetched, setJobsFetched] = useState(false);
 
   useEffect(() => {
     setResolvedCandidate(candidate);
@@ -164,6 +168,20 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
       active = false;
     };
   }, [candidate?.id, visible]);
+
+  const loadJobs = async () => {
+    if (jobsFetched) return;
+    setJobsLoading(true);
+    try {
+      const res = await api.get('/job-positions', { params: { pageSize: 100 } });
+      setJobs(res.data?.items || []);
+      setJobsFetched(true);
+    } catch (err) {
+      console.error('加载职位列表失败', err);
+    } finally {
+      setJobsLoading(false);
+    }
+  };
 
   const currentCandidate = useMemo(
     () => resolvedCandidate || candidate,
@@ -401,19 +419,39 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
 
           {/* Right Sidebar (25%) */}
           <div className="w-1/4 bg-bg-surface p-6 flex flex-col gap-6">
-            <Tooltip title={pendingFeatureTip}>
-              <span>
-                <Button
-                  type="primary"
-                  block
-                  size="large"
-                  disabled
-                  className="h-12 text-[14px] font-bold rounded-lg flex items-center justify-center gap-2"
-                >
-                  加入职位 <DownOutlined />
-                </Button>
-              </span>
-            </Tooltip>
+            <Dropdown
+              menu={{
+                items: jobs.map((job) => ({
+                  key: job.id,
+                  label: job.title,
+                })),
+                onClick: async ({ key }) => {
+                  try {
+                    await api.post('/recommendations', {
+                      candidateId: currentCandidate.id,
+                      jobId: key,
+                    });
+                    message.success('推荐成功');
+                  } catch (err: any) {
+                    message.error(err.response?.data?.message || '推荐失败');
+                  }
+                },
+              }}
+              trigger={['click']}
+              onOpenChange={(open) => {
+                if (open) loadJobs();
+              }}
+            >
+              <Button
+                type="primary"
+                block
+                size="large"
+                loading={jobsLoading}
+                className="h-12 text-[14px] font-bold rounded-lg flex items-center justify-center gap-2"
+              >
+                加入职位 <DownOutlined />
+              </Button>
+            </Dropdown>
 
             {/* 协同备注 */}
             <div className="bg-bg-elevated/30 border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
@@ -473,22 +511,76 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
             </div>
 
             <div className="mt-auto space-y-3">
-              <Tooltip title={pendingFeatureTip}>
-                <button
-                  disabled
-                  className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/40 cursor-not-allowed"
-                >
-                  移入公海池
-                </button>
-              </Tooltip>
-              <Tooltip title={pendingFeatureTip}>
-                <button
-                  disabled
-                  className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/40 cursor-not-allowed"
-                >
-                  淘汰此候选人
-                </button>
-              </Tooltip>
+              <button
+                onClick={() => {
+                  Modal.confirm({
+                    title: '确认移入公海池',
+                    content: '移入公海池后，该候选人将对所有招聘人员可见',
+                    okText: '确认移入',
+                    cancelText: '取消',
+                    onOk: async () => {
+                      try {
+                        await api.patch(`/candidates/${currentCandidate.id}`, { status: 'inactive' });
+                        setResolvedCandidate((prev) => prev ? { ...prev, status: 'inactive' } : prev);
+                        message.success('已移入公海池');
+                      } catch (err: any) {
+                        message.error(err.response?.data?.message || '操作失败');
+                      }
+                    },
+                  });
+                }}
+                disabled={currentCandidate.status === 'inactive'}
+                className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/60 cursor-pointer hover:bg-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                移入公海池
+              </button>
+              <button
+                onClick={() => {
+                  Modal.confirm({
+                    title: '确认淘汰此候选人',
+                    content: '淘汰后可在候选人列表中恢复',
+                    okText: '确认淘汰',
+                    okButtonProps: { danger: true },
+                    cancelText: '取消',
+                    onOk: async () => {
+                      try {
+                        await api.patch(`/candidates/${currentCandidate.id}`, { status: 'inactive' });
+                        setResolvedCandidate((prev) => prev ? { ...prev, status: 'inactive' } : prev);
+                        message.success('已淘汰该候选人');
+                      } catch (err: any) {
+                        message.error(err.response?.data?.message || '操作失败');
+                      }
+                    },
+                  });
+                }}
+                disabled={currentCandidate.status === 'inactive'}
+                className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/60 cursor-pointer hover:bg-error/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                淘汰此候选人
+              </button>
+              <button
+                onClick={() => {
+                  Modal.confirm({
+                    title: '确认删除候选人',
+                    content: '删除后数据不可恢复，请谨慎操作',
+                    okText: '确认删除',
+                    okButtonProps: { danger: true },
+                    cancelText: '取消',
+                    onOk: async () => {
+                      try {
+                        await api.delete(`/candidates/${currentCandidate.id}`);
+                        message.success('已删除');
+                        onClose();
+                      } catch (err: any) {
+                        message.error(err.response?.data?.message || '删除失败');
+                      }
+                    },
+                  });
+                }}
+                className="w-full h-10 rounded-md bg-error/5 border border-error/20 text-[12px] font-medium text-error/40 cursor-pointer hover:bg-error/10 transition-colors"
+              >
+                删除候选人（管理员）
+              </button>
             </div>
           </div>
         </div>

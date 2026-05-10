@@ -34,12 +34,13 @@ export class RecommendationController {
   }
 
   @Get()
-  findAll(@Req() req: any, @Query() query: PageQueryDto) {
+  findAll(@Req() req: any, @Query() query: PageQueryDto & { status?: string; startDate?: string; endDate?: string }) {
     const tenantId = this.requireTenantId(req);
     return this.recommendationService.findAll(
       query.page,
       query.pageSize,
       tenantId,
+      { status: query.status, startDate: query.startDate, endDate: query.endDate },
     );
   }
 

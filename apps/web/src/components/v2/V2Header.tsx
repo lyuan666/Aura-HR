@@ -4,6 +4,7 @@ import React from 'react';
 import { Avatar, Badge, Input, Tooltip } from 'antd';
 import { Bell, Search, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export const V2Header: React.FC = () => {
   const router = useRouter();
@@ -20,6 +21,8 @@ export const V2Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <ThemeToggle />
+
         <Tooltip title="邀请协作成员">
           <button className="text-text-sub transition-colors hover:text-text-main" aria-label="邀请协作成员">
             <UserPlus size={18} />

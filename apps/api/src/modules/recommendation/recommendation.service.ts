@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { RecommendationEntity } from '../../entities/recommendation.entity';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
@@ -144,19 +144,54 @@ export class RecommendationService {
     return report;
   }
 
-  async findAll(page = 1, pageSize = 20, tenantId?: string) {
-    const [items, total] = await this.recommendationRepo.findAndCount({
-      where: tenantId ? { tenantId } : {},
-      order: { updatedAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+  async findAll(page = 1, pageSize = 20, tenantId?: string, filters?: { status?: string; startDate?: string; endDate?: string }) {
+    const where: any = tenantId ? { tenantId } : {};
+    if (filters?.status) {
+      // 支持逗号分隔的多状态查询
+      const statuses = filters.status.split(',');
+      if (statuses.length === 1) {
+        where.status = statuses[0];
+      } else {
+        where.status = In(statuses);
+      }
+    }
+
+    const qb = this.recommendationRepo.createQueryBuilder('r')
+      .leftJoinAndSelect('r.candidate', 'c')
+      .leftJoinAndSelect('r.jobPosition', 'j')
+      .where(tenantId ? 'r.tenantId = :tenantId' : '1=1', { tenantId });
+
+    if (filters?.status) {
+      const statuses = filters.status.split(',');
+      qb.andWhere('r.status IN (:...statuses)', { statuses });
+    }
+    if (filters?.startDate) {
+      qb.andWhere('r.interviewDate >= :startDate', { startDate: filters.startDate });
+    }
+    if (filters?.endDate) {
+      qb.andWhere('r.interviewDate <= :endDate', { endDate: filters.endDate });
+    }
+
+    qb.orderBy('r.interviewDate', 'ASC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    const [items, total] = await qb.getManyAndCount();
 
     return {
-      items: items.map((r) => this.dehydrate(r)),
+      items: items.map((r) => this.dehydrateWithRelations(r)),
       total,
       page,
       pageSize,
+    };
+  }
+
+  private dehydrateWithRelations(r: RecommendationEntity) {
+    return {
+      ...this.dehydrate(r),
+      candidateName: r.candidate?.name || '',
+      jobTitle: r.jobPosition?.title || '',
+      enterpriseId: r.jobPosition?.enterpriseId || '',
     };
   }
 

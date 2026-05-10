@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Header,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -31,7 +33,7 @@ import { PdfExtractionService } from '../ai/pdf-extraction.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { FeishuService } from './feishu.service';
-import { CreateCandidateDto } from './candidate.dto';
+import { CreateCandidateDto, UpdateCandidateStatusDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -63,9 +65,9 @@ export class CandidateController {
   ) {}
 
   @Get()
-  findAll(@Req() req: any, @Query() query: PageQueryDto) {
+  findAll(@Req() req: any, @Query() query: any) {
     const tenantId = this.requireTenantId(req);
-    return this.candidateService.findAll(query.page, query.pageSize, tenantId);
+    return this.candidateService.findAll(query.page || 1, query.pageSize || 20, tenantId, query);
   }
 
   @Post('feishu-import')
@@ -425,10 +427,29 @@ export class CandidateController {
     return this.candidateService.findOne(id, tenantId);
   }
 
+  @Patch(':id')
+  updateStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateCandidateStatusDto,
+    @Req() req: any,
+  ) {
+    const tenantId = this.requireTenantId(req);
+    return this.candidateService.updateStatus(id, body.status, tenantId);
+  }
+
   @Post()
   create(@Body() dto: CreateCandidateDto, @Req() req: any) {
     const tenantId = this.requireTenantId(req);
     return this.candidateService.create(dto, tenantId);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Req() req: any) {
+    if (req.user?.role !== 'admin') {
+      throw new ForbiddenException('仅管理员可执行删除操作');
+    }
+    const tenantId = this.requireTenantId(req);
+    return this.candidateService.remove(id, tenantId);
   }
 
   private requireTenantId(req: any) {

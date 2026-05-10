@@ -20,8 +20,8 @@ export default function FeishuImportModal({ visible, onClose, onSuccess }: Feish
       setLoading(true);
       
       const res = await api.post('/candidates/feishu-import', values);
-      if (res.data?.success) {
-        message.success(res.data.message || '导入成功');
+      if (res.status >= 200 && res.status < 300) {
+        message.success(res.data?.message || '导入成功');
         form.resetFields();
         onSuccess();
         onClose();

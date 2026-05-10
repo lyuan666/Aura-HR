@@ -71,8 +71,6 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
   const handleTextFinish = async (values: any) => {
     setParsing(true);
     try {
-      // 模拟解析过程的视觉延迟
-      await new Promise(r => setTimeout(r, 1500));
       const res = await api.post('/job-positions/parse-text', {
         text: values.description,
       });
@@ -83,10 +81,14 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
         description: values.description,
         salaryMin: parseInt(parsedData.salaryMin) || undefined,
         salaryMax: parseInt(parsedData.salaryMax) || undefined,
+        requirements: parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+        location: parsedData.location || '',
+        experienceRequired: parsedData.experienceRequired || parsedData.minExperience || '',
+        educationRequired: parsedData.educationRequired || parsedData.minEducation || '',
       });
-      
+
       onSuccess(saveRes.data);
-      message.success('AI 节点构建成功，职位已入库');
+      message.success('AI 职位解析成功，已入库');
       form.resetFields();
     } catch (e: any) {
       console.error(e);
@@ -98,7 +100,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
 
   const handleFileParse = async () => {
     if (fileList.length === 0) {
-      message.warning('请先提供 JD 文档节点');
+      message.warning('请先上传 JD 文档');
       return;
     }
 
@@ -110,11 +112,24 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
       const res = await api.post('/job-positions/parse', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      onSuccess(res.data);
-      message.success('文档节点解析完成');
+      const parsedData = res.data;
+
+      // Create the job after parsing
+      const saveRes = await api.post('/job-positions', {
+        title: parsedData.title || 'AI 解析职位',
+        description: parsedData.description || parsedData.rawText || '',
+        salaryMin: parseInt(parsedData.salaryMin) || undefined,
+        salaryMax: parseInt(parsedData.salaryMax) || undefined,
+        requirements: parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+        location: parsedData.location || '',
+      });
+
+      onSuccess(saveRes.data);
+      message.success('文档解析成功，职位已入库');
       setFileList([]);
-    } catch (e) {
-      message.error('文档节点提取失败');
+    } catch (e: any) {
+      console.error(e);
+      message.error(e.response?.data?.message || '文档解析失败');
     } finally {
       setParsing(false);
     }
@@ -257,7 +272,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
                             </div>
                             <div className="text-lg font-black text-white/80 mb-2 uppercase tracking-widest">提供 JD 数据节点</div>
                             <p className="text-[10px] text-[#555762] px-20 uppercase font-black tracking-widest leading-relaxed">
-                              支持 PDF, DOCX 格式。AI 会自动识别文字层及视觉布局，提取精准招聘要素。
+                              支持 PDF, DOCX, MP3, WAV 格式。AI 会自动识别文字、语音内容，提取精准招聘要素。
                             </p>
                          </div>
                        </Upload.Dragger>

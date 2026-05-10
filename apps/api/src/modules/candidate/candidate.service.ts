@@ -10,6 +10,7 @@ import { Queue } from 'bullmq';
 import { CreateCandidateDto } from './candidate.dto';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { StateMachine, CANDIDATE_TRANSITIONS } from '../../common/utils/state-machine';
 
 @Injectable()
 export class CandidateService {
@@ -20,10 +21,33 @@ export class CandidateService {
     @InjectQueue('vectorize') private readonly vectorizeQueue: Queue,
   ) {}
 
-  async findAll(page = 1, pageSize = 20, tenantId?: string) {
+  async findAll(page = 1, pageSize = 20, tenantId?: string, filters?: any) {
     const qb = this.candidateRepo.createQueryBuilder('candidate');
     if (tenantId) {
       qb.where('candidate.tenantId = :tenantId', { tenantId });
+    }
+    // Filter by status
+    if (filters?.status) {
+      qb.andWhere('candidate.status = :status', { status: filters.status });
+    }
+    // Filter by degree
+    if (filters?.degree) {
+      qb.andWhere('candidate.degree = :degree', { degree: filters.degree });
+    }
+    // Filter by min experience
+    if (filters?.minYears) {
+      qb.andWhere('candidate.totalYears >= :minYears', { minYears: Number(filters.minYears) });
+    }
+    // Filter by max experience
+    if (filters?.maxYears) {
+      qb.andWhere('candidate.totalYears <= :maxYears', { maxYears: Number(filters.maxYears) });
+    }
+    // Search by name/title/company
+    if (filters?.search) {
+      qb.andWhere(
+        '(candidate.name ILIKE :search OR candidate.currentTitle ILIKE :search OR candidate.currentCompany ILIKE :search)',
+        { search: `%${filters.search}%` },
+      );
     }
     const [items, total] = await qb
       .orderBy('candidate.createdAt', 'DESC')
@@ -205,5 +229,28 @@ export class CandidateService {
       ...c,
       matchScore: Math.round((c.match_score || 0) * 100),
     }));
+  }
+
+  async updateStatus(id: string, status: string, tenantId?: string) {
+    const where: any = { id };
+    if (tenantId) where.tenantId = tenantId;
+    const candidate = await this.candidateRepo.findOne({ where });
+    if (!candidate) throw new NotFoundException('候选人不存在');
+
+    const sm = new StateMachine(CANDIDATE_TRANSITIONS);
+    sm.validateTransition(candidate.status, status);
+
+    candidate.status = status;
+    const saved = await this.candidateRepo.save(candidate);
+    return this.dehydrate(saved);
+  }
+
+  async remove(id: string, tenantId?: string) {
+    const where: any = { id };
+    if (tenantId) where.tenantId = tenantId;
+    const candidate = await this.candidateRepo.findOne({ where });
+    if (!candidate) throw new NotFoundException('候选人不存在');
+    await this.candidateRepo.remove(candidate);
+    return { success: true, id };
   }
 }

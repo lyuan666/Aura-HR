@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
@@ -117,4 +118,10 @@ export class CreateCandidateDto {
   @IsString()
   @IsOptional()
   notes?: string;
+}
+
+export class UpdateCandidateStatusDto {
+  @IsEnum(CandidateStatus)
+  @IsNotEmpty()
+  status: string;
 }

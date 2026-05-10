@@ -106,18 +106,31 @@ export default function CandidatesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
+  // Filter State
+  const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  const [filterDegree, setFilterDegree] = useState<string | undefined>();
+  const [filterExperience, setFilterExperience] = useState<string | undefined>();
+
   // Selection State
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const fetchCandidates = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/candidates', {
-        params: { page: currentPage, pageSize },
-      });
-      if (res.data?.success) {
-        setCandidates(res.data.data.items || []);
-        setTotal(res.data.data.meta?.totalItems || 0);
+      const params: any = { page: currentPage, pageSize };
+      if (filterStatus) params.status = filterStatus;
+      if (filterDegree) params.degree = filterDegree;
+      if (searchQuery) params.search = searchQuery;
+      if (filterExperience) {
+        const [min, max] = filterExperience.split('-').map(Number);
+        if (min) params.minYears = min;
+        if (max) params.maxYears = max;
+      }
+      const res = await api.get('/candidates', { params });
+      const data = res.data?.data || res.data;
+      if (data?.items) {
+        setCandidates(data.items);
+        setTotal(data.total ?? data.meta?.totalItems ?? 0);
         setUsingDemoData(false);
         return;
       }
@@ -132,7 +145,7 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [message, currentPage, pageSize]);
+  }, [message, currentPage, pageSize, filterStatus, filterDegree, filterExperience, searchQuery]);
 
   useEffect(() => {
     fetchCandidates();
@@ -261,14 +274,60 @@ export default function CandidatesPage() {
         </div>
 
         <div className="flex items-center gap-2 pr-2">
-          {['当前职位', '当前流程'].map((label) => (
-            <Tag
-              key={label}
-              className="m-0 bg-transparent border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-md hover:border-brand-primary/50"
-            >
-              {label} <ChevronDown size={10} className="inline ml-1 opacity-50" />
+          <Dropdown
+            menu={{
+              items: [
+                { key: '', label: '全部状态' },
+                { key: 'new', label: '新简历' },
+                { key: 'active', label: '活跃' },
+                { key: 'in_process', label: '面试中' },
+                { key: 'offered', label: 'Offer' },
+                { key: 'placed', label: '已入职' },
+                { key: 'inactive', label: '不活跃' },
+              ],
+              onClick: ({ key }) => { setFilterStatus(key || undefined); setCurrentPage(1); },
+              selectedKeys: filterStatus ? [filterStatus] : [],
+            }}
+          >
+            <Tag className="m-0 bg-transparent border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-md hover:border-brand-primary/50">
+              {filterStatus ? { new: '新简历', active: '活跃', in_process: '面试中', offered: 'Offer', placed: '已入职', inactive: '不活跃' }[filterStatus] || filterStatus : '当前状态'} <ChevronDown size={10} className="inline ml-1 opacity-50" />
             </Tag>
-          ))}
+          </Dropdown>
+          <Dropdown
+            menu={{
+              items: [
+                { key: '', label: '全部学历' },
+                { key: '博士', label: '博士' },
+                { key: '硕士', label: '硕士' },
+                { key: '本科', label: '本科' },
+                { key: '大专', label: '大专' },
+                { key: '中专', label: '中专' },
+              ],
+              onClick: ({ key }) => { setFilterDegree(key || undefined); setCurrentPage(1); },
+              selectedKeys: filterDegree ? [filterDegree] : [],
+            }}
+          >
+            <Tag className="m-0 bg-transparent border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-md hover:border-brand-primary/50">
+              {filterDegree || '学历要求'} <ChevronDown size={10} className="inline ml-1 opacity-50" />
+            </Tag>
+          </Dropdown>
+          <Dropdown
+            menu={{
+              items: [
+                { key: '', label: '全部经验' },
+                { key: '0-3', label: '1-3年' },
+                { key: '3-5', label: '3-5年' },
+                { key: '5-10', label: '5-10年' },
+                { key: '10-', label: '10年以上' },
+              ],
+              onClick: ({ key }) => { setFilterExperience(key || undefined); setCurrentPage(1); },
+              selectedKeys: filterExperience ? [filterExperience] : [],
+            }}
+          >
+            <Tag className="m-0 bg-transparent border-border-subtle text-text-sub cursor-pointer px-3 py-1 rounded-md hover:border-brand-primary/50">
+              {filterExperience ? `${filterExperience.replace('-', '-').replace(/-$/, '+')}年` : '工作经验'} <ChevronDown size={10} className="inline ml-1 opacity-50" />
+            </Tag>
+          </Dropdown>
         </div>
         <div className="flex items-center gap-4">
           <Button
@@ -284,6 +343,7 @@ export default function CandidatesPage() {
             size="small"
             className="text-text-sub hover:text-text-main"
             icon={<Eraser size={14} />}
+            onClick={() => { setFilterStatus(undefined); setFilterDegree(undefined); setFilterExperience(undefined); setSearchQuery(''); setCurrentPage(1); }}
           >
             清空
           </Button>

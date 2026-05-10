@@ -1,42 +1,89 @@
 @import "tailwindcss";
 
 @theme {
-  /* Serious B2B SaaS Palette */
+  /* ── Shared ── */
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* ── Dark Theme (default) ── */
   --color-bg-base: #121212;
   --color-bg-surface: #1C2128;
   --color-bg-elevated: #2D333B;
-  
-  /* Muted Steel Blue Tones */
   --color-brand-primary: #B0C4DE;
   --color-brand-light: #6A7C92;
   --color-brand-dark: #4A5568;
-  
-  /* Functional Colors - Minimalist */
-  --color-success: #27C24C; /* Fluorescent green only for small status */
+  --color-success: #27C24C;
   --color-warning: #EBCB8B;
   --color-error: #BF616A;
   --color-info: #B0C4DE;
-  
-  /* Text & Borders - Sophisticated Gray */
   --color-text-main: rgba(255, 255, 255, 0.9);
   --color-text-sub: #768390;
   --color-border-subtle: rgba(205, 217, 229, 0.1);
   --color-border-active: rgba(176, 196, 222, 0.3);
+}
 
-  /* Clean Typography */
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+/* ===== Theme System ===== */
+
+/* Dark Theme Variables */
+:root,
+[data-theme='dark'] {
+  --background: #121212;
+  --foreground: rgba(255, 255, 255, 0.9);
+  --bg-base: #121212;
+  --bg-surface: #1C2128;
+  --bg-elevated: #2D333B;
+  --primary-color: #B0C4DE;
+  --text-main: rgba(255, 255, 255, 0.9);
+  --text-sub: #768390;
+  --border-color: rgba(205, 217, 229, 0.1);
+  --brand-primary: #B0C4DE;
+  --success: #27C24C;
+  --warning: #EBCB8B;
+  --error: #BF616A;
+}
+
+/* Light Theme Variables */
+[data-theme='light'] {
+  --background: #E6E6E6;
+  --foreground: #1A1A2E;
+  --bg-base: #E6E6E6;
+  --bg-surface: #F0F0F0;
+  --bg-elevated: #FFFFFF;
+  --primary-color: #3A506B;
+  --text-main: #1A1A2E;
+  --text-sub: #5A6B7D;
+  --border-color: rgba(58, 80, 107, 0.15);
+  --brand-primary: #3A506B;
+  --success: #34C759;
+  --warning: #FF9F0A;
+  --error: #FF3B30;
+}
+
+/* Map CSS vars to Tailwind @theme overrides per theme */
+[data-theme='light'] {
+  --color-bg-base: #E6E6E6;
+  --color-bg-surface: #F0F0F0;
+  --color-bg-elevated: #FFFFFF;
+  --color-brand-primary: #3A506B;
+  --color-brand-light: #5BC0BE;
+  --color-brand-dark: #2C3E50;
+  --color-success: #34C759;
+  --color-warning: #FF9F0A;
+  --color-error: #FF3B30;
+  --color-info: #5BC0BE;
+  --color-text-main: #1A1A2E;
+  --color-text-sub: #5A6B7D;
+  --color-border-subtle: rgba(58, 80, 107, 0.15);
+  --color-border-active: rgba(58, 80, 107, 0.35);
 }
 
 /* ===== Base Styles ===== */
 
 :root {
-  --background: #121212;
-  --foreground: rgba(255, 255, 255, 0.9);
-  
-  /* 为非 Tailwind 组件提供的 CSS 变量 */
-  --primary-color: #B0C4DE;
-  --bg-surface: #1C2128;
-  --border-color: rgba(205, 217, 229, 0.1);
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
 }
 
 body {
@@ -56,4 +103,40 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ===== Ant Design Theme Override for Light Mode ===== */
+
+[data-theme='light'] .ant-modal .ant-modal-content {
+  background: #FFFFFF;
+}
+
+[data-theme='light'] .ant-tag {
+  border-color: rgba(58, 80, 107, 0.15);
+}
+
+[data-theme='light'] .ant-btn-default {
+  background: #FFFFFF;
+  border-color: rgba(58, 80, 107, 0.2);
+  color: #1A1A2E;
+}
+
+[data-theme='light'] .ant-input {
+  background: #FFFFFF;
+  border-color: rgba(58, 80, 107, 0.2);
+  color: #1A1A2E;
+}
+
+[data-theme='light'] .ant-pagination .ant-pagination-item {
+  border-color: rgba(58, 80, 107, 0.2);
+}
+
+[data-theme='light'] .ant-checkbox-inner {
+  background: #FFFFFF;
+  border-color: rgba(58, 80, 107, 0.3);
+}
+
+[data-theme='light'] .ant-skeleton .ant-skeleton-content .ant-skeleton-title,
+[data-theme='light'] .ant-skeleton .ant-skeleton-content .ant-skeleton-paragraph > li {
+  background: rgba(58, 80, 107, 0.06) !important;
 }

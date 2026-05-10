@@ -1,81 +1,97 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PageContainer } from '@ant-design/pro-components';
-import {
-  Card, Row, Col, Avatar, List, Statistic, Skeleton, Empty, Tag, Button, Space, Typography, Divider,
-} from 'antd';
+import { Avatar, Spin, Empty } from 'antd';
 import {
   ReloadOutlined,
   UserOutlined,
-  ShopOutlined,
   SendOutlined,
   CheckCircleOutlined,
-  RightOutlined,
-  ClockCircleOutlined,
-  TeamOutlined,
-  ThunderboltOutlined,
   FileTextOutlined,
+  ShopOutlined,
   PlusOutlined,
-  BarChartOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/zh-cn';
+import Link from 'next/link';
 
-dayjs.extend(relativeTime);
-dayjs.locale('zh-cn');
+function formatTimeAgo(dateStr?: string) {
+  if (!dateStr) return '--';
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return '--';
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}天前`;
+  return `${Math.floor(days / 30)}个月前`;
+}
 
-const { Text, Paragraph } = Typography;
+/* ── 漏斗图组件 ── */
+const FunnelChart = ({ steps }: { steps: { label: string; value: number; color: string }[] }) => {
+  const maxVal = Math.max(steps[0]?.value || 1, 1);
 
-const PageHeaderContent = ({ user, loading }: { user: any; loading: boolean }) => {
-  if (loading) return <Skeleton avatar paragraph={{ rows: 1 }} active />;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <Avatar size={64} src={user?.avatar} style={{ backgroundColor: '#1677ff', flexShrink: 0 }}>
-        {user?.name?.[0] || 'F'}
-      </Avatar>
-      <div>
-        <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>
-          早安，{user?.name || '管理员'}，祝你开心每一天！
-        </div>
-        <Text type="secondary">
-          {user?.title || '超级管理员'} | {user?.group || '天选OS 智能猎头平台'}
-        </Text>
-      </div>
+    <div className="flex flex-col items-center gap-1 w-full py-2">
+      {steps.map((step, i) => {
+        const ratio = Math.max(step.value / maxVal, 0.08);
+        const widthPercent = 40 + ratio * 60; // 40% ~ 100%
+        const convRate = i > 0 && steps[i - 1].value > 0
+          ? Math.round((step.value / steps[i - 1].value) * 100)
+          : null;
+
+        return (
+          <div key={step.label} className="w-full flex flex-col items-center">
+            <div
+              className="relative flex items-center justify-center transition-all duration-500"
+              style={{
+                width: `${widthPercent}%`,
+                height: 52,
+                background: `linear-gradient(135deg, ${step.color}cc, ${step.color}88)`,
+                clipPath: 'polygon(4% 0%, 96% 0%, 100% 100%, 0% 100%)',
+                borderRadius: 4,
+              }}
+            >
+              <div className="flex items-center justify-between w-full px-6">
+                <span className="text-[13px] font-medium text-white/90">{step.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[18px] font-bold text-white">{step.value}</span>
+                  {convRate !== null && (
+                    <span className="text-[11px] text-white/60">
+                      {convRate}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {i < steps.length - 1 && (
+              <div className="text-[10px] text-text-sub/30 my-0.5">
+                {step.value > 0 && steps[i + 1].value >= 0 ? `${step.value - steps[i + 1].value} 流失` : ''}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
 
-const ExtraContent = ({ stats, loading }: { stats: any; loading: boolean }) => {
-  if (loading) return <Skeleton active paragraph={{ rows: 1 }} />;
-  return (
-    <div style={{ display: 'flex', gap: 32 }}>
-      <Statistic title="人才库" value={stats.candidateCount || 0} />
-      <Statistic title="活跃岗位" value={stats.jobCount || 0} suffix={`/ ${stats.jobCount || 0}`} />
-      <Statistic title="本月推荐" value={stats.recommendationCount || 0} />
-    </div>
-  );
-};
-
+/* ── 主页面 ── */
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<any>({
     candidates: [],
     jobs: [],
-    enterprises: [],
-    recommendations: [],
     stats: { candidateCount: 0, jobCount: 0, recommendationCount: 0, acceptedCount: 0 },
     funnel: [],
   });
 
-  const fetchData = useCallback(async (isRefresh = false) => {
+  const fetchData = useCallback(async () => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-
+      setLoading(true);
       const [candRes, jobRes, statsRes, funnelRes] = await Promise.allSettled([
         api.get('/candidates'),
         api.get('/job-positions'),
@@ -86,8 +102,6 @@ export default function DashboardPage() {
       setData({
         candidates: candRes.status === 'fulfilled' ? (candRes.value.data?.items || candRes.value.data || []) : [],
         jobs: jobRes.status === 'fulfilled' ? (jobRes.value.data?.items || jobRes.value.data || []) : [],
-        enterprises: [],
-        recommendations: [],
         stats: statsRes.status === 'fulfilled' ? statsRes.value.data : {
           candidateCount: 0, jobCount: 0, recommendationCount: 0, acceptedCount: 0,
         },
@@ -97,7 +111,6 @@ export default function DashboardPage() {
       console.error(e);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -105,231 +118,231 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  const activeJobs = data.jobs.filter((j: any) => j.status === 'active').slice(0, 6);
+  const activeJobs = data.jobs.filter((j: any) => j.status !== 'closed' && j.status !== 'cancelled').slice(0, 6);
 
-  const activities = [
-    ...data.candidates.slice(0, 3).map((c: any) => ({
-      id: c.id,
-      user: { name: c.name || '系统', avatar: c.avatar },
-      template: '新增候选人 @{user} 进入人才库',
-      updatedAt: c.createdAt || new Date().toISOString(),
-    })),
-    ...data.jobs.slice(0, 2).map((j: any) => ({
-      id: j.id,
-      user: { name: '系统', avatar: undefined },
-      template: '新职位 @{user} 已发布',
-      updatedAt: j.createdAt || new Date().toISOString(),
-    })),
+  const recentCandidates = data.candidates.slice(0, 5);
+
+  const funnelSteps = [
+    { label: '推荐候选人', value: data.funnel?.find((f: any) => f.name === '已推荐')?.value || 0, color: '#5BC0BE' },
+    { label: '进入面试', value: data.funnel?.find((f: any) => f.name === '面试')?.value || 0, color: '#6C5CE7' },
+    { label: '意向 Offer', value: data.funnel?.find((f: any) => f.name === 'Offer')?.value || 0, color: '#FF9F43' },
+    { label: '成功入职', value: data.funnel?.find((f: any) => f.name === '已入职')?.value || 0, color: '#00D2D3' },
   ];
 
   const quickLinks = [
     { title: '上传简历', href: '/candidates', icon: <PlusOutlined /> },
     { title: '创建职位', href: '/jobs', icon: <FileTextOutlined /> },
     { title: '交付看板', href: '/delivery', icon: <SendOutlined /> },
-    { title: '数据罗盘', href: '/analysis', icon: <BarChartOutlined /> },
     { title: '客户管理', href: '/enterprises', icon: <ShopOutlined /> },
-    { title: '合同管理', href: '/contracts', icon: <FileTextOutlined /> },
   ];
 
-  const teamMembers = [
-    { name: 'Franklin Jr.', role: '超级管理员' },
-    { name: 'Alice', role: '猎头顾问' },
-    { name: 'Bob', role: '客户经理' },
-    { name: 'Carol', role: '交付专员' },
+  const kpiCards = [
+    {
+      label: '人才库总量',
+      value: data.stats?.candidateCount || data.candidates?.length || 0,
+      icon: <UserOutlined />,
+      color: '#5BC0BE',
+    },
+    {
+      label: '活跃岗位',
+      value: data.stats?.jobCount || data.jobs?.length || 0,
+      icon: <FileTextOutlined />,
+      color: '#6C5CE7',
+    },
+    {
+      label: '累计推荐',
+      value: data.stats?.recommendationCount || 0,
+      icon: <SendOutlined />,
+      color: '#FF9F43',
+    },
+    {
+      label: '成功入职',
+      value: data.stats?.acceptedCount || 0,
+      icon: <CheckCircleOutlined />,
+      color: '#00D2D3',
+    },
   ];
-
-  const renderActivity = (item: any) => (
-    <List.Item key={item.id}>
-      <List.Item.Meta
-        avatar={<Avatar src={item.user.avatar} style={{ backgroundColor: '#1677ff' }}>{item.user.name?.[0]}</Avatar>}
-        title={
-          <span>
-            <a style={{ marginRight: 8 }}>{item.user.name}</a>
-            <span style={{ color: '#666', fontWeight: 400 }}>
-              {item.template.replace(/@\{user\}/, '')}
-            </span>
-          </span>
-        }
-        description={
-          <span style={{ fontSize: 12, color: '#999' }}>
-            {dayjs(item.updatedAt).fromNow()}
-          </span>
-        }
-      />
-    </List.Item>
-  );
 
   return (
-    <PageContainer
-      content={<PageHeaderContent user={{ name: 'Franklin Jr.', title: '超级管理员' }} loading={loading} />}
-      extraContent={<ExtraContent stats={data.stats} loading={loading} />}
-      header={{
-        extra: [
-          <Button
-            key="refresh"
-            icon={<ReloadOutlined spin={refreshing} />}
-            onClick={() => fetchData(true)}
-            loading={refreshing}
-          >
-            刷新
-          </Button>,
-        ],
-      }}
-    >
-      <Row gutter={24}>
-        {/* Left Column */}
-        <Col xl={16} lg={24} md={24} sm={24} xs={24}>
-          {/* Active Jobs / Projects */}
-          <Card
-            style={{ marginBottom: 24 }}
-            title="进行中的招聘项目"
-            variant="borderless"
-            extra={<a href="/jobs">全部职位 <RightOutlined style={{ fontSize: 10 }} /></a>}
-            loading={loading}
-          >
-            <Row gutter={12}>
-              {activeJobs.length > 0 ? activeJobs.map((job: any) => (
-                <Col xs={24} sm={12} md={8} key={job.id} style={{ marginBottom: 12 }}>
-                  <Card
-                    size="small"
-                    hoverable
-                    variant="borderless"
-                    style={{ background: '#fafafa' }}
+    <div className="flex flex-col gap-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-[18px] font-bold text-text-main">数据看板</span>
+          <span className="text-[12px] text-text-sub/40">全维度招聘数据概览</span>
+        </div>
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/5 border border-border-subtle text-[12px] text-text-sub hover:bg-white/10 transition-colors"
+        >
+          <ReloadOutlined spin={loading} /> 刷新
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Spin size="large" />
+        </div>
+      ) : (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            {kpiCards.map((kpi) => (
+              <div
+                key={kpi.label}
+                className="bg-bg-surface border border-border-subtle rounded-xl p-5 flex flex-col gap-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-text-sub/60 font-medium">{kpi.label}</span>
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px]"
+                    style={{ backgroundColor: `${kpi.color}20`, color: kpi.color }}
                   >
-                    <Card.Meta
-                      avatar={
-                        <Avatar size="small" style={{ backgroundColor: '#1677ff' }}>
-                          {job.enterprise?.name?.[0] || 'J'}
-                        </Avatar>
-                      }
-                      title={<a href={`/jobs/${job.id}`} style={{ fontSize: 14 }}>{job.title || '未命名职位'}</a>}
-                      description={
-                        <Text type="secondary" style={{ fontSize: 12 }} ellipsis>
-                          {job.enterprise?.name || '未知企业'} · {job.location || '北京'}
-                        </Text>
-                      }
-                    />
-                    <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Tag color="blue">{job.candidateCount || 0} 位候选人</Tag>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {job.salaryMin}K-{job.salaryMax}K
-                      </Text>
-                    </div>
-                  </Card>
-                </Col>
-              )) : (
-                <Col span={24}>
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无进行中的招聘项目" />
-                </Col>
-              )}
-            </Row>
-          </Card>
-
-          {/* Activities */}
-          <Card
-            variant="borderless"
-            title="最新动态"
-            loading={loading}
-            styles={{ body: { padding: activities.length > 0 ? 0 : 24 } }}
-          >
-            {activities.length > 0 ? (
-              <List
-                size="large"
-                dataSource={activities}
-                renderItem={renderActivity}
-              />
-            ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无动态" />
-            )}
-          </Card>
-        </Col>
-
-        {/* Right Column */}
-        <Col xl={8} lg={24} md={24} sm={24} xs={24}>
-          {/* Quick Start */}
-          <Card
-            style={{ marginBottom: 24 }}
-            title="快速开始"
-            variant="borderless"
-          >
-            <Row gutter={[8, 8]}>
-              {quickLinks.map((link) => (
-                <Col span={8} key={link.title}>
-                  <a href={link.href} style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    gap: 6, padding: '12px 4px', borderRadius: 8, transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5f5')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 8, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      background: '#e6f4ff', color: '#1677ff', fontSize: 18,
-                    }}>
-                      {link.icon}
-                    </div>
-                    <span style={{ fontSize: 12, color: '#333' }}>{link.title}</span>
-                  </a>
-                </Col>
-              ))}
-            </Row>
-          </Card>
-
-          {/* Delivery Funnel */}
-          <Card
-            style={{ marginBottom: 24 }}
-            title="交付漏斗"
-            variant="borderless"
-            extra={<Tag>近 30 天</Tag>}
-            loading={loading}
-          >
-            {(() => {
-              const funnelSteps = [
-                { label: '推荐候选人', value: data.funnel?.find((f: any) => f.name === '已推荐')?.value || 0, color: '#1677ff' },
-                { label: '进入面试', value: data.funnel?.find((f: any) => f.name === '面试')?.value || 0, color: '#13c2c2' },
-                { label: '意向 Offer', value: data.funnel?.find((f: any) => f.name === 'Offer')?.value || 0, color: '#faad14' },
-                { label: '成功入职', value: data.funnel?.find((f: any) => f.name === '已入职')?.value || 0, color: '#52c41a' },
-              ];
-              const maxVal = Math.max(funnelSteps[0]?.value || 1, 1);
-              return funnelSteps.map((step, i) => (
-                <div key={step.label} style={{ marginBottom: i < funnelSteps.length - 1 ? 12 : 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ fontSize: 13 }}>{step.label}</Text>
-                    <Text strong style={{ color: step.color }}>{step.value}</Text>
-                  </div>
-                  <div style={{ height: 8, borderRadius: 4, background: '#f0f0f0', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 4, background: step.color,
-                      width: `${Math.max((step.value / maxVal) * 100, step.value > 0 ? 4 : 0)}%`,
-                      transition: 'width 0.6s ease',
-                    }} />
+                    {kpi.icon}
                   </div>
                 </div>
-              ));
-            })()}
-          </Card>
+                <span className="text-[28px] font-bold text-text-main">{kpi.value}</span>
+              </div>
+            ))}
+          </div>
 
-          {/* Team */}
-          <Card
-            variant="borderless"
-            title="团队成员"
-            styles={{ body: { paddingTop: 12, paddingBottom: 12 } }}
-          >
-            <Row gutter={24}>
-              {teamMembers.map((member) => (
-                <Col span={12} key={member.name} style={{ marginBottom: 8 }}>
-                  <a style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Avatar size="small" style={{ backgroundColor: '#1677ff' }}>{member.name[0]}</Avatar>
-                    <span style={{ fontSize: 13 }}>{member.name}</span>
-                  </a>
-                  <div style={{ fontSize: 11, color: '#999', marginLeft: 32 }}>{member.role}</div>
-                </Col>
-              ))}
-            </Row>
-          </Card>
-        </Col>
-      </Row>
-    </PageContainer>
+          {/* Main Content: 2 columns */}
+          <div className="grid grid-cols-3 gap-6">
+            {/* Left: Funnel + Jobs */}
+            <div className="col-span-2 flex flex-col gap-6">
+              {/* Delivery Funnel */}
+              <div className="bg-bg-surface border border-border-subtle rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-brand-primary rounded-sm" />
+                    <span className="text-[15px] font-bold text-text-main">全链路交付漏斗</span>
+                  </div>
+                  <span className="text-[11px] text-text-sub/40">近 30 天</span>
+                </div>
+                <FunnelChart steps={funnelSteps} />
+              </div>
+
+              {/* Active Jobs */}
+              <div className="bg-bg-surface border border-border-subtle rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-brand-primary rounded-sm" />
+                    <span className="text-[15px] font-bold text-text-main">进行中的招聘项目</span>
+                  </div>
+                  <Link href="/jobs" className="text-[12px] text-brand-primary hover:underline">
+                    全部职位
+                  </Link>
+                </div>
+                {activeJobs.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {activeJobs.map((job: any) => (
+                      <Link
+                        key={job.id}
+                        href={`/jobs/${job.id}`}
+                        className="bg-bg-elevated/30 border border-border-subtle rounded-lg p-4 hover:border-brand-primary/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar size={24} className="bg-brand-primary/20 text-brand-primary text-[10px]">
+                            {job.enterprise?.name?.[0] || 'J'}
+                          </Avatar>
+                          <span className="text-[14px] font-medium text-text-main truncate">
+                            {job.title || '未命名职位'}
+                          </span>
+                        </div>
+                        <div className="text-[12px] text-text-sub/50">
+                          {job.enterprise?.name || '未知企业'} · {job.location || '--'}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span className="text-text-sub/30 text-[12px]">暂无进行中的招聘项目</span>}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="flex flex-col gap-6">
+              {/* Quick Links */}
+              <div className="bg-bg-surface border border-border-subtle rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-5 bg-brand-primary rounded-sm" />
+                  <span className="text-[15px] font-bold text-text-main">快速开始</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickLinks.map((link) => (
+                    <Link
+                      key={link.title}
+                      href={link.href}
+                      className="flex flex-col items-center gap-2 py-3 rounded-lg bg-bg-elevated/20 border border-border-subtle hover:border-brand-primary/30 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center text-[16px]">
+                        {link.icon}
+                      </div>
+                      <span className="text-[12px] text-text-sub">{link.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Candidates */}
+              <div className="bg-bg-surface border border-border-subtle rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-brand-primary rounded-sm" />
+                    <span className="text-[15px] font-bold text-text-main">最新入库</span>
+                  </div>
+                  <Link href="/candidates" className="text-[12px] text-brand-primary hover:underline">
+                    全部人才
+                  </Link>
+                </div>
+                {recentCandidates.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {recentCandidates.map((c: any) => (
+                      <div key={c.id} className="flex items-center gap-3">
+                        <Avatar size={28} className="bg-bg-elevated text-text-sub text-[11px]">
+                          {c.name?.[0] || '?'}
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] text-text-main truncate">{c.name || '未知'}</div>
+                          <div className="text-[11px] text-text-sub/40">
+                            {c.currentTitle || c.degree || '--'}
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-text-sub/30 shrink-0">
+                          {formatTimeAgo(c.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span className="text-text-sub/30 text-[12px]">暂无候选人</span>}
+                  />
+                )}
+              </div>
+
+              {/* AI Insight Card */}
+              <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ThunderboltOutlined className="text-brand-primary text-[14px]" />
+                  <span className="text-[13px] font-medium text-brand-primary">AI 洞察</span>
+                </div>
+                <p className="text-[12px] text-text-sub/60 leading-5 m-0">
+                  {data.candidates.length > 0
+                    ? `当前人才库共 ${data.candidates.length} 位候选人，${activeJobs.length} 个活跃岗位。建议优先推进已有推荐的交付流程。`
+                    : '上传简历开始构建人才库，AI 将自动解析简历并提取关键信息。'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

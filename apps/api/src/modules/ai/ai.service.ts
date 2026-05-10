@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ParsingService } from './parsing.service';
+import { PdfExtractionService } from './pdf-extraction.service';
 import { InsightService } from './insight.service';
 import { LlmClientService } from './llm-client.service';
 
@@ -7,6 +8,7 @@ import { LlmClientService } from './llm-client.service';
 export class AiService {
   constructor(
     private readonly parsingService: ParsingService,
+    private readonly pdfExtractionService: PdfExtractionService,
     private readonly insightService: InsightService,
     private readonly llmClient: LlmClientService,
   ) {}
@@ -20,7 +22,9 @@ export class AiService {
 
   async parseFile(buffer: Buffer, originalName: string, type: 'resume' | 'jd') {
     if (type === 'resume') return this.parsingService.parseResumeFast(buffer, originalName);
-    return this.parsingService.parseJobDescription(buffer.toString('utf-8'));
+    // JD path: extract text from file first, then parse with LLM
+    const extracted = await this.pdfExtractionService.extractStructuredText(buffer, originalName);
+    return this.parsingService.parseJobDescription(extracted.text);
   }
 
   async parseResumeFast(buffer: Buffer, originalName: string) {
