@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsUUID, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateJobDto {
   @IsUUID()
@@ -19,10 +20,12 @@ export class CreateJobDto {
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   salaryMin?: number;
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   salaryMax?: number;
 
   @IsString()
@@ -49,10 +52,12 @@ export class UpdateJobDto {
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   salaryMin?: number;
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   salaryMax?: number;
 
   @IsString()
