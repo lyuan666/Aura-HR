@@ -41,7 +41,27 @@ export class UpdateJobDto {
 
   @IsString()
   @IsOptional()
+  department?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsNumber()
+  @IsOptional()
+  salaryMin?: number;
+
+  @IsNumber()
+  @IsOptional()
+  salaryMax?: number;
+
+  @IsString()
+  @IsOptional()
+  location?: string;
+
+  @IsString()
+  @IsOptional()
+  requirements?: string;
 
   @IsString()
   @IsOptional()
