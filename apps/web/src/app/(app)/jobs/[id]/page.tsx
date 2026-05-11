@@ -16,21 +16,29 @@ import {
   InputNumber, 
   Select, 
   App,
+  Divider,
   Row,
   Col,
-  ConfigProvider
+  ConfigProvider,
+  Result
 } from 'antd';
 import { 
-  RobotOutlined, 
   LeftOutlined, 
   EditOutlined, 
   SaveOutlined, 
   CloseOutlined,
+  RobotOutlined,
+  EnvironmentOutlined,
+  TeamOutlined,
+  DollarCircleOutlined,
+  CalendarOutlined,
+  ProfileOutlined,
+  DashboardOutlined
 } from '@ant-design/icons';
 import api from '@/lib/api';
 import zhCN from 'antd/locale/zh_CN';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 export default function JobDetailPage() {
@@ -51,7 +59,7 @@ export default function JobDetailPage() {
       form.setFieldsValue(res.data);
     } catch (e) {
       console.error(e);
-      message.error('数据加载失败，请检查网络');
+      message.error('无法连接至云端数据库');
     } finally {
       setLoading(false);
     }
@@ -66,12 +74,12 @@ export default function JobDetailPage() {
     try {
       const values = await form.validateFields();
       await api.patch(`/job-positions/${id}`, values);
-      message.success('更新成功');
+      message.success('更新已同步');
       setIsEditing(false);
       fetchJob();
     } catch (e: any) {
       console.error(e);
-      message.error('保存失败，请检查必填项');
+      message.error('保存失败，请检查数据合法性');
     } finally {
       setSaving(false);
     }
@@ -79,173 +87,215 @@ export default function JobDetailPage() {
 
   if (loading && !job) {
     return (
-      <div style={{ padding: 40 }}>
-        <Skeleton active paragraph={{ rows: 15 }} />
+      <div className="p-12 max-w-7xl mx-auto">
+        <Skeleton active paragraph={{ rows: 12 }} />
       </div>
     );
   }
 
   if (!job) {
     return (
-      <div style={{ padding: 100, textAlign: 'center' }}>
-        <Empty description="职位不存在" />
-        <Button onClick={() => router.push('/jobs')}>返回列表</Button>
+      <div className="flex h-[80vh] items-center justify-center">
+        <Result
+          status="404"
+          title="职位档案不存在"
+          subTitle="该职位可能已被归档或删除"
+          extra={<Button type="primary" onClick={() => router.push('/jobs')}>返回职位中心</Button>}
+        />
       </div>
     );
   }
 
   const statusMap: any = {
-    pending: { label: '待处理', color: 'default' },
-    matching: { label: '匹配中', color: 'blue' },
-    recommending: { label: '推荐中', color: 'orange' },
-    interviewing: { label: '面试中', color: 'purple' },
-    closed: { label: '已关闭', color: 'red' },
+    pending: { label: '待开放', color: 'default' },
+    matching: { label: '人才匹配中', color: 'processing' },
+    recommending: { label: '面试推荐中', color: 'warning' },
+    interviewing: { label: '正在面试', color: 'purple' },
+    closed: { label: '已关闭', color: 'error' },
     cancelled: { label: '已取消', color: 'default' }
   };
 
   return (
-    <ConfigProvider locale={zhCN}>
-      <div style={{ background: '#fff', minHeight: '100-screen', paddingBottom: 60 }}>
-        {/* 顶部操作栏 */}
-        <div style={{ 
-          padding: '20px 40px', 
-          borderBottom: '1px solid #eee', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          position: 'sticky',
-          top: 0,
-          background: '#fff',
-          zIndex: 100
-        }}>
-          <Space size={20}>
-            <Button icon={<LeftOutlined />} onClick={() => router.push('/jobs')}>返回</Button>
-            <Title level={3} style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#111' }}>
-              {job.title}
-            </Title>
-            {!isEditing && <Tag color={statusMap[job.status]?.color} style={{ fontSize: '14px', padding: '2px 10px' }}>{statusMap[job.status]?.label}</Tag>}
-          </Space>
+    <ConfigProvider locale={zhCN} theme={{
+      token: {
+        colorPrimary: '#2563eb',
+        borderRadius: 8,
+      },
+    }}>
+      <div className="min-h-screen bg-[#fcfcfd]">
+        {/* 精简顶部导航 */}
+        <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                type="text" 
+                icon={<LeftOutlined />} 
+                onClick={() => router.push('/jobs')}
+                className="text-gray-500"
+              >
+                返回
+              </Button>
+              <Divider type="vertical" className="h-6" />
+              <Title level={4} className="!m-0 !text-gray-900 font-bold">
+                {isEditing ? '编辑职位详情' : job.title}
+              </Title>
+              {!isEditing && <Tag color={statusMap[job.status]?.color} className="rounded-full px-3">{statusMap[job.status]?.label}</Tag>}
+            </div>
 
-          <Space>
-            {isEditing ? (
-              <>
-                <Button size="large" onClick={() => { setIsEditing(false); form.resetFields(); }}>取消编辑</Button>
-                <Button size="large" type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>保存更改</Button>
-              </>
-            ) : (
-              <>
-                <Button size="large" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>修改职位信息</Button>
-                <Button size="large" type="primary" icon={<RobotOutlined />} onClick={() => router.push(`/jobs/${id}/matches`)}>开始 AI 匹配人才</Button>
-              </>
-            )}
-          </Space>
+            <Space size="middle">
+              {isEditing ? (
+                <>
+                  <Button onClick={() => { setIsEditing(false); form.resetFields(); }}>放弃修改</Button>
+                  <Button type="primary" loading={saving} onClick={handleSave} className="bg-blue-600">保存同步</Button>
+                </>
+              ) : (
+                <>
+                  <Button icon={<EditOutlined />} onClick={() => setIsEditing(true)}>修改信息</Button>
+                  <Button type="primary" icon={<RobotOutlined />} onClick={() => router.push(`/jobs/${id}/matches`)} className="bg-blue-600">
+                    AI 智能匹配
+                  </Button>
+                </>
+              )}
+            </Space>
+          </div>
         </div>
 
-        <div style={{ maxWidth: '1200px', margin: '40px auto', padding: '0 20px' }}>
-          <Form form={form} layout="vertical" disabled={!isEditing} initialValues={job}>
+        <div className="max-w-7xl mx-auto px-8 py-10">
+          <Form form={form} layout="vertical" disabled={!isEditing} initialValues={job} requiredMark="optional">
             <Row gutter={40}>
-              <Col span={16}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                  {/* 基本表单项 */}
-                  <Card title={<span style={{ fontSize: '18px', fontWeight: 'bold' }}>基础属性</span>} bordered>
-                    <Row gutter={20}>
-                      <Col span={12}>
-                        <Form.Item name="title" label={<b style={{ fontSize: '16px' }}>职位名称</b>} rules={[{ required: true }]}>
-                          <Input size="large" style={{ fontSize: '16px', color: '#000' }} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item name="department" label={<b style={{ fontSize: '16px' }}>所属部门</b>}>
-                          <Input size="large" style={{ fontSize: '16px', color: '#000' }} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                    <Row gutter={20}>
-                      <Col span={12}>
-                        <Form.Item label={<b style={{ fontSize: '16px' }}>薪资范围 (K)</b>}>
-                          <Space.Compact style={{ width: '100%' }}>
-                            <Form.Item name="salaryMin" noStyle><InputNumber size="large" style={{ width: '50%', fontSize: '16px' }} /></Form.Item>
-                            <Form.Item name="salaryMax" noStyle><InputNumber size="large" style={{ width: '50%', fontSize: '16px' }} /></Form.Item>
-                          </Space.Compact>
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item name="location" label={<b style={{ fontSize: '16px' }}>办公地点</b>}>
-                          <Input size="large" style={{ fontSize: '16px', color: '#000' }} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </Card>
+              {/* 主体部分 */}
+              <Col xs={24} lg={16}>
+                <div className="space-y-8">
+                  <section>
+                    <div className="flex items-center gap-2 mb-4">
+                      <ProfileOutlined className="text-blue-600" />
+                      <Text className="text-gray-900 font-bold text-lg">职位核心信息</Text>
+                    </div>
+                    <Card bordered={false} className="shadow-[0_1px_3px_rgba(0,0,0,0.1)] rounded-xl">
+                      <Row gutter={24}>
+                        <Col span={12}>
+                          <Form.Item name="title" label="职位名称" rules={[{ required: true }]}>
+                            <Input size="large" className="rounded-lg" />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item name="department" label="所属部门">
+                            <Input size="large" className="rounded-lg" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <Row gutter={24}>
+                        <Col span={12}>
+                          <Form.Item label="月薪范围 (K)">
+                            <Space.Compact className="w-full">
+                              <Form.Item name="salaryMin" noStyle><InputNumber size="large" className="w-1/2 rounded-l-lg" placeholder="最低" /></Form.Item>
+                              <Form.Item name="salaryMax" noStyle><InputNumber size="large" className="w-1/2 rounded-r-lg" placeholder="最高" /></Form.Item>
+                            </Space.Compact>
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item name="location" label="办公城市">
+                            <Input size="large" prefix={<EnvironmentOutlined className="text-gray-400" />} className="rounded-lg" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    </Card>
+                  </section>
 
-                  {/* 核心要求 */}
-                  <Card title={<span style={{ fontSize: '18px', fontWeight: 'bold' }}>任职要求</span>} bordered>
-                    <Form.Item name="requirements" noStyle>
-                      <TextArea 
-                        rows={12} 
-                        style={{ 
-                          fontSize: '17px', 
-                          lineHeight: '1.6', 
-                          color: '#222', 
-                          background: isEditing ? '#fff' : '#f9f9f9',
-                          padding: isEditing ? '12px' : '0',
-                          border: isEditing ? '1px solid #d9d9d9' : 'none'
-                        }} 
-                      />
-                    </Form.Item>
-                  </Card>
+                  <section>
+                    <div className="flex items-center gap-2 mb-4">
+                      <ProfileOutlined className="text-blue-600" />
+                      <Text className="text-gray-900 font-bold text-lg">任职要求</Text>
+                    </div>
+                    <Card bordered={false} className="shadow-[0_1px_3px_rgba(0,0,0,0.1)] rounded-xl">
+                      <Form.Item name="requirements" noStyle>
+                        <TextArea 
+                          rows={12} 
+                          className={`text-[16px] leading-relaxed text-gray-800 ${!isEditing ? 'border-none p-0 !bg-transparent resize-none' : 'rounded-lg bg-gray-50'}`}
+                        />
+                      </Form.Item>
+                    </Card>
+                  </section>
 
-                  {/* 职位描述 */}
-                  <Card title={<span style={{ fontSize: '18px', fontWeight: 'bold' }}>详细描述</span>} bordered>
-                    <Form.Item name="description" noStyle>
-                      <TextArea 
-                        rows={12} 
-                        style={{ 
-                          fontSize: '17px', 
-                          lineHeight: '1.6', 
-                          color: '#333', 
-                          background: isEditing ? '#fff' : '#f9f9f9',
-                          padding: isEditing ? '12px' : '0',
-                          border: isEditing ? '1px solid #d9d9d9' : 'none'
-                        }} 
-                      />
-                    </Form.Item>
-                  </Card>
+                  <section>
+                    <div className="flex items-center gap-2 mb-4">
+                      <ProfileOutlined className="text-blue-600" />
+                      <Text className="text-gray-900 font-bold text-lg">职位详情描述</Text>
+                    </div>
+                    <Card bordered={false} className="shadow-[0_1px_3px_rgba(0,0,0,0.1)] rounded-xl">
+                      <Form.Item name="description" noStyle>
+                        <TextArea 
+                          rows={12} 
+                          className={`text-[16px] leading-relaxed text-gray-700 ${!isEditing ? 'border-none p-0 !bg-transparent resize-none' : 'rounded-lg bg-gray-50'}`}
+                        />
+                      </Form.Item>
+                    </Card>
+                  </section>
                 </div>
               </Col>
 
-              <Col span={8}>
-                <Card title={<span style={{ fontSize: '18px', fontWeight: 'bold' }}>招聘设置</span>} bordered>
-                  <Form.Item name="status" label={<b style={{ fontSize: '16px' }}>当前状态</b>}>
-                    <Select size="large" style={{ width: '100%' }} options={Object.entries(statusMap).map(([k, v]: any) => ({ value: k, label: v.label }))} />
-                  </Form.Item>
+              {/* 侧边设置 */}
+              <Col xs={24} lg={8}>
+                <div className="space-y-8 sticky top-24">
+                  <section>
+                    <div className="flex items-center gap-2 mb-4">
+                      <DashboardOutlined className="text-blue-600" />
+                      <Text className="text-gray-900 font-bold text-lg">流程与管控</Text>
+                    </div>
+                    <Card bordered={false} className="shadow-[0_1px_3px_rgba(0,0,0,0.1)] rounded-xl">
+                      <Form.Item name="status" label="当前所处阶段">
+                        <Select size="large" options={Object.entries(statusMap).map(([k, v]: any) => ({ value: k, label: v.label }))} className="w-full" />
+                      </Form.Item>
+                      <Form.Item name="urgency" label="紧急程度等级">
+                        <Select size="large" className="w-full" options={[
+                          { value: 'low', label: '普通优先级' },
+                          { value: 'medium', label: '优先处理' },
+                          { value: 'high', label: '高度紧急' },
+                          { value: 'urgent', label: '特急需求' },
+                        ]} />
+                      </Form.Item>
+                      <Form.Item name="headcount" label="计划招聘人数">
+                        <InputNumber size="large" className="w-full" prefix={<TeamOutlined className="text-gray-400" />} />
+                      </Form.Item>
 
-                  <Form.Item name="urgency" label={<b style={{ fontSize: '16px' }}>紧急程度</b>}>
-                    <Select size="large" style={{ width: '100%' }} options={[
-                      { value: 'low', label: '普通' },
-                      { value: 'medium', label: '优先' },
-                      { value: 'high', label: '紧急' },
-                      { value: 'urgent', label: '特急' },
-                    ]} />
-                  </Form.Item>
+                      <div className="mt-8 pt-8 border-t border-gray-100 flex items-center justify-between text-gray-500 text-sm">
+                        <span>所属企业：</span>
+                        <Text strong className="text-gray-800">{job.enterprise?.name || '默认企业'}</Text>
+                      </div>
+                    </Card>
+                  </section>
 
-                  <Form.Item name="headcount" label={<b style={{ fontSize: '16px' }}>招聘人数</b>}>
-                    <InputNumber size="large" style={{ width: '100%' }} min={1} />
-                  </Form.Item>
-
-                  <div style={{ marginTop: 40, padding: 20, background: '#f0f7ff', borderRadius: 8, border: '1px solid #bae7ff' }}>
-                    <p style={{ fontWeight: 'bold', color: '#0050b3', marginBottom: 8 }}>
-                      <RobotOutlined /> AI 提示
-                    </p>
-                    <p style={{ fontSize: '14px', color: '#003a8c', lineHeight: '1.5', margin: 0 }}>
-                      修改任职要求后，系统会自动重新计算该职位与人才库的匹配度。请确保关键技能词描述准确。
+                  {/* AI 助手卡片 */}
+                  <div className="p-6 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
+                    <div className="flex items-center gap-2 mb-3 text-white">
+                      <RobotOutlined className="text-xl" />
+                      <span className="font-bold">AI 智能辅助已启用</span>
+                    </div>
+                    <p className="text-blue-50 text-sm leading-relaxed mb-0">
+                      我们已根据您的任职要求在后台建立了向量索引。修改描述后，人才画像将自动重新对齐。
                     </p>
                   </div>
-                </Card>
+                </div>
               </Col>
             </Row>
           </Form>
         </div>
       </div>
+
+      <style jsx global>{`
+        .ant-form-item-label label {
+          font-weight: 600 !important;
+          color: #374151 !important;
+          font-size: 14px !important;
+          margin-bottom: 4px !important;
+        }
+        .ant-input-number-handler-wrap {
+          display: none;
+        }
+        .ant-card {
+          border-radius: 12px !important;
+        }
+      `}</style>
     </ConfigProvider>
   );
 }
