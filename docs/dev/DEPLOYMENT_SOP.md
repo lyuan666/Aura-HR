@@ -61,11 +61,15 @@ rsync -avz apps/web/public/ root@47.97.62.57:/opt/yzschros/apps/web/public/
 
 ```bash
 ssh root@47.97.62.57 << 'EOF'
+  # 先删除旧目录，防止发生目录嵌套 (static/static)
+  rm -rf /opt/yzschros/apps/web/.next/standalone/apps/web/.next/static
+  rm -rf /opt/yzschros/apps/web/.next/standalone/apps/web/public
+
   # 复制 static（Next.js standalone 不包含 static，必须手动复制）
-  cp -r /opt/yzschros/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/.next/static
+  cp -r /opt/yzschros/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/.next/
 
   # 复制 public（同上）
-  cp -r /opt/yzschros/apps/web/public /opt/yzschros/apps/web/.next/standalone/apps/web/public
+  cp -r /opt/yzschros/apps/web/public /opt/yzschros/apps/web/.next/standalone/apps/web/
 EOF
 ```
 
@@ -174,7 +178,7 @@ ssh root@47.97.62.57 "curl -s -o /dev/null -w '%{http_code}' http://localhost:30
 rsync -avz apps/web/.next/standalone/ root@47.97.62.57:/opt/yzschros/apps/web/.next/standalone/
 rsync -avz apps/web/.next/static/ root@47.97.62.57:/opt/yzschros/apps/web/.next/static/
 rsync -avz apps/web/public/ root@47.97.62.57:/opt/yzschros/apps/web/public/
-ssh root@47.97.62.57 "cp -r /opt/yzschros/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/.next/static && cp -r /opt/yzschros/apps/web/public /opt/yzschros/apps/web/.next/standalone/apps/web/public && pm2 restart yzschros-web"
+ssh root@47.97.62.57 "rm -rf /opt/yzschros/apps/web/.next/standalone/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/public && cp -r /opt/yzschros/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/.next/ && cp -r /opt/yzschros/apps/web/public /opt/yzschros/apps/web/.next/standalone/apps/web/ && pm2 restart yzschros-web"
 
 # 验证 Web
 sleep 5
