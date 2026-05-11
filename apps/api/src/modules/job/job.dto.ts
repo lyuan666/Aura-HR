@@ -28,6 +28,10 @@ export class CreateJobDto {
   @IsString()
   @IsOptional()
   location?: string;
+
+  @IsString()
+  @IsOptional()
+  requirements?: string;
 }
 
 export class UpdateJobDto {

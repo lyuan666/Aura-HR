@@ -6,6 +6,7 @@ import { CreateFollowUpDto, GenerateFollowUpStrategyDto } from './follow-up.dto'
 import { FollowUpEntity } from '../../entities/follow-up.entity';
 import { AiService } from '../ai/ai.service';
 import { AuditLogEntity } from '../../entities/audit-log.entity';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class FollowUpService {
@@ -17,6 +18,7 @@ export class FollowUpService {
     @InjectRepository(AuditLogEntity)
     private readonly auditRepo: Repository<AuditLogEntity>,
     private readonly aiService: AiService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async findAll(page = 1, pageSize = 20, targetType?: string, targetId?: string, tenantId?: string) {
@@ -99,6 +101,15 @@ export class FollowUpService {
           },
           userId: 'system',
         }));
+
+        // 发送飞书通知
+        await this.notificationService.notify(reminder.tenantId || 'default', 'follow_up_reminder', {
+          id: reminder.id,
+          content: reminder.content,
+          remindAt: reminder.nextFollowUpAt?.toLocaleString() || '立即',
+          targetType: reminder.targetType,
+          targetId: reminder.targetId,
+        });
       }
     }
   }

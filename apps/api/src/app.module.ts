@@ -22,6 +22,9 @@ import { RedisModule } from './modules/redis/redis.module';
 import { ReportModule } from './modules/report/report.module';
 import { GuaranteeModule } from './modules/guarantee/guarantee.module';
 import { ContractModule } from './modules/contract/contract.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { AuthClientModule } from './modules/auth-client/auth-client.module';
+import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import {
   UserEntity,
@@ -38,6 +41,7 @@ import {
   PendingJobEntity,
   GuaranteeTrackingEntity,
   RefreshTokenEntity,
+  NotificationConfigEntity,
 } from './entities';
 
 @Module({
@@ -74,6 +78,7 @@ import {
           PendingJobEntity,
           GuaranteeTrackingEntity,
           RefreshTokenEntity,
+          NotificationConfigEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') !== 'production',
@@ -104,6 +109,9 @@ import {
     ReportModule,
     GuaranteeModule,
     ContractModule,
+    NotificationModule,
+    AuthClientModule,
+    ClientPortalModule,
   ],
   providers: [
     // 全局 JWT 认证守卫，所有端点默认需要认证

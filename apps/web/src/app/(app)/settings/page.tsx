@@ -26,8 +26,10 @@ import {
   MailOutlined,
   PhoneOutlined,
   KeyOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
+import FeishuNotificationSettings from '@/components/settings/FeishuNotificationSettings';
 
 const { Text, Title } = Typography;
 
@@ -300,6 +302,12 @@ export default function SettingsPage() {
           ))}
         </Space>
       ),
+    },
+    {
+      key: '4',
+      label: '通知设置',
+      icon: <BellOutlined />,
+      children: <FeishuNotificationSettings />,
     },
   ];
 

@@ -81,10 +81,12 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
         description: values.description,
         salaryMin: parseInt(parsedData.salaryMin) || undefined,
         salaryMax: parseInt(parsedData.salaryMax) || undefined,
-        requirements: parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+        requirements: [
+          parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+          (parsedData.experienceRequired || parsedData.minExperience) ? `经验要求: ${parsedData.experienceRequired || parsedData.minExperience}` : '',
+          (parsedData.educationRequired || parsedData.minEducation) ? `学历要求: ${parsedData.educationRequired || parsedData.minEducation}` : ''
+        ].filter(Boolean).join('\n'),
         location: parsedData.location || '',
-        experienceRequired: parsedData.experienceRequired || parsedData.minExperience || '',
-        educationRequired: parsedData.educationRequired || parsedData.minEducation || '',
       });
 
       onSuccess(saveRes.data);
@@ -120,7 +122,11 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
         description: parsedData.description || parsedData.rawText || '',
         salaryMin: parseInt(parsedData.salaryMin) || undefined,
         salaryMax: parseInt(parsedData.salaryMax) || undefined,
-        requirements: parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+        requirements: [
+          parsedData.requirements || parsedData.requiredSkills?.join('、') || '',
+          (parsedData.experienceRequired || parsedData.minExperience) ? `经验要求: ${parsedData.experienceRequired || parsedData.minExperience}` : '',
+          (parsedData.educationRequired || parsedData.minEducation) ? `学历要求: ${parsedData.educationRequired || parsedData.minEducation}` : ''
+        ].filter(Boolean).join('\n'),
         location: parsedData.location || '',
       });
 
@@ -139,7 +145,8 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
     <Modal
       open={visible}
       onCancel={onCancel}
-      width={900}
+      width="100%"
+      style={{ maxWidth: '900px', top: '20px', padding: '0 8px' }}
       footer={null}
       centered
       closeIcon={<div className="bg-white/5 hover:bg-[#FF5252]/20 p-2 rounded-xl transition-all text-[#555762] hover:text-[#FF5252]"><StopOutlined /></div>}
@@ -149,9 +156,9 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
       }}
       className="v2-dark-modal"
     >
-      <div className="flex h-[600px]">
-        {/* 左侧：状态指示与引导 */}
-        <div className="w-[280px] bg-gradient-to-b from-[#11131A] to-[#0B0D11] p-10 flex flex-col border-r border-white/5 relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row h-auto sm:h-[600px]">
+        {/* 左侧：状态指示与引导 (Hidden on mobile) */}
+        <div className="hidden sm:flex w-[280px] bg-gradient-to-b from-[#11131A] to-[#0B0D11] p-10 flex-col border-r border-white/5 relative overflow-hidden">
            <div className="absolute top-[-100px] left-[-100px] w-64 h-64 bg-[#6C5CE7]/5 blur-[100px] rounded-full" />
            <div className="relative z-10 flex flex-col h-full">
               <div className="w-14 h-14 rounded-2xl bg-[#6C5CE7]/10 flex items-center justify-center text-[#A29BFE] mb-8 shadow-inner border border-[#6C5CE7]/20">
@@ -180,7 +187,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
         {/* 右侧：主交互区 */}
         <div className="flex-1 flex flex-col bg-[#0B0D11] overflow-hidden">
           {/* Tabs - Custom Styled */}
-          <div className="flex px-10 pt-10 border-b border-white/5 bg-white/[0.01]">
+          <div className="flex px-4 sm:px-10 pt-6 sm:pt-10 border-b border-white/5 bg-white/[0.01] overflow-x-auto no-scrollbar">
             {[
               { key: 'text', label: '描述提取', icon: <FileTextOutlined /> },
               { key: 'upload', label: '文档上传', icon: <CloudUploadOutlined /> }
@@ -198,7 +205,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar p-10 relative">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-10 relative">
              <AnimatePresence mode="wait">
                {activeTab === 'text' ? (
                  <motion.div
@@ -216,7 +223,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
                         />
                       </Form.Item>
                       
-                      <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-3xl p-4">
+                      <div className="flex flex-col lg:flex-row items-center justify-between bg-white/[0.02] border border-white/5 rounded-3xl p-4 gap-4">
                         <div className="flex items-center gap-4">
                           <button 
                             type="button"
@@ -225,7 +232,7 @@ const SmartJobCreationModal: React.FC<SmartJobCreationModalProps> = ({ visible, 
                               "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-90",
                               isRecording 
                                 ? "bg-[#FF5252] text-white animate-pulse shadow-[#FF5252]/20" 
-                                : "bg-white/5 text-[#555762] hover:bg-white/10 hover:text-white"
+                                : "bg-hover text-text-sub hover:bg-hover-active hover:text-text-main"
                             )}
                           >
                             {isRecording ? <StopOutlined /> : <AudioOutlined />}

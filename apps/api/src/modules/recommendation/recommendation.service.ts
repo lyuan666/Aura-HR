@@ -13,6 +13,7 @@ import {
   StateMachine,
   RECOMMENDATION_TRANSITIONS,
 } from '../../common/utils/state-machine';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class RecommendationService {
@@ -26,6 +27,7 @@ export class RecommendationService {
     @InjectRepository(JobPositionEntity)
     private jobRepo: Repository<JobPositionEntity>,
     private aiService: AiService,
+    private notificationService: NotificationService,
   ) {}
 
   async createRecommendation(
@@ -206,6 +208,10 @@ export class RecommendationService {
 
     rec.status = status;
     const updated = await this.recommendationRepo.save(rec);
+
+    // 异步发送通知
+    this.sendRecommendationNotification(id, 'status_change', tenantId).catch(() => {});
+
     return this.dehydrate(updated);
   }
 
@@ -217,6 +223,10 @@ export class RecommendationService {
 
     rec.interviewDate = new Date(date);
     const updated = await this.recommendationRepo.save(rec);
+
+    // 异步发送通知
+    this.sendRecommendationNotification(id, 'interview_reminder', tenantId).catch(() => {});
+
     return this.dehydrate(updated);
   }
 
@@ -241,5 +251,32 @@ export class RecommendationService {
       job.title,
       job.description || '',
     );
+  }
+
+  private async sendRecommendationNotification(id: string, event: string, tenantId?: string) {
+    try {
+      const rec = await this.recommendationRepo.findOne({
+        where: { id },
+        relations: ['candidate', 'jobPosition'],
+      });
+
+      if (!rec) return;
+
+      const notifyData: any = {
+        id: rec.id,
+        candidateName: rec.candidate?.name || '未知候选人',
+        jobTitle: rec.jobPosition?.title || '未知职位',
+      };
+
+      if (event === 'status_change') {
+        notifyData.newStatus = rec.status;
+      } else if (event === 'interview_reminder') {
+        notifyData.interviewTime = rec.interviewDate?.toLocaleString() || '未定';
+      }
+
+      await this.notificationService.notify(tenantId || 'default', event, notifyData);
+    } catch (error) {
+      // 捕获所有错误，确保不影响主流程
+    }
   }
 }

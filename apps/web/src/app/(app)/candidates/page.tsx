@@ -183,10 +183,10 @@ export default function CandidatesPage() {
   };
 
   return (
-    <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg-base px-0 py-2 text-text-main">
+    <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg-base px-2 sm:px-0 py-2 text-text-main">
       {/* 1. Header Area */}
-      <div className="mb-4 flex flex-shrink-0 items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="mb-4 flex flex-col sm:flex-row flex-shrink-0 items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
           <div className="flex items-center gap-3">
             <h1
               className="shrink-0 whitespace-nowrap text-xl font-bold tracking-wide text-text-main"
@@ -204,11 +204,11 @@ export default function CandidatesPage() {
             placeholder="在结果中搜索姓名、职位、公司..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-80 bg-bg-surface/50 border-border-subtle rounded-md hover:border-brand-primary/50 focus:border-brand-primary/50 focus:bg-bg-surface transition-all placeholder:text-text-sub/40 text-sm"
+            className="w-full sm:w-80 bg-bg-surface/50 border-border-subtle rounded-md hover:border-brand-primary/50 focus:border-brand-primary/50 focus:bg-bg-surface transition-all placeholder:text-text-sub/40 text-sm"
             allowClear
           />
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar pb-1">
           <Button
             icon={<UploadOutlined />}
             onClick={() => setIsUploadModalOpen(true)}
@@ -234,8 +234,8 @@ export default function CandidatesPage() {
       </div>
 
       {/* 2. Filter Bar & Bulk Actions */}
-      <div className="mb-3 flex flex-shrink-0 items-center justify-between bg-bg-surface p-2 rounded-lg border border-border-subtle">
-        <div className="flex items-center gap-4 pl-2">
+      <div className="mb-3 flex flex-col lg:flex-row flex-shrink-0 items-start lg:items-center justify-between bg-bg-surface p-2 rounded-lg border border-border-subtle gap-4">
+        <div className="flex items-center gap-4 pl-2 w-full lg:w-auto justify-between lg:justify-start">
           <Checkbox 
             checked={filteredCandidates.length > 0 && selectedRowKeys.length === filteredCandidates.length}
             indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < filteredCandidates.length}
@@ -273,7 +273,7 @@ export default function CandidatesPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-2 pr-2 overflow-x-auto no-scrollbar w-full lg:w-auto">
           <Dropdown
             menu={{
               items: [
@@ -407,20 +407,40 @@ export default function CandidatesPage() {
                       setSelectedCandidate(c);
                       setIsModalOpen(true);
                     }}
-                    className="group flex items-start py-5 border-b border-border-subtle hover:bg-bg-elevated/30 transition-colors cursor-pointer"
+                    className="group flex flex-col sm:flex-row items-start py-5 border-b border-border-subtle hover:bg-bg-elevated/30 transition-colors cursor-pointer gap-4 sm:gap-0"
                   >
                     {/* Left Column: Identity */}
-                    <div className="w-10 flex-shrink-0 flex items-center justify-center relative z-10 pt-4">
-                      <Checkbox 
-                        checked={selectedRowKeys.includes(c.id || '')}
-                        onChange={(e) => handleRowSelect(c.id, e.target.checked)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                    <div className="w-full sm:w-auto flex flex-row sm:flex-col items-center sm:items-center sm:justify-center relative z-10 sm:pt-4 gap-4 px-2 sm:px-0">
+                      <div className="sm:w-10 flex justify-center">
+                        <Checkbox 
+                          checked={selectedRowKeys.includes(c.id || '')}
+                          onChange={(e) => handleRowSelect(c.id, e.target.checked)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-3 sm:hidden">
+                        <Avatar
+                          src={c.avatar}
+                          size={32}
+                          className={cn(
+                            'border border-border-subtle',
+                            c.gender === 'female'
+                              ? 'bg-error/10 text-error'
+                              : 'bg-brand-primary/10 text-brand-primary',
+                          )}
+                        >
+                          {c.name?.[0] || '?'}
+                        </Avatar>
+                        <span className="text-[14px] font-semibold text-text-main">
+                          {c.name || '未知姓名'}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Main Content Area */}
                     <div className="flex items-start flex-1 gap-4">
-                        <div className="relative flex-shrink-0">
+                        <div className="relative flex-shrink-0 hidden sm:block">
                           <Avatar
                             src={c.avatar}
                             size={40}
@@ -550,7 +570,7 @@ export default function CandidatesPage() {
                     </div>
 
                     {/* Right Column: Actions */}
-                    <div className="w-[180px] flex items-start justify-end gap-2 flex-shrink-0 pr-4 mt-0.5">
+                    <div className="w-full sm:w-[180px] flex items-center sm:items-start justify-start sm:justify-end gap-2 flex-shrink-0 pr-4 mt-0.5 px-4 sm:px-0">
                       <Button
                         size="small"
                         className="bg-bg-surface border-border-subtle text-text-sub"

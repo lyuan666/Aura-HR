@@ -24,6 +24,7 @@
     "migration:revert": "typeorm migration:revert -d src/database/data-source.ts"
   },
   "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.63.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",

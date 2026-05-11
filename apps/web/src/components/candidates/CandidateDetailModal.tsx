@@ -212,8 +212,8 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
       open={visible}
       onCancel={onClose}
       footer={null}
-      width="90%"
-      style={{ maxWidth: '1400px', top: '40px' }}
+      width="100%"
+      style={{ maxWidth: '1400px', top: '20px', padding: '0 8px' }}
       centered
       closeIcon={null}
       className="candidate-detail-modal-v3"
@@ -227,7 +227,7 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
           backgroundColor: 'var(--bg-surface)',
           borderRadius: '12px',
           overflow: 'hidden',
-          height: 'calc(100vh - 120px)',
+          height: 'calc(100vh - 40px)',
           border: '1px solid var(--border-color)',
         },
       }}
@@ -247,19 +247,19 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-text-sub"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-hover-active transition-colors text-text-sub"
           >
             <CloseOutlined style={{ fontSize: '14px' }} />
           </button>
         </div>
 
-        {/* Main Content Area: 75:25 Split */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Main Content Area: 75:25 Split (Stacked on Mobile) */}
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           {/* Left Area (75%) */}
-          <div className="w-3/4 flex flex-col border-r border-border-subtle overflow-y-auto no-scrollbar bg-bg-base">
+          <div className="w-full sm:w-3/4 flex flex-col border-b sm:border-b-0 sm:border-r border-border-subtle overflow-y-auto no-scrollbar bg-bg-base">
             {/* 2. Personal Panorama Card */}
-            <div className="px-10 pt-10 pb-6">
-              <div className="flex justify-between items-start">
+            <div className="px-4 sm:px-10 pt-6 sm:pt-10 pb-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div className="flex items-start gap-6">
                   <div className="relative">
                     <Avatar
@@ -369,8 +369,8 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
             </div>
 
             {/* 3. Tabs */}
-            <div className="px-10 border-b border-border-subtle sticky top-0 bg-bg-base z-20">
-              <div className="flex gap-8">
+            <div className="px-4 sm:px-10 border-b border-border-subtle sticky top-0 bg-bg-base z-20 overflow-x-auto no-scrollbar">
+              <div className="flex gap-6 sm:gap-8 min-w-max">
                 {tabItems.map((tab) => (
                   <div
                     key={tab.key}
@@ -418,7 +418,7 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
           </div>
 
           {/* Right Sidebar (25%) */}
-          <div className="w-1/4 bg-bg-surface p-6 flex flex-col gap-6">
+          <div className="w-full sm:w-1/4 bg-bg-surface p-6 flex flex-col gap-6 overflow-y-auto">
             <Dropdown
               menu={{
                 items: jobs.map((job) => ({
@@ -530,7 +530,7 @@ const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
                   });
                 }}
                 disabled={currentCandidate.status === 'inactive'}
-                className="w-full h-10 rounded-md bg-white/5 border border-border-subtle text-[12px] font-medium text-text-sub/60 cursor-pointer hover:bg-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full h-10 rounded-md bg-hover border border-border-subtle text-[12px] font-medium text-text-sub/60 cursor-pointer hover:bg-hover-active transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 移入公海池
               </button>

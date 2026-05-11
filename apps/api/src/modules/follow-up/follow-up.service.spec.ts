@@ -5,6 +5,7 @@ import { FollowUpEntity } from '../../entities/follow-up.entity';
 import { AuditLogEntity } from '../../entities/audit-log.entity';
 import { AiService } from '../ai/ai.service';
 import { Repository } from 'typeorm';
+import { NotificationService } from '../notification/notification.service';
 
 describe('FollowUpService', () => {
   let service: FollowUpService;
@@ -35,6 +36,10 @@ describe('FollowUpService', () => {
           useValue: {
             generateFollowUpStrategy: jest.fn(),
           },
+        },
+        {
+          provide: NotificationService,
+          useValue: { notify: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

@@ -12,3 +12,4 @@ export { ShareLinkEntity } from './share-link.entity';
 export { PendingJobEntity } from './pending-job.entity';
 export { GuaranteeTrackingEntity } from './guarantee-tracking.entity';
 export { RefreshTokenEntity } from './refresh-token.entity';
+export { NotificationConfigEntity } from './notification-config.entity';

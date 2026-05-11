@@ -54,4 +54,86 @@ Codex不可用mini接管后端任务Gemini不可用 Codex 接管前端任务两�
 -**禁止**:force push、修改已 push历史
 
 
+## 部署铁律 (2026-05-10 血的教训)
+
+以下规则由 5 次生产事故总结，每次违反都会导致线上崩溃。**不可跳过任何一步。**
+
+### 规则 1: Next.js standalone 部署三件套
+
+Next.js standalone 输出 **不包含** static/ 和 public/。部署到服务器后必须执行:
+
+```bash
+# 在服务器上执行 (路径以实际为准)
+cp -r /opt/yzschros/apps/web/.next/static /opt/yzschros/apps/web/.next/standalone/apps/web/.next/static
+cp -r /opt/yzschros/apps/web/public /opt/yzschros/apps/web/.next/standalone/apps/web/public
+```
+
+**验证**: `ls .next/standalone/apps/web/.next/static/chunks/` 必须有 JS 文件。空目录 = UI 白屏。
+
+### 规则 2: rsync 禁用 --delete
+
+**永远不要** 对生产目录使用 `rsync --delete`。它会在传输中断时删除目标目录中源端没有的文件（比如之前复制进去的 static/）。
+
+正确做法:
+```bash
+# 同步 standalone 构建
+rsync -avz apps/web/.next/standalone/ root@47.97.62.57:/opt/yzschros/apps/web/.next/standalone/
+# 然后单独同步 static
+rsync -avz apps/web/.next/static/ root@47.97.62.57:/opt/yzschros/apps/web/.next/static/
+# 然后单独同步 public
+rsync -avz apps/web/public/ root@47.97.62.57:/opt/yzschros/apps/web/public/
+# 最后在服务器上执行规则1的 cp 命令
+```
+
+### 规则 3: 部署后必须验证
+
+每次部署后，**在宣布完成之前** 必须执行:
+
+```bash
+# 1. 检查 API 健康状态
+ssh root@47.97.62.57 "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/api/auth/login"
+# 预期: 401 或 400 (不是 500/无响应)
+
+# 2. 检查 Web 首页
+ssh root@47.97.62.57 "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/"
+# 预期: 307 (重定向到登录) 或 200
+
+# 3. 检查静态资源
+ssh root@47.97.62.57 "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/_next/static/"
+# 预期: 200 (不是 404)
+
+# 4. 检查 PM2 进程稳定 (等 30 秒后再看)
+ssh root@47.97.62.57 "pm2 list"
+# 预期: 两个进程都是 online，restart 次数为 0
+```
+
+### 规则 4: API 部署后 LLM URL 替换
+
+本地代码 LLM 配置与生产不一致（本地用 DeepSeek/智谱，生产用百炼 dashscope）。每次同步 API dist/ 后必须执行:
+
+```bash
+ssh root@47.97.62.57 "sed -i \
+  -e \"s|deepseekApiUrl = 'https://api.deepseek.com/chat/completions'|deepseekApiUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'|\" \
+  -e \"s|deepseekModel = 'deepseek-chat'|deepseekModel = 'qwen-plus'|\" \
+  -e \"s|cloudApiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'|cloudApiUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'|\" \
+  -e \"s|cloudModel = 'glm-4-flash'|cloudModel = 'qwen-turbo'|\" \
+  -e \"s|visionModel = 'glm-4v-flash'|visionModel = 'qwen-vl-plus'|\" \
+  /opt/yzschros/apps/api/dist/modules/ai/llm-client.service.js"
+```
+
+**长期方案**: 应该改为环境变量驱动，消除手动 sed 的需要。
+
+### 规则 5: PM2 cwd 必须设到实际执行目录
+
+- API: `cwd: /opt/yzschros/apps/api`
+- Web: `cwd: /opt/yzschros/apps/web/.next/standalone/apps/web`
+
+不要用项目根目录 `/opt/yzschros` 作为 cwd。API 代码里的相对路径 `../../.env` 会解析错误。
+
+### 规则 6: 大文件传输先看大小再决定策略
+
+- `du -sh .next/` 检查构建大小再决定传输方式
+- standalone 构建通常 < 50MB，整个 .next 可能 5GB+
+- 只同步 standalone/ + static/ + public/，**不同步** dev/ cache/
+- 超过 200MB 考虑先 tar 压缩再传
 

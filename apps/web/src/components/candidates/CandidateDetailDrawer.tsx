@@ -58,7 +58,7 @@ const CandidateDetailDrawer: React.FC<CandidateDetailDrawerProps> = ({ visible, 
         <div className="flex flex-col items-center justify-center p-20 bg-white/5 rounded-3xl border-2 border-dashed border-border-subtle m-8">
            <PaperClipOutlined className="text-5xl text-text-sub/40 mb-6" />
            <p className="text-text-sub text-sm mb-6 font-bold uppercase tracking-widest text-center">暂未检测到原始 PDF 附件<br/>解析节点已存储为结构化 Json数据</p>
-           <Button type="primary" size="large" className="rounded-xl px-10 h-11 bg-white/5 border-border-subtle text-text-main/80 font-black uppercase tracking-widest hover:bg-white/10 transition-all">立即关联附件</Button>
+           <Button type="primary" size="large" className="rounded-xl px-10 h-11 bg-hover border-border-subtle text-text-main/80 font-black uppercase tracking-widest hover:bg-hover-active transition-all">立即关联附件</Button>
         </div>
       ),
     },
@@ -136,10 +136,10 @@ const CandidateDetailDrawer: React.FC<CandidateDetailDrawerProps> = ({ visible, 
               </div>
             </div>
             <div className="flex items-center space-x-3">
-               <button className="bg-white/5 hover:bg-white/10 p-2.5 rounded-xl border border-white/5 transition-all text-[#8B8D97] hover:text-white">
+               <button className="bg-hover hover:bg-hover-active p-2.5 rounded-xl border border-border-subtle transition-all text-text-sub hover:text-text-main">
                  <ShareAltOutlined />
                </button>
-               <button className="bg-white/5 hover:bg-white/10 p-2.5 rounded-xl border border-white/5 transition-all text-[#8B8D97] hover:text-white">
+               <button className="bg-hover hover:bg-hover-active p-2.5 rounded-xl border border-border-subtle transition-all text-text-sub hover:text-text-main">
                  <DownloadOutlined />
                </button>
                <button 
@@ -267,7 +267,7 @@ const CandidateDetailDrawer: React.FC<CandidateDetailDrawerProps> = ({ visible, 
              </button>
              <div className="grid grid-cols-2 gap-3">
                <button className="h-11 rounded-2xl bg-white/5 border border-border-subtle text-[10px] font-black uppercase tracking-widest text-error hover:bg-error/10 transition-all">淘汰此节点</button>
-               <button className="h-11 rounded-2xl bg-white/5 border border-border-subtle text-[10px] font-black uppercase tracking-widest text-text-sub hover:bg-white/10 transition-all">移入公海池</button>
+               <button className="h-11 rounded-2xl bg-hover border border-border-subtle text-[10px] font-black uppercase tracking-widest text-text-sub hover:bg-hover-active transition-all">移入公海池</button>
              </div>
           </div>
         </div>

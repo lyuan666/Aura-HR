@@ -7,6 +7,7 @@ import { JobPositionEntity } from '../../entities/job-position.entity';
 import { AiService } from '../ai/ai.service';
 import { Repository } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
+import { NotificationService } from '../notification/notification.service';
 
 describe('RecommendationService', () => {
   let service: RecommendationService;
@@ -43,6 +44,10 @@ describe('RecommendationService', () => {
           useValue: {
             generateMatchingReport: jest.fn(),
           },
+        },
+        {
+          provide: NotificationService,
+          useValue: { notify: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

@@ -70,7 +70,7 @@ export const V2Sidebar: React.FC = () => {
                   'flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-md border text-[12px] font-medium transition-all',
                   active
                     ? 'border-brand-primary/30 bg-brand-primary/12 text-brand-primary shadow-[inset_3px_0_0_rgba(176,196,222,0.85)]'
-                    : 'border-transparent text-text-sub hover:bg-white/5 hover:text-text-main',
+                    : 'border-transparent text-text-sub hover:bg-hover hover:text-text-main',
                 ].join(' ')}
               >
                 <span className={active ? 'text-brand-primary' : 'text-text-sub'}>{item.icon}</span>
@@ -89,7 +89,7 @@ export const V2Sidebar: React.FC = () => {
               'flex h-14 w-full flex-col items-center justify-center gap-1 rounded-md border text-[12px] transition-all',
               activeKey === 'settings'
                 ? 'border-brand-primary/30 bg-brand-primary/12 text-brand-primary'
-                : 'border-transparent text-text-sub hover:bg-white/5 hover:text-text-main',
+                : 'border-transparent text-text-sub hover:bg-hover hover:text-text-main',
             ].join(' ')}
           >
             <Settings size={18} />

@@ -174,7 +174,7 @@ export default function DashboardPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/5 border border-border-subtle text-[12px] text-text-sub hover:bg-white/10 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-hover border border-border-subtle text-[12px] text-text-sub hover:bg-hover-active transition-colors"
         >
           <ReloadOutlined spin={loading} /> 刷新
         </button>
