@@ -5,7 +5,7 @@ import * as path from 'path';
 export interface ExtractedContent {
   text: string;
   format: 'markdown' | 'plain';
-  method: 'mineru' | 'pdf-parse' | 'mammoth' | 'vision' | 'direct';
+  method: 'odl' | 'mineru' | 'pdf-parse' | 'mammoth' | 'vision' | 'direct';
 }
 
 /**
@@ -41,8 +41,22 @@ export class PdfExtractionService {
       return { text: buffer.toString('utf-8'), format: 'plain', method: 'direct' };
     }
 
-    // PDF → 三级降级
+    // PDF → 四级降级
     if (ext === '.pdf') {
+      // Level 0: OpenDataLoader PDF (Mac Mini 本地, ~0.9s)
+      const odlUrl = process.env.ODL_URL?.trim();
+      const odlEnabled = Boolean(odlUrl && odlUrl !== 'disabled');
+      if (odlEnabled) {
+        try {
+          const md = await this.extractWithODL(buffer);
+          if (md && md.length > 30) {
+            return { text: md, format: 'markdown', method: 'odl' };
+          }
+        } catch (e: any) {
+          this.logger.warn(`ODL 提取失败: ${e.message}`);
+        }
+      }
+
       // Level 1: MinerU (with circuit breaker)
       if (!this.mineruCircuitOpen) {
         try {
@@ -94,6 +108,31 @@ export class PdfExtractionService {
     }
 
     throw new Error(`无法提取文件内容: ${fileName}`);
+  }
+
+  /**
+   * Level 0: OpenDataLoader PDF (本地最快，Mac Mini 部署)
+   */
+  private async extractWithODL(buffer: Buffer): Promise<string> {
+    const odlUrl = process.env.ODL_URL?.trim();
+    if (!odlUrl || odlUrl === 'disabled') {
+      throw new Error('ODL disabled');
+    }
+
+    const formData = new FormData();
+    formData.append('file', new Blob([new Uint8Array(buffer)]), 'resume.pdf');
+
+    const response = await axios.post(
+      `${odlUrl}/extract`,
+      formData,
+      { timeout: 15000, headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+
+    const markdown: string = response.data.markdown || response.data.content;
+    if (!markdown || markdown.length < 30) {
+      throw new Error(`ODL returned insufficient content (${markdown?.length || 0} chars)`);
+    }
+    return markdown;
   }
 
   private async extractWithMinerU(buffer: Buffer): Promise<string> {
