@@ -63,6 +63,8 @@ async def extract(file: UploadFile = File(...)):
         start_time = time.time()
         with open(input_path, "wb") as f:
             content = await file.read()
+            if len(content) > 20 * 1024 * 1024:  # 20 MB limit
+                raise HTTPException(status_code=413, detail="File too large (max 20MB)")
             f.write(content)
         logger.info("File written: %d bytes", len(content))
 
@@ -101,7 +103,7 @@ async def extract(file: UploadFile = File(...)):
         logger.error("Extraction failed: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"PDF extraction failed: {str(e)}",
+            detail="PDF extraction failed. Check server logs for details.",
         )
     finally:
         # Clean up temporary directory
