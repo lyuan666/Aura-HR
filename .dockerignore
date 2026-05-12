@@ -1,0 +1,15 @@
+.git
+.next
+.turbo
+.worktrees
+.superpowers
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.log
+apps/api/uploads
+apps/api/temp
+apps/api/data
+claude_code_bridge

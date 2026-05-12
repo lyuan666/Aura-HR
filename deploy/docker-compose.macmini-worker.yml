@@ -1,0 +1,53 @@
+services:
+  mineru:
+    image: mineru:latest
+    container_name: yzschros-mineru
+    profiles:
+      - mineru
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    command: ["mineru-api", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MINERU_DEVICE: ${MINERU_DEVICE:-cpu}
+      MINERU_PARSE_METHOD: ${MINERU_PARSE_METHOD:-auto}
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nurllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)\nPY"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.macmini-worker
+    image: yzschros-api-worker:local
+    container_name: yzschros-worker
+    restart: unless-stopped
+    environment:
+      WORKER_ONLY: "true"
+      NODE_ENV: production
+      REDIS_URL: ${REDIS_URL}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINERU_URL: ${MINERU_URL:-disabled}
+      MINERU_DEVICE: ${MINERU_DEVICE:-cpu}
+      LLM_RESUME_URL: ${LLM_RESUME_URL}
+      LLM_RESUME_MODEL: ${LLM_RESUME_MODEL}
+      LLM_RESUME_KEY: ${LLM_RESUME_KEY}
+      LLM_RESUME_FALLBACK_URL: ${LLM_RESUME_FALLBACK_URL:-}
+      LLM_RESUME_FALLBACK_MODEL: ${LLM_RESUME_FALLBACK_MODEL:-}
+      LLM_RESUME_FALLBACK_KEY: ${LLM_RESUME_FALLBACK_KEY:-}
+      LLM_CONCURRENCY: ${LLM_CONCURRENCY:-2}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
