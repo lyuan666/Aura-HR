@@ -68,8 +68,13 @@ async def extract(file: UploadFile = File(...)):
             f.write(content)
         logger.info("File written: %d bytes", len(content))
 
-        # Run extraction
-        opendataloader_pdf.convert(str(input_path), str(output_dir))
+        # Run extraction — explicitly request markdown format
+        opendataloader_pdf.convert(
+            input_path=str(input_path),
+            output_dir=str(output_dir),
+            format="markdown",
+            quiet=True,
+        )
         logger.info("Extraction complete, reading output")
 
         # Find and read the output markdown file
