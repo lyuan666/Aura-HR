@@ -43,6 +43,6 @@ find . \
   -path './node_modules' -prune -o \
   -path './docker-data' -prune -o \
   -path './.git' -prune -o \
-  -type f \( -name '*.log' -o -name '.DS_Store' \) -delete
+  -type f \( -name '*.log' -o -name '.DS_Store' \) -exec rm -f {} +
 
 echo "Runtime artifacts cleaned."
