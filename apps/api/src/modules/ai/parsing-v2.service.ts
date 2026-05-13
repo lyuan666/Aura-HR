@@ -218,7 +218,7 @@ export class ParsingV2Service {
 5. skills 尽量从工作经历和技能栏中提取所有技能关键词
 
 简历文本:
-${text.substring(0, 4000)}
+${text.substring(0, 3000)}
 
 返回纯 JSON，不要任何其他文字。`;
 
