@@ -162,7 +162,7 @@ PDF 解析三级降级策略保持完整: MinerU(结构化) -> pdf-parse(纯文�
 DATABASE_HOST=127.0.0.1
 DATABASE_PORT=5432
 DATABASE_USER=yzschros
-DATABASE_PASSWORD=yzschros_prod_2026
+DATABASE_PASSWORD=<set DATABASE_PASSWORD>
 DATABASE_NAME=yzschros
 
 # Redis (原生)
@@ -172,7 +172,7 @@ REDIS_URL=redis://127.0.0.1:6379
 MINIO_ENDPOINT=127.0.0.1
 MINIO_PORT=9000
 MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin_prod_2026
+MINIO_ROOT_PASSWORD=<set MINIO_ROOT_PASSWORD>
 MINIO_USE_SSL=false
 
 # JWT
@@ -221,7 +221,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${DATABASE_USER:-yzschros}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-yzschros_prod_2026}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-<set DATABASE_PASSWORD>}
       POSTGRES_DB: ${DATABASE_NAME:-yzschros}
     ports:
       - "5432:5432"
@@ -235,7 +235,7 @@ services:
     restart: always
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_prod_2026}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-<set MINIO_ROOT_PASSWORD>}
     ports:
       - "9000:9000"
       - "9001:9001"

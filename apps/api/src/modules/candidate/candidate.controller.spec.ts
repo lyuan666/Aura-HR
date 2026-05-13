@@ -8,6 +8,7 @@ import { StorageService } from '../storage/storage.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { getQueueToken } from '@nestjs/bullmq';
+import { FeishuService } from './feishu.service';
 
 describe('CandidateController', () => {
   let moduleRef: TestingModule;
@@ -50,6 +51,12 @@ describe('CandidateController', () => {
           useValue: {
             putObject: jest.fn(),
             getObject: jest.fn(),
+          },
+        },
+        {
+          provide: FeishuService,
+          useValue: {
+            importFromBitable: jest.fn(),
           },
         },
         {

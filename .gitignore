@@ -25,6 +25,7 @@ logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+.worker-built-commit
 
 # Docker volumes
 docker-data/
@@ -36,3 +37,6 @@ coverage/
 tmp/
 .tmp/
 .gstack/
+.local-agents/
+.agent-memory/
+.git-hooks-local/

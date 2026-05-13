@@ -6,6 +6,7 @@ results than an ad-hoc answer. When in doubt, invoke the skill. A false positive
 cheaper than a false negative.
 
 Key routing rules:
+
 - Product ideas, "is this worth building", brainstorming → invoke /office-hours
 - Strategy, scope, "think bigger", "what should we build" → invoke /plan-ceo-review
 - Architecture, "does this design make sense" → invoke /plan-eng-review
@@ -38,3 +39,13 @@ Key routing rules:
 - Review what gstack has learned → invoke /learn
 - Tune question sensitivity → invoke /plan-tune
 - Code quality dashboard → invoke /health
+
+## Project engineering rules
+
+- Local, server, and Mac mini Worker code must stay on the same Git commit. Before claiming a deployment or fix is complete, verify `git rev-parse HEAD` on all three environments and report the commits.
+- Mac mini Worker is an execution node with permission to auto-sync. Keep `deploy/macmini-worker-sync.sh` and the LaunchAgent installed so it can pull the latest `main`, build the API, clean runtime artifacts, and restart `yzschros-worker` only after a successful build.
+- If local/server/worker commits differ, fix synchronization first. Do not treat business tests from mismatched code as final evidence.
+- Runtime cleanup is mandatory. Remove logs, scratch scripts, temporary test scripts, old audit scripts, caches, `__pycache__`, `.next`, and generated artifacts that are not needed by the running service.
+- Production or worker cleanup must preserve required runtime build outputs, especially `apps/api/dist` on the Mac mini Worker.
+- Do not leave tracked files with hardcoded credentials, temporary tokens, one-off database cleanup scripts, or obsolete debug code.
+- Local automation agents for review, QA, bug memory, and project management must stay local-only under ignored paths such as `.local-agents/` and `.agent-memory/`. Do not commit, push, deploy, expose ports for, or sync these agents to the server or Mac mini Worker.

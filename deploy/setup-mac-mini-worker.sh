@@ -18,6 +18,20 @@ ECS_IP="100.85.253.6"
 echo "=== YZSCHROS Mac Mini Worker 一键部署 ==="
 echo ""
 
+required_env() {
+  local name="$1"
+  if [ -z "${!name:-}" ]; then
+    echo "缺少必填环境变量: $name"
+    echo "示例: export $name='your-secret-value'"
+    exit 1
+  fi
+}
+
+required_env DATABASE_PASSWORD
+required_env MINIO_ROOT_PASSWORD
+required_env LLM_RESUME_KEY
+required_env LLM_RESUME_FALLBACK_KEY
+
 # ──────────────────────────────────────────────
 # Step 1: 检查 Node.js
 # ──────────────────────────────────────────────
@@ -83,23 +97,23 @@ REDIS_URL=redis://${ECS_IP}:6379
 DATABASE_HOST=${ECS_IP}
 DATABASE_PORT=5432
 DATABASE_USER=yzschros
-DATABASE_PASSWORD=yzschros_prod_2026
+DATABASE_PASSWORD=${DATABASE_PASSWORD}
 DATABASE_NAME=yzschros
 
 # MinIO (via Tailscale)
 MINIO_ENDPOINT=${ECS_IP}
 MINIO_PORT=9000
 MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin_prod_2026
+MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 MINIO_USE_SSL=false
 
 # LLM (本地调用)
 LLM_RESUME_URL=https://api.deepseek.com/chat/completions
 LLM_RESUME_MODEL=deepseek-chat
-LLM_RESUME_KEY=sk-9b7db7ebeca54ec080ccb66db30369f7
+LLM_RESUME_KEY=${LLM_RESUME_KEY}
 LLM_RESUME_FALLBACK_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
 LLM_RESUME_FALLBACK_MODEL=glm-4-flash
-LLM_RESUME_FALLBACK_KEY=9f1925f431c44aaab72caf2fd427966f.My5sSrunPXET0jTX
+LLM_RESUME_FALLBACK_KEY=${LLM_RESUME_FALLBACK_KEY}
 
 NODE_ENV=production
 MINERU_URL=
@@ -129,11 +143,48 @@ echo "  配置完成"
 # ──────────────────────────────────────────────
 # Step 6: 启动 Worker
 # ──────────────────────────────────────────────
-echo "[6/6] 启动 Worker..."
+echo "[6/6] 启动 Worker + 注册自动同步..."
 pm2 delete yzschros-worker 2>/dev/null || true
 pm2 start ecosystem.worker.config.js
 pm2 save
 pm2 startup 2>/dev/null || echo "  手动运行 'pm2 startup' 配置开机自启"
+
+chmod +x "$REPO_DIR/deploy/macmini-worker-sync.sh" "$REPO_DIR/scripts/clean-runtime-artifacts.sh"
+
+LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
+PLIST="$LAUNCH_AGENTS_DIR/com.yzschros.worker.sync.plist"
+mkdir -p "$LAUNCH_AGENTS_DIR" "$REPO_DIR/logs"
+
+cat > "$PLIST" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.yzschros.worker.sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$REPO_DIR/deploy/macmini-worker-sync.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>120</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>$REPO_DIR</string>
+  <key>StandardOutPath</key>
+  <string>$REPO_DIR/logs/macmini-worker-sync.launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>$REPO_DIR/logs/macmini-worker-sync.launchd.err.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
+launchctl kickstart -k "gui/$(id -u)/com.yzschros.worker.sync"
 
 echo ""
 echo "=== 部署完成 ==="
@@ -142,4 +193,5 @@ pm2 status
 echo ""
 echo "日志: pm2 logs yzschros-worker"
 echo "重启: pm2 restart yzschros-worker"
+echo "自动同步日志: tail -f $REPO_DIR/logs/macmini-worker-sync.log"
 echo "更新: cd $REPO_DIR && git pull && pnpm build:api && pm2 restart yzschros-worker"

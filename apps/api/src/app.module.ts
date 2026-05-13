@@ -23,6 +23,8 @@ import { ReportModule } from './modules/report/report.module';
 import { GuaranteeModule } from './modules/guarantee/guarantee.module';
 import { ContractModule } from './modules/contract/contract.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import {
   UserEntity,
   CandidateEntity,
@@ -105,7 +107,9 @@ import {
     GuaranteeModule,
     ContractModule,
   ],
+  controllers: [AppController],
   providers: [
+    AppService,
     // 全局 JWT 认证守卫，所有端点默认需要认证
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],

@@ -4,6 +4,20 @@ set -euo pipefail
 ECS="100.85.253.6"
 DIR="$HOME/yzschros"
 
+required_env() {
+  local name="$1"
+  if [ -z "${!name:-}" ]; then
+    echo "缺少必填环境变量: $name"
+    echo "示例: export $name='your-secret-value'"
+    exit 1
+  fi
+}
+
+required_env DATABASE_PASSWORD
+required_env MINIO_ROOT_PASSWORD
+required_env LLM_RESUME_FALLBACK_KEY
+required_env ZHIPU_API_KEY
+
 echo ">>> 1/6 代码"
 [ -d "$DIR" ] || git clone https://github.com/lyuan666/Aura-HR.git "$DIR" --depth 1
 cd "$DIR" && git pull 2>/dev/null || true
@@ -29,21 +43,21 @@ REDIS_URL=redis://${ECS}:6379
 DATABASE_HOST=${ECS}
 DATABASE_PORT=5432
 DATABASE_USER=yzschros
-DATABASE_PASSWORD=yzschros_prod_2026
+DATABASE_PASSWORD=${DATABASE_PASSWORD}
 DATABASE_NAME=yzschros
 MINIO_ENDPOINT=${ECS}
 MINIO_PORT=9000
 MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin_prod_2026
+MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 MINIO_USE_SSL=false
 LLM_RESUME_URL=http://localhost:11434/v1/chat/completions
 LLM_RESUME_MODEL=qwen2.5:7b
 LLM_RESUME_KEY=ollama
 LLM_RESUME_FALLBACK_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 LLM_RESUME_FALLBACK_MODEL=qwen-plus
-LLM_RESUME_FALLBACK_KEY=sk-af9c9213add54fa5b0f6d77dc67af3c8
+LLM_RESUME_FALLBACK_KEY=${LLM_RESUME_FALLBACK_KEY}
 LLM_CONCURRENCY=3
-ZHIPU_API_KEY=sk-af9c9213add54fa5b0f6d77dc67af3c8
+ZHIPU_API_KEY=${ZHIPU_API_KEY}
 ZHIPU_EMBEDDING_MODEL=embedding-3
 LOCAL_AI_ENABLED=false
 EOF
@@ -67,5 +81,40 @@ pm2 delete yzschros-worker 2>/dev/null || true
 pm2 start ecosystem.worker.config.js
 pm2 save
 pm2 startup 2>/dev/null || true
+
+chmod +x "$DIR/deploy/macmini-worker-sync.sh" "$DIR/scripts/clean-runtime-artifacts.sh"
+mkdir -p "$HOME/Library/LaunchAgents" "$DIR/logs"
+PLIST="$HOME/Library/LaunchAgents/com.yzschros.worker.sync.plist"
+cat > "$PLIST" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.yzschros.worker.sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$DIR/deploy/macmini-worker-sync.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>120</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>$DIR</string>
+  <key>StandardOutPath</key>
+  <string>$DIR/logs/macmini-worker-sync.launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>$DIR/logs/macmini-worker-sync.launchd.err.log</string>
+</dict>
+</plist>
+EOF
+launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
+launchctl kickstart -k "gui/$(id -u)/com.yzschros.worker.sync"
+
 pm2 status
 echo "完成! 日志: pm2 logs yzschros-worker"
+echo "自动同步日志: tail -f $DIR/logs/macmini-worker-sync.log"

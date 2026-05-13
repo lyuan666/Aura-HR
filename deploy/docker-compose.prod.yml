@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${DATABASE_USER:-yzschros}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-yzschros_prod_2026}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME:-yzschros}
     ports:
       - "5432:5432"
@@ -21,7 +21,7 @@ services:
     restart: always
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_prod_2026}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"
       - "9001:9001"

@@ -19,8 +19,7 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { Observable, throwError } from 'rxjs';
-import { createHash } from 'crypto';
-import { v4 as uuid } from 'uuid';
+import { createHash, randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { JwtService } from '@nestjs/jwt';
@@ -77,12 +76,18 @@ export class CandidateController {
   ) {
     const tenantId = this.requireTenantId(req);
     if (!appToken || !tableId || !personalToken) {
-      throw new BadRequestException('缺失飞书多维表格的凭证参数 (appToken, tableId, personalToken)');
+      throw new BadRequestException(
+        '缺失飞书多维表格的凭证参数 (appToken, tableId, personalToken)',
+      );
     }
-    
+
     // 1. 获取飞书数据
-    const result = await this.feishuService.importFromBitable(appToken, tableId, personalToken);
-    
+    const result = await this.feishuService.importFromBitable(
+      appToken,
+      tableId,
+      personalToken,
+    );
+
     // 2. 将获取到的 candidates 存入数据库
     // 简化处理：将飞书的每行数据直接转化为 CandidateDto 并批量入库
     let successCount = 0;
@@ -92,14 +97,19 @@ export class CandidateController {
           name: item.name,
           phone: item.phone,
           email: item.email,
-          gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : 'unknown',
+          gender:
+            item.gender === '男'
+              ? 'male'
+              : item.gender === '女'
+                ? 'female'
+                : 'unknown',
           currentCompany: item.currentCompany,
           currentTitle: item.currentTitle,
           status: 'new',
           parsedTags: {
-            source: 'feishu_bitable'
+            source: 'feishu_bitable',
           },
-          notes: `导入自飞书多维表格: ${appToken}`
+          notes: `导入自飞书多维表格: ${appToken}`,
         };
         await this.candidateService.create(dto, tenantId);
         successCount++;
@@ -107,10 +117,10 @@ export class CandidateController {
         console.error(`导入飞书记录 ${item.id} 失败`, err);
       }
     }
-    
+
     return {
       success: true,
-      message: `成功从飞书读取 ${result.total} 条记录，成功入库 ${successCount} 条`
+      message: `成功从飞书读取 ${result.total} 条记录，成功入库 ${successCount} 条`,
     };
   }
 
@@ -153,7 +163,7 @@ export class CandidateController {
       const latestWork = workExp[0] || {};
       const latestEdu = eduList[0] || {};
       const safeName = file.originalname.replace(/[/\\]/g, '_');
-      const resumeKey = `resumes/${tenantId}/single/${uuid()}-${safeName}`;
+      const resumeKey = `resumes/${tenantId}/single/${randomUUID()}-${safeName}`;
 
       await this.storage.putObject(
         'uploads',
@@ -185,13 +195,14 @@ export class CandidateController {
         workExperiences: workExp,
         educationHistory: eduList,
         projectExperiences: projectExp,
-        careerExpectations: basicInfo.desiredPosition || basicInfo.desiredLocation?.length
-          ? {
-              desiredPosition: basicInfo.desiredPosition || '',
-              desiredLocation: basicInfo.desiredLocation || [],
-              desiredSalary: basicInfo.desiredSalary || '',
-            }
-          : null,
+        careerExpectations:
+          basicInfo.desiredPosition || basicInfo.desiredLocation?.length
+            ? {
+                desiredPosition: basicInfo.desiredPosition || '',
+                desiredLocation: basicInfo.desiredLocation || [],
+                desiredSalary: basicInfo.desiredSalary || '',
+              }
+            : null,
         resumeUrl: resumeKey,
         resumeText: JSON.stringify(parsedData, null, 2),
         parsedTags: {
@@ -324,7 +335,7 @@ export class CandidateController {
     }
 
     const tenantId = this.requireTenantId(req);
-    const batchId = uuid();
+    const batchId = randomUUID();
     const jobs: any[] = new Array(files.length);
     const enqueueFile = async (file: Express.Multer.File, index: number) => {
       // 文件类型校验
@@ -339,7 +350,7 @@ export class CandidateController {
 
       const fileHash = createHash('sha256').update(file.buffer).digest('hex');
       const safeName = file.originalname.replace(/[/\\]/g, '_');
-      const fileKey = `resumes/${tenantId}/${batchId}/${uuid()}-${safeName}`;
+      const fileKey = `resumes/${tenantId}/${batchId}/${randomUUID()}-${safeName}`;
 
       // 存原始文件到 MinIO
       await this.storage.putObject(
