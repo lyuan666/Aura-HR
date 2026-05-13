@@ -7,6 +7,9 @@ LOG_FILE="${LOG_FILE:-$REPO_DIR/logs/macmini-worker-sync.log}"
 LOCK_DIR="${LOCK_DIR:-/tmp/yzschros-worker-sync.lock}"
 BUILT_COMMIT_FILE="${BUILT_COMMIT_FILE:-$REPO_DIR/.worker-built-commit}"
 
+export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:$PATH"
+export CI="${CI:-true}"
+
 mkdir -p "$(dirname "$LOG_FILE")"
 
 log() {
