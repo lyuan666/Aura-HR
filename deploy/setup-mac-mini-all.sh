@@ -64,11 +64,45 @@ EOF
 
 echo ">>> 6/6 启动"
 cat > ecosystem.worker.config.js << 'ECO'
+const fs = require('fs');
+const path = require('path');
+
+function loadEnvFile(file) {
+  const envPath = path.resolve(__dirname, file);
+  const env = {};
+
+  if (!fs.existsSync(envPath)) {
+    return env;
+  }
+
+  for (const rawLine of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const equalsIndex = line.indexOf('=');
+    if (equalsIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, equalsIndex).trim();
+    let value = line.slice(equalsIndex + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    env[key] = value;
+  }
+
+  return env;
+}
+
 module.exports = {
   apps: [{
     name: 'yzschros-worker',
     script: 'apps/api/dist/main.js',
-    env_file: '.env.worker',
+    env: loadEnvFile('.env.worker'),
     node_args: '--max-old-space-size=1024',
     max_memory_restart: '1200M',
     autorestart: true,
