@@ -153,7 +153,7 @@ chmod +x "$REPO_DIR/deploy/macmini-worker-sync.sh" "$REPO_DIR/scripts/clean-runt
 
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST="$LAUNCH_AGENTS_DIR/com.yzschros.worker.sync.plist"
-mkdir -p "$LAUNCH_AGENTS_DIR" "$REPO_DIR/logs"
+mkdir -p "$LAUNCH_AGENTS_DIR" "$HOME/Library/Logs/yzschros"
 
 cat > "$PLIST" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -175,9 +175,9 @@ cat > "$PLIST" << EOF
   <key>WorkingDirectory</key>
   <string>$REPO_DIR</string>
   <key>StandardOutPath</key>
-  <string>$REPO_DIR/logs/macmini-worker-sync.launchd.out.log</string>
+  <string>$HOME/Library/Logs/yzschros/macmini-worker-sync.launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>$REPO_DIR/logs/macmini-worker-sync.launchd.err.log</string>
+  <string>$HOME/Library/Logs/yzschros/macmini-worker-sync.launchd.err.log</string>
 </dict>
 </plist>
 EOF
@@ -193,5 +193,5 @@ pm2 status
 echo ""
 echo "日志: pm2 logs yzschros-worker"
 echo "重启: pm2 restart yzschros-worker"
-echo "自动同步日志: tail -f $REPO_DIR/logs/macmini-worker-sync.log"
+echo "自动同步日志: tail -f $HOME/Library/Logs/yzschros/macmini-worker-sync.log"
 echo "更新: cd $REPO_DIR && git pull && pnpm build:api && pm2 restart yzschros-worker"

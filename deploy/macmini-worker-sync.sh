@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/yzschros}"
 BRANCH="${BRANCH:-main}"
-LOG_FILE="${LOG_FILE:-$REPO_DIR/logs/macmini-worker-sync.log}"
+LOG_FILE="${LOG_FILE:-$HOME/Library/Logs/yzschros/macmini-worker-sync.log}"
 LOCK_DIR="${LOCK_DIR:-/tmp/yzschros-worker-sync.lock}"
 BUILT_COMMIT_FILE="${BUILT_COMMIT_FILE:-$REPO_DIR/.worker-built-commit}"
 

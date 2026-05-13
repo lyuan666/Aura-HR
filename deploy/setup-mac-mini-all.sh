@@ -83,7 +83,7 @@ pm2 save
 pm2 startup 2>/dev/null || true
 
 chmod +x "$DIR/deploy/macmini-worker-sync.sh" "$DIR/scripts/clean-runtime-artifacts.sh"
-mkdir -p "$HOME/Library/LaunchAgents" "$DIR/logs"
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/yzschros"
 PLIST="$HOME/Library/LaunchAgents/com.yzschros.worker.sync.plist"
 cat > "$PLIST" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -105,9 +105,9 @@ cat > "$PLIST" << EOF
   <key>WorkingDirectory</key>
   <string>$DIR</string>
   <key>StandardOutPath</key>
-  <string>$DIR/logs/macmini-worker-sync.launchd.out.log</string>
+  <string>$HOME/Library/Logs/yzschros/macmini-worker-sync.launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>$DIR/logs/macmini-worker-sync.launchd.err.log</string>
+  <string>$HOME/Library/Logs/yzschros/macmini-worker-sync.launchd.err.log</string>
 </dict>
 </plist>
 EOF
@@ -117,4 +117,4 @@ launchctl kickstart -k "gui/$(id -u)/com.yzschros.worker.sync"
 
 pm2 status
 echo "完成! 日志: pm2 logs yzschros-worker"
-echo "自动同步日志: tail -f $DIR/logs/macmini-worker-sync.log"
+echo "自动同步日志: tail -f $HOME/Library/Logs/yzschros/macmini-worker-sync.log"
