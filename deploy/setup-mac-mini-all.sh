@@ -56,10 +56,13 @@ LLM_RESUME_KEY=ollama
 LLM_RESUME_FALLBACK_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 LLM_RESUME_FALLBACK_MODEL=qwen-plus
 LLM_RESUME_FALLBACK_KEY=${LLM_RESUME_FALLBACK_KEY}
-LLM_CONCURRENCY=3
+LLM_CONCURRENCY=1
 ZHIPU_API_KEY=${ZHIPU_API_KEY}
 ZHIPU_EMBEDDING_MODEL=embedding-3
-LOCAL_AI_ENABLED=false
+LOCAL_AI_ENABLED=true
+LOCAL_AI_URL=http://localhost:11434/v1/chat/completions
+LOCAL_AI_KEY=ollama
+LOCAL_AI_MODEL=qwen2.5:7b
 EOF
 
 echo ">>> 6/6 启动"

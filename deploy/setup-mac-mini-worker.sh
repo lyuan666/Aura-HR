@@ -29,7 +29,6 @@ required_env() {
 
 required_env DATABASE_PASSWORD
 required_env MINIO_ROOT_PASSWORD
-required_env LLM_RESUME_KEY
 required_env LLM_RESUME_FALLBACK_KEY
 
 # ──────────────────────────────────────────────
@@ -49,12 +48,22 @@ fi
 echo "  Node.js $(node -v)"
 
 # ──────────────────────────────────────────────
-# Step 2: 安装 pnpm + PM2
+# Step 2: 安装 pnpm + PM2 + Ollama
 # ──────────────────────────────────────────────
-echo "[2/6] 安装 pnpm + PM2..."
+echo "[2/6] 安装 pnpm + PM2 + Ollama..."
 command -v pnpm &>/dev/null || npm install -g pnpm
 command -v pm2 &>/dev/null || npm install -g pm2
-echo "  pnpm $(pnpm -v) / PM2 $(pm2 -v)"
+if ! command -v ollama &>/dev/null; then
+  if command -v brew &>/dev/null; then
+    brew install ollama
+  else
+    echo "缺少 Ollama；请先安装 Ollama 或 Homebrew 后重试"
+    exit 1
+  fi
+fi
+curl -s http://localhost:11434/api/tags &>/dev/null || { ollama serve &>/dev/null & sleep 3; }
+ollama list 2>/dev/null | grep -q "qwen2.5:7b" || ollama pull qwen2.5:7b
+echo "  pnpm $(pnpm -v) / PM2 $(pm2 -v) / Ollama $(ollama --version 2>/dev/null | head -1)"
 
 # ──────────────────────────────────────────────
 # Step 3: 克隆代码
@@ -107,13 +116,19 @@ MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 MINIO_USE_SSL=false
 
-# LLM (本地调用)
-LLM_RESUME_URL=https://api.deepseek.com/chat/completions
-LLM_RESUME_MODEL=deepseek-chat
-LLM_RESUME_KEY=${LLM_RESUME_KEY}
-LLM_RESUME_FALLBACK_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
-LLM_RESUME_FALLBACK_MODEL=glm-4-flash
+# LLM (Mac mini 本地优先，云端兜底)
+LLM_RESUME_URL=http://localhost:11434/v1/chat/completions
+LLM_RESUME_MODEL=qwen2.5:7b
+LLM_RESUME_KEY=ollama
+LLM_RESUME_FALLBACK_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+LLM_RESUME_FALLBACK_MODEL=qwen-plus
 LLM_RESUME_FALLBACK_KEY=${LLM_RESUME_FALLBACK_KEY}
+LLM_CONCURRENCY=1
+
+LOCAL_AI_ENABLED=true
+LOCAL_AI_URL=http://localhost:11434/v1/chat/completions
+LOCAL_AI_KEY=ollama
+LOCAL_AI_MODEL=qwen2.5:7b
 
 NODE_ENV=production
 MINERU_URL=

@@ -94,6 +94,7 @@ export class LlmClientService {
     try {
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
+          const startedAt = Date.now();
           const payload: any = { model, messages, temperature: 0.1 };
           if (maxTokens) payload.max_tokens = maxTokens;
           if (jsonMode) payload.response_format = { type: 'json_object' };
@@ -104,6 +105,7 @@ export class LlmClientService {
             },
             timeout: 60000,
           });
+          this.logger.log(`AI call success (${label}, model=${model}, duration=${Date.now() - startedAt}ms)`);
           const content = response.data.choices[0].message.content;
           if (jsonMode) {
             return this.cleanAndParseJson(content);

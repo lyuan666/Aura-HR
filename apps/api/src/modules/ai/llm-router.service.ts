@@ -106,6 +106,7 @@ export class LlmRouterService implements OnModuleDestroy {
       throw new Error('LLM provider is not configured: missing url or model');
     }
 
+    const startedAt = Date.now();
     const response = await axios.post(
       config.url,
       {
@@ -121,7 +122,17 @@ export class LlmRouterService implements OnModuleDestroy {
         timeout: 90000,
       },
     );
+    this.logger.log(
+      `LLM call success (${this.providerLabel(config.url)}, model=${config.model}, duration=${Date.now() - startedAt}ms)`,
+    );
     return response.data.choices[0].message.content;
+  }
+
+  private providerLabel(url: string) {
+    if (url.includes('localhost:11434') || url.includes('127.0.0.1:11434')) {
+      return 'Ollama local';
+    }
+    return 'Cloud';
   }
 
   private getProviderConfig(provider: string) {
