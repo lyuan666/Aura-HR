@@ -43,3 +43,29 @@ ssh -i ~/.ssh/id_rsa lee@192.168.3.47 'zsh -lc "export PATH=/usr/local/bin:/opt/
 - Extension attachment uploads use `uploads/staging/resumes/<traceId>/<filename>`.
 - Rejected staging attachments should expire after 30 days.
 - Promoted staging attachments must be copied or moved into the normal uploads location before long-term retention.
+
+## Extension Endpoint Guardrails
+
+Production Nginx should rate-limit extension import endpoints by Authorization header:
+
+```nginx
+limit_req_zone $http_authorization zone=ext_zone:10m rate=10r/s;
+
+location /api/import/extension-capture {
+  limit_req zone=ext_zone burst=20 nodelay;
+  proxy_pass http://127.0.0.1:3001;
+}
+
+location /api/import/extension-attachment {
+  limit_req zone=ext_zone burst=10 nodelay;
+  client_max_body_size 20m;
+  proxy_pass http://127.0.0.1:3001;
+}
+```
+
+After applying Nginx config on ECS:
+
+```bash
+nginx -t
+systemctl reload nginx
+```
