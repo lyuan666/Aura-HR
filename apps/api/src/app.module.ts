@@ -40,6 +40,9 @@ import {
   PendingJobEntity,
   GuaranteeTrackingEntity,
   RefreshTokenEntity,
+  ImportBatchEntity,
+  CandidateStagingEntity,
+  CandidateMergeLinkEntity,
 } from './entities';
 
 @Module({
@@ -76,6 +79,9 @@ import {
           PendingJobEntity,
           GuaranteeTrackingEntity,
           RefreshTokenEntity,
+          ImportBatchEntity,
+          CandidateStagingEntity,
+          CandidateMergeLinkEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') !== 'production',
