@@ -102,7 +102,13 @@
       "Bash(rsync -avz --progress --exclude=node_modules --exclude=.git --exclude=.next --exclude=dist /Users/lee/Desktop/YZSCHROS/ 'lee@100.97.146.29:~/yzschros/')",
       "Bash(gh auth:*)",
       "Bash(gh repo:*)",
-      "Bash(git remote:*)"
+      "Bash(git remote:*)",
+      "Bash(git merge:*)",
+      "Bash(rsync -avz --delete -e \"ssh -i ~/.ssh/id_rsa\" /Users/lee/Desktop/YZSCHROS/apps/api/dist/ lee@192.168.3.47:/Users/lee/yzschros/apps/api/dist/)",
+      "Bash(git push:*)",
+      "Bash(claude:*)",
+      "Bash(npm show:*)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
