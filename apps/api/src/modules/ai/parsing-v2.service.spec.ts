@@ -84,4 +84,24 @@ describe('ParsingV2Service parse cache', () => {
       name: '张三',
     });
   });
+
+  it('backfills current role fields from latest work experience', () => {
+    const profile = {
+      name: '郭钰维',
+      workExperiences: [
+        {
+          companyName: '浙江悠立电子商务有限公司（珂楹实业）',
+          position: '面辅料开发',
+        },
+      ],
+      careerExpectations: {
+        desiredPosition: '面辅料开发/采购',
+      },
+    };
+
+    (service as any).enrichCurrentRole(profile);
+
+    expect(profile.currentCompany).toBe('浙江悠立电子商务有限公司（珂楹实业）');
+    expect(profile.currentTitle).toBe('面辅料开发');
+  });
 });
