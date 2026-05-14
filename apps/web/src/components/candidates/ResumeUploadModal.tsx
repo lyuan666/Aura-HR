@@ -142,6 +142,15 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
             message: job?.error || '入队失败',
           };
         }
+        if (job.status === 'completed' || job.status === 'duplicate') {
+          return {
+            ...item,
+            id: String(job.jobId),
+            status: job.status === 'duplicate' ? 'duplicate' : 'success',
+            progress: 100,
+            message: job.status,
+          };
+        }
 
         return {
           ...item,

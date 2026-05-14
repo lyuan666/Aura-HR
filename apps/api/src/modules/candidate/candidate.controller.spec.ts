@@ -14,6 +14,7 @@ describe('CandidateController', () => {
   let moduleRef: TestingModule;
   let controller: CandidateController;
   let service: CandidateService;
+  let parseQueue: { add: jest.Mock; getJob: jest.Mock };
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
@@ -75,6 +76,7 @@ describe('CandidateController', () => {
           provide: getQueueToken('parse-resume'),
           useValue: {
             add: jest.fn(),
+            getJob: jest.fn(),
           },
         },
       ],
@@ -82,6 +84,7 @@ describe('CandidateController', () => {
 
     controller = moduleRef.get<CandidateController>(CandidateController);
     service = moduleRef.get<CandidateService>(CandidateService);
+    parseQueue = moduleRef.get(getQueueToken('parse-resume'));
   });
 
   it('should pass tenantId and pagination from request to service', async () => {
@@ -170,5 +173,35 @@ describe('CandidateController', () => {
     });
     expect(progressService.getStream).toHaveBeenCalledWith('batch-1');
     expect(result).toBe('progress-stream');
+  });
+
+  it('should return completed immediately when the same upload job already completed', async () => {
+    const storage = moduleRef.get(StorageService);
+    parseQueue.getJob.mockResolvedValue({
+      id: 'parse-79a82273b936d456',
+      getState: jest.fn().mockResolvedValue('completed'),
+      returnvalue: { status: 'success', candidateId: 'candidate-1' },
+    });
+    const file = {
+      originalname: 'repeat.pdf',
+      mimetype: 'application/pdf',
+      size: 128,
+      buffer: Buffer.from('repeat-resume'),
+    } as Express.Multer.File;
+
+    const result = await controller.batchUpload(
+      [file],
+      { user: { tenantId: 'tenant-1' } } as any,
+    );
+
+    expect(storage.putObject).not.toHaveBeenCalled();
+    expect(parseQueue.add).not.toHaveBeenCalled();
+    expect(result.queued).toBe(0);
+    expect(result.completed).toBe(1);
+    expect(result.jobs[0]).toMatchObject({
+      jobId: 'parse-79a82273b936d456',
+      status: 'completed',
+      candidateId: 'candidate-1',
+    });
   });
 });

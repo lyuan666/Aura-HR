@@ -349,6 +349,26 @@ export class CandidateController {
       }
 
       const fileHash = createHash('sha256').update(file.buffer).digest('hex');
+      const jobId = `parse-${fileHash.substring(0, 16)}`;
+      const existingJob = await this.parseQueue.getJob(jobId);
+      if (existingJob) {
+        const state = await existingJob.getState();
+        if (state === 'completed') {
+          const returnValue = (existingJob as any).returnvalue || {};
+          jobs[index] = {
+            jobId: existingJob.id,
+            fileName: file.originalname,
+            fileHash,
+            status: returnValue.status === 'duplicate' ? 'duplicate' : 'completed',
+            candidateId: returnValue.candidateId,
+          };
+          return;
+        }
+        if (state === 'failed') {
+          await existingJob.remove();
+        }
+      }
+
       const safeName = file.originalname.replace(/[/\\]/g, '_');
       const fileKey = `resumes/${tenantId}/${batchId}/${randomUUID()}-${safeName}`;
 
@@ -360,12 +380,6 @@ export class CandidateController {
         file.size,
         file.mimetype,
       );
-
-      const jobId = `parse-${fileHash.substring(0, 16)}`;
-      const existingJob = await this.parseQueue.getJob(jobId);
-      if (existingJob && (await existingJob.getState()) === 'failed') {
-        await existingJob.remove();
-      }
 
       const job = await this.parseQueue.add(
         'parse-resume',
@@ -407,6 +421,7 @@ export class CandidateController {
       batchId,
       total: files.length,
       queued: jobs.filter((j) => j.status === 'queued').length,
+      completed: jobs.filter((j) => j.status === 'completed' || j.status === 'duplicate').length,
       rejected: jobs.filter((j) => j.status === 'rejected').length,
       jobs,
     };
