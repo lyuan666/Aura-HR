@@ -8,6 +8,7 @@ import { StorageService } from '../storage/storage.service';
 import { CandidateStagingEntity } from '../../entities/candidate-staging.entity';
 import { CandidateMergeLinkEntity } from '../../entities/candidate-merge-link.entity';
 import { ImportBatchEntity } from '../../entities/import-batch.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('ImportService', () => {
   let service: ImportService;
@@ -45,6 +46,10 @@ describe('ImportService', () => {
         {
           provide: StorageService,
           useValue: storage,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: { emit: jest.fn() },
         },
         {
           provide: getRepositoryToken(CandidateStagingEntity),

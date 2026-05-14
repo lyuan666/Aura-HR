@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CandidateMergeLinkEntity } from '../../entities/candidate-merge-link.entity';
 import { CandidateStagingEntity, StagingDecision } from '../../entities/candidate-staging.entity';
 import { ImportBatchEntity } from '../../entities/import-batch.entity';
@@ -19,6 +20,7 @@ import {
   ReviewStagingCandidateDto,
 } from './import.dto';
 import { ImportDedupeService } from './import-dedupe.service';
+import { IMPORT_EVENTS } from './import-events';
 import { ImportQualityService } from './import-quality.service';
 
 export interface ImportActorContext {
@@ -61,6 +63,7 @@ export class ImportService {
     private readonly importDedupe: ImportDedupeService,
     private readonly candidateService: CandidateService,
     private readonly storage: StorageService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async createExtensionCapture(dto: CreateExtensionCaptureDto, actor: ImportActorContext) {
@@ -116,9 +119,16 @@ export class ImportService {
       reviewReason: duplicate.status === 'duplicate' ? `possible_duplicate:${duplicate.matchType}` : undefined,
       matchedCandidateId: duplicate.status === 'duplicate' ? duplicate.candidateId : undefined,
       normalizedPayload: {},
-    } as any);
+    } as any) as unknown as CandidateStagingEntity;
 
-    return this.stagingRepo.save(row);
+    const saved = await this.stagingRepo.save(row);
+    this.emitImportEvent(IMPORT_EVENTS.stagingCreated, saved);
+    if (duplicate.status === 'duplicate') {
+      this.emitImportEvent(IMPORT_EVENTS.stagingDuplicate, saved, {
+        candidateId: duplicate.candidateId,
+      });
+    }
+    return saved;
   }
 
   async createExtensionAttachment(
@@ -177,9 +187,16 @@ export class ImportService {
       reviewReason: duplicate.status === 'duplicate' ? `possible_duplicate:${duplicate.matchType}` : undefined,
       matchedCandidateId: duplicate.status === 'duplicate' ? duplicate.candidateId : undefined,
       normalizedPayload: {},
-    } as any);
+    } as any) as unknown as CandidateStagingEntity;
 
-    return this.stagingRepo.save(row);
+    const saved = await this.stagingRepo.save(row);
+    this.emitImportEvent(IMPORT_EVENTS.stagingCreated, saved);
+    if (duplicate.status === 'duplicate') {
+      this.emitImportEvent(IMPORT_EVENTS.stagingDuplicate, saved, {
+        candidateId: duplicate.candidateId,
+      });
+    }
+    return saved;
   }
 
   findBatches(tenantId: string) {
@@ -210,7 +227,11 @@ export class ImportService {
     row.importDecision = dto.decision;
     row.rejectReason = (dto.decision === 'reject' ? dto.rejectReason || undefined : undefined) as any;
     row.status = dto.decision === 'reject' ? 'rejected' : row.status;
-    return this.stagingRepo.save(row);
+    const saved = await this.stagingRepo.save(row);
+    if (dto.decision === 'reject') {
+      this.emitImportEvent(IMPORT_EVENTS.stagingRejected, saved);
+    }
+    return saved;
   }
 
   async promoteToCandidate(id: string, actor: ImportActorContext) {
@@ -273,6 +294,9 @@ export class ImportService {
           operatorId: actor.operatorId,
         }),
       );
+      this.emitImportEvent(IMPORT_EVENTS.stagingPromoted, row, {
+        candidateId: candidate.id,
+      });
       return { status: 'created', candidateId: candidate.id };
     } catch (error) {
       if (error instanceof ConflictException) {
@@ -281,6 +305,9 @@ export class ImportService {
           return this.markMerged(row, candidateId, 'manual', 1, actor);
         }
       }
+      this.emitImportEvent(IMPORT_EVENTS.stagingFailed, row, {
+        errorMessage: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -306,7 +333,26 @@ export class ImportService {
         operatorId: actor.operatorId,
       }),
     );
+    this.emitImportEvent(IMPORT_EVENTS.stagingPromoted, row, { candidateId });
     return { status: 'merged', candidateId };
+  }
+
+  private emitImportEvent(
+    event: string,
+    row: CandidateStagingEntity,
+    extra: { candidateId?: string; errorMessage?: string } = {},
+  ) {
+    this.events.emit(event, {
+      event,
+      traceId: row.traceId,
+      tenantId: row.tenantId,
+      stagingId: row.id,
+      candidateId: extra.candidateId || row.createdCandidateId || row.matchedCandidateId,
+      sourceType: row.sourceType,
+      decision: row.importDecision,
+      qualityScore: row.qualityScore,
+      errorMessage: extra.errorMessage,
+    });
   }
 
   private buildExtensionRawPayload(dto: CreateExtensionCaptureDto, operatorId?: string) {

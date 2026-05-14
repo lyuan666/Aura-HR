@@ -8,6 +8,7 @@ import { StorageModule } from '../storage/storage.module';
 import { ImportController } from './import.controller';
 import { ImportDedupeService } from './import-dedupe.service';
 import { ImportQualityService } from './import-quality.service';
+import { ImportObservabilityService } from './import-observability.service';
 import { ImportService } from './import.service';
 
 @Module({
@@ -21,7 +22,12 @@ import { ImportService } from './import.service';
     StorageModule,
   ],
   controllers: [ImportController],
-  providers: [ImportService, ImportQualityService, ImportDedupeService],
+  providers: [
+    ImportService,
+    ImportQualityService,
+    ImportDedupeService,
+    ImportObservabilityService,
+  ],
   exports: [ImportService, ImportQualityService, ImportDedupeService],
 })
 export class ImportModule {}
