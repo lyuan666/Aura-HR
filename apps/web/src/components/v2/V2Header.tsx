@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Avatar, Badge, Input, Tooltip } from 'antd';
-import { Bell, Search, UserPlus } from 'lucide-react';
+import { Bell, Download, Search, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export const V2Header: React.FC = () => {
@@ -20,6 +20,16 @@ export const V2Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <Tooltip title="下载浏览器插件">
+          <button
+            onClick={() => router.push('/downloads')}
+            className="text-text-sub transition-colors hover:text-text-main"
+            aria-label="下载浏览器插件"
+          >
+            <Download size={18} />
+          </button>
+        </Tooltip>
+
         <Tooltip title="邀请协作成员">
           <button className="text-text-sub transition-colors hover:text-text-main" aria-label="邀请协作成员">
             <UserPlus size={18} />

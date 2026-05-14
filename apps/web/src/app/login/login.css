@@ -455,6 +455,11 @@
   opacity: 0.8;
 }
 
+.login-footer-divider {
+  margin-left: 8px;
+  color: rgba(255, 255, 255, 0.22);
+}
+
 /* --- Error Message --- */
 .login-error {
   background: rgba(239, 68, 68, 0.1);
