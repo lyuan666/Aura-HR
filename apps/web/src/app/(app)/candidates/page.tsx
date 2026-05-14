@@ -53,6 +53,19 @@ interface CandidateRecord {
   educationHistory?: EducationExperience[];
 }
 
+const normalizeCandidateResponse = (data: any) => {
+  const payload = data?.data || data;
+  const items = Array.isArray(payload?.items) ? payload.items : null;
+  const total =
+    typeof payload?.total === 'number'
+      ? payload.total
+      : typeof payload?.meta?.totalItems === 'number'
+        ? payload.meta.totalItems
+        : items?.length || 0;
+
+  return items ? { items, total } : null;
+};
+
 const formatPeriod = (item?: TimelineItem | null) => {
   const start = item?.startDate || item?.start || item?.from;
   const end = item?.endDate || item?.end || item?.to || (start ? '至今' : '');
@@ -115,9 +128,10 @@ export default function CandidatesPage() {
       const res = await api.get('/candidates', {
         params: { page: currentPage, pageSize },
       });
-      if (res.data?.success) {
-        setCandidates(res.data.data.items || []);
-        setTotal(res.data.data.meta?.totalItems || 0);
+      const normalized = normalizeCandidateResponse(res.data);
+      if (normalized) {
+        setCandidates(normalized.items);
+        setTotal(normalized.total);
         setUsingDemoData(false);
         return;
       }
