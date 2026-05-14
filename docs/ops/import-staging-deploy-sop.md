@@ -71,3 +71,22 @@ After applying Nginx config on ECS:
 nginx -t
 systemctl reload nginx
 ```
+
+## Capacity Notes
+
+- Import list APIs must not select `raw_payload`, `normalized_payload`, or `resume_text`.
+- Legacy import batch size is 500 rows.
+- If import review list queries exceed 500ms, inspect `candidate_staging` indexes before increasing API pool size.
+
+Optional Postgres tuning for review only; do not apply automatically without deployment approval:
+
+```yaml
+command:
+  - postgres
+  - -c
+  - shared_buffers=256MB
+  - -c
+  - work_mem=8MB
+  - -c
+  - max_connections=100
+```
