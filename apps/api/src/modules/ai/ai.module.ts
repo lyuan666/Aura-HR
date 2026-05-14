@@ -9,9 +9,10 @@ import { LlmRouterService } from './llm-router.service';
 import { PdfExtractionService } from './pdf-extraction.service';
 import { ParsingV2Service } from './parsing-v2.service';
 import { CandidateEntity } from '../../entities/candidate.entity';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CandidateEntity])],
+  imports: [RedisModule, TypeOrmModule.forFeature([CandidateEntity])],
   controllers: [AiController],
   providers: [
     AiService,
