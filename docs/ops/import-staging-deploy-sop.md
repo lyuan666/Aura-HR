@@ -14,6 +14,8 @@ Run on ECS:
 cd /opt/yzschros
 docker compose --env-file .env -f deploy/docker-compose.prod.yml exec -T postgres \
   psql -U yzschros -d yzschros -f /opt/yzschros/apps/api/src/migrations/004-import-staging.sql
+docker compose --env-file .env -f deploy/docker-compose.prod.yml exec -T postgres \
+  psql -U yzschros -d yzschros -f /opt/yzschros/apps/api/src/migrations/005-client-hr-enterprise-scope.sql
 ```
 
 ## Restart Services

@@ -11,6 +11,8 @@ import { BadRequestException } from '@nestjs/common';
 describe('RecommendationService', () => {
   let service: RecommendationService;
   let recRepo: Repository<RecommendationEntity>;
+  let candidateRepo: Repository<CandidateEntity>;
+  let jobRepo: Repository<JobPositionEntity>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -51,6 +53,12 @@ describe('RecommendationService', () => {
     recRepo = module.get<Repository<RecommendationEntity>>(
       getRepositoryToken(RecommendationEntity),
     );
+    candidateRepo = module.get<Repository<CandidateEntity>>(
+      getRepositoryToken(CandidateEntity),
+    );
+    jobRepo = module.get<Repository<JobPositionEntity>>(
+      getRepositoryToken(JobPositionEntity),
+    );
   });
 
   it('should validate status transitions using state machine', async () => {
@@ -79,5 +87,48 @@ describe('RecommendationService', () => {
     await expect(
       service.updateStatus('rec1', 'submitted', 'wrong-tenant'),
     ).rejects.toThrow('Recommendation not found');
+  });
+
+  it('should scope client recommendations by tenant and enterprise', async () => {
+    jest.spyOn(recRepo, 'findAndCount').mockResolvedValue([
+      [
+        {
+          id: 'rec1',
+          tenantId: 't1',
+          candidateId: 'c1',
+          jobPositionId: 'j1',
+          status: 'submitted',
+          matchScore: 88,
+          aiAnalysis: { highlights: ['强匹配'], risks: [], interviewSuggestions: [], conclusion: '推荐' },
+        },
+      ] as any,
+      1,
+    ]);
+    jest.spyOn(jobRepo, 'findOne').mockResolvedValue({ id: 'j1', enterpriseId: 'e1', title: '后端工程师' } as any);
+    jest.spyOn(candidateRepo, 'findOne').mockResolvedValue({
+      id: 'c1',
+      name: '张三',
+      phone: '13800138000',
+      email: 'secret@example.com',
+      currentTitle: '高级后端',
+      currentCompany: '某公司',
+      totalYears: 8,
+      degree: '本科',
+      school: '某大学',
+      parsedTags: { skills: ['Java'] },
+      workExperiences: [{ companyName: '某公司', position: '高级后端' }],
+      projectExperiences: [{ projectName: '平台项目' }],
+    } as any);
+
+    const result = await service.findClientRecommendations('t1', 'e1');
+
+    expect(jobRepo.findOne).toHaveBeenCalledWith({ where: { id: 'j1', tenantId: 't1', enterpriseId: 'e1' } });
+    expect(result.items[0].candidate).toMatchObject({
+      displayName: '张*',
+      currentTitle: '高级后端',
+      skills: ['Java'],
+    });
+    expect(result.items[0].candidate.phone).toBeUndefined();
+    expect(result.items[0].candidate.email).toBeUndefined();
   });
 });
