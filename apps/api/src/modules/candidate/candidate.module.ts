@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { JwtModule } from '@nestjs/jwt';
 import { CandidateController } from './candidate.controller';
 import { CandidateService } from './candidate.service';
+import { CandidateDedupeService } from './candidate-dedupe.service';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { AiModule } from '../ai/ai.module';
 import { EmbeddingModule } from '../embedding/embedding.module';
@@ -21,7 +22,7 @@ import { StorageModule } from '../storage/storage.module';
     BullModule.registerQueue({ name: 'vectorize' }, { name: 'parse-resume' }),
   ],
   controllers: [CandidateController],
-  providers: [CandidateService, ProgressService, FeishuService],
-  exports: [CandidateService, ProgressService, FeishuService],
+  providers: [CandidateService, CandidateDedupeService, ProgressService, FeishuService],
+  exports: [CandidateService, CandidateDedupeService, ProgressService, FeishuService],
 })
 export class CandidateModule {}

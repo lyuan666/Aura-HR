@@ -28,6 +28,7 @@ interface JwtRefreshPayload {
   email: string;
   role: string;
   tenantId: string;
+  enterpriseId?: string;
 }
 
 const DEFAULT_SETTINGS_CONFIG: SettingsConfig = {
@@ -204,6 +205,7 @@ export class AuthService {
       name: user.name,
       role: user.role,
       tenantId: user.tenantId,
+      enterpriseId: user.enterpriseId,
       avatar: user.avatar,
       phone: user.phone,
       dashboardLayoutConfig: user.dashboardLayoutConfig,
@@ -236,6 +238,7 @@ export class AuthService {
       email: userWithTenant.email,
       role: userWithTenant.role,
       tenantId: userWithTenant.tenantId,
+      enterpriseId: userWithTenant.enterpriseId,
     };
     const refreshSecret =
       this.configService.get<string>('JWT_REFRESH_SECRET') ||
@@ -269,6 +272,7 @@ export class AuthService {
         name: userWithTenant.name,
         role: userWithTenant.role,
         tenantId: userWithTenant.tenantId,
+        enterpriseId: userWithTenant.enterpriseId,
         dashboardLayoutConfig: userWithTenant.dashboardLayoutConfig,
       },
     };

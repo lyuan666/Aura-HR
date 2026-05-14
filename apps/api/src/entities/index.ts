@@ -12,3 +12,6 @@ export { ShareLinkEntity } from './share-link.entity';
 export { PendingJobEntity } from './pending-job.entity';
 export { GuaranteeTrackingEntity } from './guarantee-tracking.entity';
 export { RefreshTokenEntity } from './refresh-token.entity';
+export { ImportBatchEntity } from './import-batch.entity';
+export { CandidateStagingEntity } from './candidate-staging.entity';
+export { CandidateMergeLinkEntity } from './candidate-merge-link.entity';

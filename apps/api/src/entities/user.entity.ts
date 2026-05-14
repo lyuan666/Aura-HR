@@ -16,6 +16,10 @@ export class UserEntity {
   @Index()
   tenantId: string;
 
+  @Column({ name: 'enterprise_id', nullable: true })
+  @Index()
+  enterpriseId: string;
+
   @Column({ unique: true })
   email: string;
 

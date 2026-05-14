@@ -23,6 +23,7 @@ import { ReportModule } from './modules/report/report.module';
 import { GuaranteeModule } from './modules/guarantee/guarantee.module';
 import { ContractModule } from './modules/contract/contract.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { ImportModule } from './modules/import/import.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -40,6 +41,9 @@ import {
   PendingJobEntity,
   GuaranteeTrackingEntity,
   RefreshTokenEntity,
+  ImportBatchEntity,
+  CandidateStagingEntity,
+  CandidateMergeLinkEntity,
 } from './entities';
 
 @Module({
@@ -76,6 +80,9 @@ import {
           PendingJobEntity,
           GuaranteeTrackingEntity,
           RefreshTokenEntity,
+          ImportBatchEntity,
+          CandidateStagingEntity,
+          CandidateMergeLinkEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') !== 'production',
@@ -106,6 +113,7 @@ import {
     ReportModule,
     GuaranteeModule,
     ContractModule,
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [

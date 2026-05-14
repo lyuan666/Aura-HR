@@ -114,7 +114,7 @@ function clearAuth() {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
-    window.location.href = '/login';
+    window.location.href = window.location.pathname.startsWith('/client') ? '/client/login' : '/login';
   }
 }
 

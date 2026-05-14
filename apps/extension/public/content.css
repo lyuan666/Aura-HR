@@ -143,3 +143,38 @@
   font-size: 11px;
   color: #475569;
 }
+
+.yzschros-attachment-list {
+  margin-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.yzschros-attachment-title {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.yzschros-attachment-btn {
+  width: 100%;
+  display: block;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yzschros-attachment-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}

@@ -10,6 +10,7 @@ import { Queue } from 'bullmq';
 import { CreateCandidateDto } from './candidate.dto';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { CandidateDedupeService } from './candidate-dedupe.service';
 
 @Injectable()
 export class CandidateService {
@@ -17,6 +18,7 @@ export class CandidateService {
     @InjectRepository(CandidateEntity)
     private readonly candidateRepo: Repository<CandidateEntity>,
     private readonly embeddingService: EmbeddingService,
+    private readonly candidateDedupe: CandidateDedupeService,
     @InjectQueue('vectorize') private readonly vectorizeQueue: Queue,
   ) {}
 
@@ -79,54 +81,20 @@ export class CandidateService {
 
   // 查重并入库
   async create(dto: CreateCandidateDto, tenantId?: string) {
-    // Fix: 分离 OR 条件为独立查询，避免全表扫描 + 误判
-    // Layer 2: 精确匹配 phone 或 email (各自带 tenantId 过滤)
-    if (dto.phone || dto.email) {
-      const exactQb = this.candidateRepo.createQueryBuilder('candidate');
-      const conditions: string[] = [];
-      const params: Record<string, string> = {};
+    const duplicate = await this.candidateDedupe.findDuplicate({
+      tenantId,
+      normalizedPhone: dto.phone,
+      normalizedEmail: dto.email,
+      name: dto.name,
+      currentCompany: dto.currentCompany,
+      sourcePlatform: dto.sourcePlatform,
+    });
 
-      if (dto.phone) {
-        conditions.push('candidate.phone = :phone');
-        params.phone = dto.phone;
-      }
-      if (dto.email) {
-        conditions.push('candidate.email = :email');
-        params.email = dto.email;
-      }
-
-      exactQb.where(`(${conditions.join(' OR ')})`, params);
-      if (tenantId) {
-        exactQb.andWhere('candidate.tenantId = :tenantId', { tenantId });
-      }
-
-      const exactDup = await exactQb.getOne().catch(() => null);
-      if (exactDup) {
-        throw new ConflictException({
-          message: '检测到重复候选人 (手机号或邮箱匹配)',
-          data: exactDup,
-        });
-      }
-    }
-
-    // Layer 3: 同平台 + 同姓名 (补充检查，仅在有 phone/email 以外的匹配需求时)
-    if (dto.name && dto.sourcePlatform) {
-      const nameDup = await this.candidateRepo
-        .createQueryBuilder('candidate')
-        .where('candidate.name = :name AND candidate.sourcePlatform = :sourcePlatform', {
-          name: dto.name,
-          sourcePlatform: dto.sourcePlatform,
-        })
-        .andWhere(tenantId ? 'candidate.tenantId = :tenantId' : '1=1', { tenantId })
-        .getOne()
-        .catch(() => null);
-
-      if (nameDup) {
-        throw new ConflictException({
-          message: '检测到重复候选人 (同平台同名)',
-          data: nameDup,
-        });
-      }
+    if (duplicate.status === 'duplicate') {
+      throw new ConflictException({
+        message: this.getDuplicateMessage(duplicate.matchType),
+        data: duplicate.candidate ?? { id: duplicate.candidateId },
+      });
     }
 
     const newCandidate = this.candidateRepo.create({
@@ -145,6 +113,18 @@ export class CandidateService {
     );
 
     return this.dehydrate(saved);
+  }
+
+  private getDuplicateMessage(matchType: string) {
+    const labelMap: Record<string, string> = {
+      phone: '手机号匹配',
+      email: '邮箱匹配',
+      text_hash: '简历文本匹配',
+      file_hash: '文件匹配',
+      name_source: '同平台同名',
+      name_company: '同公司同名',
+    };
+    return `检测到重复候选人 (${labelMap[matchType] || matchType})`;
   }
 
   async vectorizeCandidate(id: string) {

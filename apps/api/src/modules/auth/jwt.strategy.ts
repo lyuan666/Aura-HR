@@ -12,6 +12,7 @@ interface JwtPayload {
   email: string;
   role: string;
   tenantId?: string;
+  enterpriseId?: string;
   iat?: number;
   exp?: number;
 }
@@ -37,6 +38,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     let tenantId = user.tenantId || payload.tenantId;
+    const enterpriseId = user.enterpriseId || payload.enterpriseId;
+    if (user.role === 'hr_client') {
+      if (!tenantId) {
+        throw new UnauthorizedException('客户 HR 账号缺少租户范围');
+      }
+      if (!enterpriseId) {
+        throw new UnauthorizedException('客户 HR 账号缺少企业范围');
+      }
+    }
+
     if (!tenantId) {
       tenantId = crypto.randomUUID();
     }
@@ -51,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       role: user.role,
       tenantId,
+      enterpriseId,
     };
   }
 }

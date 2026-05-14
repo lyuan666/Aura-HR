@@ -9,6 +9,7 @@ import { RecommendationEntity } from '../../entities/recommendation.entity';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
 import { AiService } from '../ai/ai.service';
+import { CLIENT_RECOMMENDATION_CANDIDATE_FIELDS } from '../client/client-visibility';
 import {
   StateMachine,
   RECOMMENDATION_TRANSITIONS,
@@ -160,6 +161,47 @@ export class RecommendationService {
     };
   }
 
+  async findClientRecommendations(
+    tenantId: string,
+    enterpriseId: string,
+    page = 1,
+    pageSize = 20,
+  ) {
+    const [records] = await this.recommendationRepo.findAndCount({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    const items = await this.hydrateClientRecommendations(records, tenantId, enterpriseId);
+    return { items, total: items.length, page, pageSize };
+  }
+
+  async findClientRecommendationDetail(id: string, tenantId: string, enterpriseId: string) {
+    const rec = await this.recommendationRepo.findOne({ where: { id, tenantId } });
+    if (!rec) throw new NotFoundException('Recommendation not found');
+    const [item] = await this.hydrateClientRecommendations([rec], tenantId, enterpriseId);
+    if (!item) throw new NotFoundException('Recommendation not found');
+    return item;
+  }
+
+  async submitClientFeedback(
+    id: string,
+    tenantId: string,
+    enterpriseId: string,
+    feedback: string,
+  ) {
+    const rec = await this.recommendationRepo.findOne({ where: { id, tenantId } });
+    if (!rec) throw new NotFoundException('Recommendation not found');
+    const job = await this.jobRepo.findOne({
+      where: { id: rec.jobPositionId, tenantId, enterpriseId },
+    });
+    if (!job) throw new NotFoundException('Recommendation not found');
+    rec.feedback = feedback;
+    const saved = await this.recommendationRepo.save(rec);
+    return { success: true, recommendation: this.dehydrate(saved) };
+  }
+
   async updateStatus(id: string, status: string, tenantId?: string) {
     const rec = await this.recommendationRepo.findOne({
       where: { id, ...(tenantId ? { tenantId } : {}) },
@@ -206,5 +248,53 @@ export class RecommendationService {
       job.title,
       job.description || '',
     );
+  }
+
+  private async hydrateClientRecommendations(
+    records: RecommendationEntity[],
+    tenantId: string,
+    enterpriseId: string,
+  ) {
+    const items = [];
+    for (const rec of records) {
+      const job = await this.jobRepo.findOne({
+        where: { id: rec.jobPositionId, tenantId, enterpriseId },
+      });
+      if (!job) continue;
+      const candidate = await this.candidateRepo.findOne({
+        where: { id: rec.candidateId, tenantId },
+      });
+      if (!candidate) continue;
+      items.push({
+        ...this.dehydrate(rec),
+        job: {
+          id: job.id,
+          title: job.title,
+          enterpriseId: job.enterpriseId,
+        },
+        candidate: this.toClientCandidate(candidate),
+        visibility: CLIENT_RECOMMENDATION_CANDIDATE_FIELDS.authenticatedClient,
+      });
+    }
+    return items;
+  }
+
+  private toClientCandidate(candidate: CandidateEntity) {
+    const parsedTags = candidate.parsedTags || {};
+    return {
+      displayName: candidate.name ? `${candidate.name.charAt(0)}*` : '候选人',
+      currentTitle: candidate.currentTitle,
+      currentCompany: candidate.currentCompany,
+      totalYears: candidate.totalYears,
+      degree: candidate.degree,
+      school: candidate.school,
+      skills: Array.isArray((parsedTags as any).skills) ? (parsedTags as any).skills : [],
+      workExperiencesSummary: this.summarizeList(candidate.workExperiences),
+      projectExperiencesSummary: this.summarizeList(candidate.projectExperiences),
+    };
+  }
+
+  private summarizeList(items?: any[]) {
+    return Array.isArray(items) ? items.slice(0, 3) : [];
   }
 }

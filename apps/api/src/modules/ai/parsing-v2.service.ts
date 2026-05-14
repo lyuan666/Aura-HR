@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { LlmRouterService } from './llm-router.service';
 import { PdfExtractionService, ExtractedContent } from './pdf-extraction.service';
@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { StorageService } from '../storage/storage.service';
+import { SHARED_REDIS } from '../redis/redis.module';
 
 export interface ParseJobData {
   tenantId: string;
@@ -39,6 +40,8 @@ export class ParsingV2Service {
     private readonly storage: StorageService,
     @InjectRepository(CandidateEntity)
     private readonly candidateRepo: Repository<CandidateEntity>,
+    @Inject(SHARED_REDIS)
+    private readonly redis: any,
   ) {}
 
   /**
@@ -185,6 +188,15 @@ export class ParsingV2Service {
    * LLM 结构化抽取
    */
   private async extractStructured(text: string, fileName: string): Promise<any> {
+    const textHash = ParsingV2Service.computeTextHash(text);
+    const cacheKey = `llm:resume-parse:${textHash}`;
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (error) {
+      this.logger.warn(`读取简历解析缓存失败: ${(error as Error).message}`);
+    }
+
     const prompt = `你是简历信息提取专家。从以下简历文本中提取结构化信息，返回严格 JSON 格式。
 
 要求提取的字段:
@@ -239,6 +251,12 @@ ${text.substring(0, 3000)}
     // careerExpectations 提到顶层
     if (result.careerExpectations) {
       // keep as is
+    }
+
+    try {
+      await this.redis.setex(cacheKey, 86400, JSON.stringify(result));
+    } catch (error) {
+      this.logger.warn(`写入简历解析缓存失败: ${(error as Error).message}`);
     }
 
     return result;

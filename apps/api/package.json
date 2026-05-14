@@ -21,7 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:generate": "typeorm migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm migration:run -d src/database/data-source.ts",
-    "migration:revert": "typeorm migration:revert -d src/database/data-source.ts"
+    "migration:revert": "typeorm migration:revert -d src/database/data-source.ts",
+    "import:legacy": "ts-node -r tsconfig-paths/register src/modules/import/legacy-import.cli.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

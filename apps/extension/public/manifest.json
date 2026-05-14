@@ -4,10 +4,7 @@
   "version": "0.1.0",
   "description": "猎头公司管理智能系统 - 浏览器插件，支持简历采集、AI解析、自动打招呼",
   "permissions": ["storage", "activeTab"],
-  "host_permissions": [
-    "https://www.zhipin.com/*",
-    "https://www.liepin.com/*"
-  ],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html"
   },

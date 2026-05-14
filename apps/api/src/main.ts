@@ -10,9 +10,18 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // CORS
-  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'];
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) || ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'];
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      const allowed = corsOrigins.some((allowedOrigin) => {
+        if (allowedOrigin.endsWith('*')) {
+          return origin.startsWith(allowedOrigin.slice(0, -1));
+        }
+        return origin === allowedOrigin;
+      });
+      callback(allowed ? null : new Error(`CORS origin not allowed: ${origin}`), allowed);
+    },
     credentials: true,
   });
 

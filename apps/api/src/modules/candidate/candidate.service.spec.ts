@@ -5,11 +5,13 @@ import { CandidateEntity } from '../../entities/candidate.entity';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { ConflictException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { CandidateDedupeService } from './candidate-dedupe.service';
 
 describe('CandidateService', () => {
   let service: CandidateService;
   let repo: any;
   let embeddingService: any;
+  let candidateDedupe: any;
   let vectorizeQueue: any;
 
   beforeEach(async () => {
@@ -24,6 +26,10 @@ describe('CandidateService', () => {
 
     embeddingService = {
       generateEmbedding: jest.fn(),
+    };
+
+    candidateDedupe = {
+      findDuplicate: jest.fn().mockResolvedValue({ status: 'unique' }),
     };
 
     vectorizeQueue = {
@@ -42,6 +48,10 @@ describe('CandidateService', () => {
           useValue: embeddingService,
         },
         {
+          provide: CandidateDedupeService,
+          useValue: candidateDedupe,
+        },
+        {
           provide: getQueueToken('vectorize'),
           useValue: vectorizeQueue,
         },
@@ -58,24 +68,17 @@ describe('CandidateService', () => {
   describe('create', () => {
     it('should throw ConflictException if phone duplicate found', async () => {
       const dto = { name: 'Test', phone: '123' } as any;
-      const qb: any = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ id: 'existing' }),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb);
+      candidateDedupe.findDuplicate.mockResolvedValue({
+        status: 'duplicate',
+        candidateId: 'existing',
+        matchType: 'phone',
+      });
 
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
     });
 
     it('should create and enqueue BullMQ vectorization', async () => {
       const dto = { name: 'Test', phone: '123' } as any;
-      const qb: any = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb);
       repo.create.mockReturnValue({ id: 'new-id', ...dto });
       repo.save.mockResolvedValue({ id: 'new-id', ...dto });
 
