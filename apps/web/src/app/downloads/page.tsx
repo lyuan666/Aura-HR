@@ -18,7 +18,7 @@ const extensionRelease = {
   size: '约 70 KB',
   notes: [
     '支持在招聘网站页面采集候选人基础信息和页面文本。',
-    '插件设置中可配置 API 地址和访问令牌。',
+    '插件内可直接使用系统账号登录，无需手动复制内部凭证。',
     '采集数据进入导入暂存区，需复核后再进入正式人才库。',
   ],
 };
@@ -28,7 +28,7 @@ const installSteps = [
   '打开 Chrome 地址栏 chrome://extensions。',
   '开启右上角开发者模式。',
   '点击“加载已解压的扩展程序”，选择解压后的 dist 目录。',
-  '打开插件设置，填写生产 API 地址和访问令牌。',
+  '打开插件，确认系统地址后使用账号密码登录插件账号。',
 ];
 
 export default function DownloadsPage() {
@@ -113,9 +113,9 @@ export default function DownloadsPage() {
           </div>
           <div className="rounded-lg border border-border-subtle bg-bg-surface p-5">
             <ShieldCheck className="text-brand-primary" size={22} />
-            <h2 className="mt-4 text-base font-semibold text-text-main">本地令牌</h2>
+            <h2 className="mt-4 text-base font-semibold text-text-main">插件内登录</h2>
             <p className="mt-2 text-sm leading-6 text-text-sub">
-              访问令牌只保存在浏览器本地存储中，重新安装或更换设备后需要重新配置。
+              顾问直接使用系统账号登录插件，认证信息只保存在浏览器本地，重新安装或更换设备后需要重新登录。
             </p>
           </div>
           <div className="rounded-lg border border-border-subtle bg-bg-surface p-5">

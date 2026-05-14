@@ -92,7 +92,7 @@ async function handleAttachmentUpload(payload: any) {
 async function apiFetch(path: string, init: RequestInit = {}) {
   const settings = await getSettings();
   if (!settings.accessToken) {
-    throw new Error('请先在插件设置中填写 YZSCHROS Token');
+    throw new Error('请先登录 YZSCHROS 插件');
   }
 
   const isFormData = init.body instanceof FormData;
