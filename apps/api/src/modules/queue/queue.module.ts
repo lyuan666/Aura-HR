@@ -14,6 +14,17 @@ import { CandidateEntity } from '../../entities/candidate.entity';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const redisUrl = new URL(REDIS_URL);
 
+export function shouldRegisterQueueProcessors() {
+  if (process.env.QUEUE_WORKERS_ENABLED === 'true') return true;
+  if (process.env.QUEUE_WORKERS_ENABLED === 'false') return false;
+  if (process.env.WORKER_ONLY === 'true') return true;
+  return process.env.NODE_ENV !== 'production';
+}
+
+const queueProcessors = shouldRegisterQueueProcessors()
+  ? [ParseResumeProcessor, VectorizeProcessor, JobEnhanceProcessor, MatchPushProcessor]
+  : [];
+
 @Global()
 @Module({
   imports: [
@@ -42,7 +53,7 @@ const redisUrl = new URL(REDIS_URL);
     forwardRef(() => JobModule),
     forwardRef(() => MatchingModule),
   ],
-  providers: [ParseResumeProcessor, VectorizeProcessor, JobEnhanceProcessor, MatchPushProcessor],
+  providers: queueProcessors,
   exports: [BullModule],
 })
 export class QueueModule {}
