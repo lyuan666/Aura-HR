@@ -39,3 +39,27 @@ export class ReviewStagingCandidateDto {
   @IsOptional()
   rejectReason?: string;
 }
+
+export class CreateExtensionAttachmentDto {
+  @IsString()
+  sourcePlatform: string;
+
+  @IsString()
+  sourceUrl: string;
+
+  @IsString()
+  @IsOptional()
+  sourceRecordId?: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  company?: string;
+
+  @IsString()
+  @IsOptional()
+  title?: string;
+}

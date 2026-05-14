@@ -19,6 +19,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, message: err.message }));
     return true;
   }
+
+  if (message.type === 'UPLOAD_ATTACHMENT') {
+    handleAttachmentUpload(message.payload)
+      .then(res => sendResponse({ success: true, data: res }))
+      .catch(err => sendResponse({ success: false, message: err.message }));
+    return true;
+  }
 });
 
 async function handleAiGreeting(payload: any) {
@@ -56,16 +63,43 @@ async function handleResumeUpload(payload: any) {
   return await captureRes.json();
 }
 
+async function handleAttachmentUpload(payload: any) {
+  const fileRes = await fetch(payload.fileUrl);
+  if (!fileRes.ok) throw new Error('附件下载失败');
+  const blob = await fileRes.blob();
+  const fileName = payload.fileName || payload.fileUrl.split('/').pop()?.split('?')[0] || 'resume.pdf';
+  const formData = new FormData();
+  formData.append('sourcePlatform', payload.sourcePlatform);
+  formData.append('sourceUrl', payload.url);
+  if (payload.sourceRecordId) formData.append('sourceRecordId', payload.sourceRecordId);
+  if (payload.name) formData.append('name', payload.name);
+  if (payload.company) formData.append('company', payload.company);
+  if (payload.title) formData.append('title', payload.title);
+  formData.append('resume', blob, fileName);
+
+  const uploadRes = await apiFetch('/import/extension-attachment', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json();
+    throw new Error(err.message || '附件暂存失败');
+  }
+  return uploadRes.json();
+}
+
 async function apiFetch(path: string, init: RequestInit = {}) {
   const settings = await getSettings();
   if (!settings.accessToken) {
     throw new Error('请先在插件设置中填写 YZSCHROS Token');
   }
 
+  const isFormData = init.body instanceof FormData;
   return fetch(`${settings.apiBaseUrl}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(init.headers || {}),
       Authorization: `Bearer ${settings.accessToken}`,
     },

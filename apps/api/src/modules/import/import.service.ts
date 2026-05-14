@@ -6,12 +6,18 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 import { CandidateMergeLinkEntity } from '../../entities/candidate-merge-link.entity';
 import { CandidateStagingEntity, StagingDecision } from '../../entities/candidate-staging.entity';
 import { ImportBatchEntity } from '../../entities/import-batch.entity';
 import { CandidateService } from '../candidate/candidate.service';
-import { CreateExtensionCaptureDto, ReviewStagingCandidateDto } from './import.dto';
+import { StorageService } from '../storage/storage.service';
+import {
+  CreateExtensionAttachmentDto,
+  CreateExtensionCaptureDto,
+  ReviewStagingCandidateDto,
+} from './import.dto';
 import { ImportDedupeService } from './import-dedupe.service';
 import { ImportQualityService } from './import-quality.service';
 
@@ -54,6 +60,7 @@ export class ImportService {
     private readonly quality: ImportQualityService,
     private readonly importDedupe: ImportDedupeService,
     private readonly candidateService: CandidateService,
+    private readonly storage: StorageService,
   ) {}
 
   async createExtensionCapture(dto: CreateExtensionCaptureDto, actor: ImportActorContext) {
@@ -106,6 +113,67 @@ export class ImportService {
       qualityReasons: quality.reasons,
       status: 'scored',
       importDecision,
+      reviewReason: duplicate.status === 'duplicate' ? `possible_duplicate:${duplicate.matchType}` : undefined,
+      matchedCandidateId: duplicate.status === 'duplicate' ? duplicate.candidateId : undefined,
+      normalizedPayload: {},
+    } as any);
+
+    return this.stagingRepo.save(row);
+  }
+
+  async createExtensionAttachment(
+    dto: CreateExtensionAttachmentDto,
+    file: Express.Multer.File,
+    actor: ImportActorContext,
+  ) {
+    if (!file) throw new BadRequestException('缺少简历附件');
+    const traceId = randomUUID();
+    const safeName = file.originalname.replace(/[/\\]/g, '_');
+    const stagingFileKey = `staging/resumes/${traceId}/${safeName}`;
+    const fileHash = createHash('sha256').update(file.buffer).digest('hex');
+    await this.storage.putObject('uploads', stagingFileKey, file.buffer, file.size, file.mimetype);
+
+    const quality = this.quality.score({
+      name: dto.name,
+      currentCompany: dto.company,
+      currentTitle: dto.title,
+      sourceUrl: dto.sourceUrl,
+      sourceRecordId: dto.sourceRecordId,
+    });
+    const duplicate = await this.importDedupe.findDuplicate({
+      tenantId: actor.tenantId,
+      fileHash,
+      name: dto.name,
+      currentCompany: dto.company,
+      sourcePlatform: dto.sourcePlatform,
+    });
+
+    const row = this.stagingRepo.create({
+      tenantId: actor.tenantId,
+      traceId,
+      sourceType: 'chrome_extension',
+      sourcePlatform: dto.sourcePlatform,
+      sourceUrl: dto.sourceUrl,
+      sourceRecordId: dto.sourceRecordId,
+      rawPayload: {
+        sourcePlatform: dto.sourcePlatform,
+        sourceUrl: dto.sourceUrl,
+        sourceRecordId: dto.sourceRecordId,
+        fileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        operatorId: actor.operatorId,
+        retention: 'rejected staging attachments expire after 30 days',
+      },
+      name: dto.name,
+      currentCompany: dto.company,
+      currentTitle: dto.title,
+      fileHash,
+      stagingFileKey,
+      qualityScore: quality.score,
+      qualityReasons: quality.reasons,
+      status: 'scored',
+      importDecision: duplicate.status === 'duplicate' ? 'review' : quality.decision,
       reviewReason: duplicate.status === 'duplicate' ? `possible_duplicate:${duplicate.matchType}` : undefined,
       matchedCandidateId: duplicate.status === 'duplicate' ? duplicate.candidateId : undefined,
       normalizedPayload: {},

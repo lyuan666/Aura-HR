@@ -11,6 +11,11 @@ interface ExtractedData {
   title?: string;
 }
 
+interface AttachmentLink {
+  url: string;
+  fileName: string;
+}
+
 function detectPlatform(): string | null {
   const hostname = window.location.hostname;
   if (hostname.includes('zhipin.com')) return 'boss_zhipin';
@@ -41,11 +46,22 @@ function extractResumeData(): ExtractedData {
   return data;
 }
 
+function detectAttachmentLinks(): AttachmentLink[] {
+  return [...document.querySelectorAll('a[href]')]
+    .map((node) => {
+      const link = node as HTMLAnchorElement;
+      return { url: link.href, fileName: link.textContent?.trim() || link.href.split('/').pop() || 'resume' };
+    })
+    .filter((link) => /\.(pdf|doc|docx)(\?|$)/i.test(link.url))
+    .slice(0, 5);
+}
+
 function injectFloatingPanel() {
   if (document.getElementById('yzschros-ext-panel')) return;
 
   const panel = document.createElement('div');
   panel.id = 'yzschros-ext-panel';
+  const attachmentLinks = detectAttachmentLinks();
   panel.innerHTML = `
     <div class="yzschros-panel-header">
       <span>🎯 猎头 AI 助手</span>
@@ -60,6 +76,16 @@ function injectFloatingPanel() {
       <button id="yzschros-btn-extract" class="yzschros-btn">
         <span>✨ 暂存候选人</span>
       </button>
+      ${attachmentLinks.length > 0 ? `
+        <div class="yzschros-attachment-list">
+          <div class="yzschros-attachment-title">附件</div>
+          ${attachmentLinks.map((link, index) => `
+            <button class="yzschros-attachment-btn" data-yzschros-attachment-index="${index}">
+              ${link.fileName}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
       
       <div id="yzschros-result" style="display: none;"></div>
     </div>
@@ -68,14 +94,40 @@ function injectFloatingPanel() {
 
   const btnExtract = document.getElementById('yzschros-btn-extract') as HTMLButtonElement;
   const resultDiv = document.getElementById('yzschros-result') as HTMLDivElement;
+  const resumeData = extractResumeData();
+
+  document.querySelectorAll('[data-yzschros-attachment-index]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number((button as HTMLButtonElement).dataset.yzschrosAttachmentIndex || 0);
+      const attachment = attachmentLinks[index];
+      if (!attachment) return;
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<p>正在上传附件到暂存区...</p>';
+      chrome.runtime.sendMessage({
+        type: 'UPLOAD_ATTACHMENT',
+        payload: {
+          ...resumeData,
+          fileUrl: attachment.url,
+          fileName: attachment.fileName,
+        },
+      }, (response) => {
+        if (response && response.success) {
+          resultDiv.innerHTML = `
+            <div style="color: #10b981; font-weight: 600; margin-bottom: 8px;">✅ 附件已进入暂存区</div>
+            <div style="font-size: 12px; color: #475569;">文件指纹: ${response.data.fileHash || '-'}</div>
+          `;
+        } else {
+          resultDiv.innerHTML = `<p style="color: #ef4444">附件上传失败: ${response?.message || '未知错误'}</p>`;
+        }
+      });
+    });
+  });
 
   btnExtract.addEventListener('click', async () => {
     btnExtract.disabled = true;
     btnExtract.innerHTML = '<span>⏳ 正在写入暂存区...</span>';
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = '<p>正在保存页面文本和来源证据...</p>';
-    
-    const resumeData = extractResumeData();
     
     chrome.runtime.sendMessage({ type: 'PROCESS_RESUME', payload: resumeData }, (response) => {
       if (response && response.success) {

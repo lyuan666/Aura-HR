@@ -37,3 +37,9 @@ pm2 save
 ssh root@47.97.62.57 'cd /opt/yzschros && curl -sS http://127.0.0.1:3001/api'
 ssh -i ~/.ssh/id_rsa lee@192.168.3.47 'zsh -lc "export PATH=/usr/local/bin:/opt/homebrew/bin:/Users/lee/.npm-global/bin:/usr/bin:/bin:/usr/sbin:/sbin; pm2 status yzschros-worker"'
 ```
+
+## Staging Attachments
+
+- Extension attachment uploads use `uploads/staging/resumes/<traceId>/<filename>`.
+- Rejected staging attachments should expire after 30 days.
+- Promoted staging attachments must be copied or moved into the normal uploads location before long-term retention.

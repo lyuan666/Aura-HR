@@ -1,5 +1,11 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Req } from '@nestjs/common';
-import { CreateExtensionCaptureDto, ReviewStagingCandidateDto } from './import.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  CreateExtensionAttachmentDto,
+  CreateExtensionCaptureDto,
+  ReviewStagingCandidateDto,
+} from './import.dto';
 import { ImportService } from './import.service';
 
 @Controller('import')
@@ -9,6 +15,16 @@ export class ImportController {
   @Post('extension-capture')
   createExtensionCapture(@Body() dto: CreateExtensionCaptureDto, @Req() req: any) {
     return this.importService.createExtensionCapture(dto, this.getActor(req));
+  }
+
+  @Post('extension-attachment')
+  @UseInterceptors(FileInterceptor('resume'))
+  createExtensionAttachment(
+    @Body() dto: CreateExtensionAttachmentDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    return this.importService.createExtensionAttachment(dto, file, this.getActor(req));
   }
 
   @Get('batches')

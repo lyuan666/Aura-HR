@@ -4,6 +4,7 @@ import { CandidateMergeLinkEntity } from '../../entities/candidate-merge-link.en
 import { CandidateStagingEntity } from '../../entities/candidate-staging.entity';
 import { ImportBatchEntity } from '../../entities/import-batch.entity';
 import { CandidateModule } from '../candidate/candidate.module';
+import { StorageModule } from '../storage/storage.module';
 import { ImportController } from './import.controller';
 import { ImportDedupeService } from './import-dedupe.service';
 import { ImportQualityService } from './import-quality.service';
@@ -17,6 +18,7 @@ import { ImportService } from './import.service';
       CandidateMergeLinkEntity,
     ]),
     forwardRef(() => CandidateModule),
+    StorageModule,
   ],
   controllers: [ImportController],
   providers: [ImportService, ImportQualityService, ImportDedupeService],

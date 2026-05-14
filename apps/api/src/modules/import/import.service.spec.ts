@@ -4,6 +4,7 @@ import { ImportService } from './import.service';
 import { ImportQualityService } from './import-quality.service';
 import { ImportDedupeService } from './import-dedupe.service';
 import { CandidateService } from '../candidate/candidate.service';
+import { StorageService } from '../storage/storage.service';
 import { CandidateStagingEntity } from '../../entities/candidate-staging.entity';
 import { CandidateMergeLinkEntity } from '../../entities/candidate-merge-link.entity';
 import { ImportBatchEntity } from '../../entities/import-batch.entity';
@@ -12,6 +13,7 @@ describe('ImportService', () => {
   let service: ImportService;
   let stagingRepo: any;
   let importDedupe: any;
+  let storage: any;
 
   beforeEach(async () => {
     stagingRepo = {
@@ -23,6 +25,9 @@ describe('ImportService', () => {
     };
     importDedupe = {
       findDuplicate: jest.fn().mockResolvedValue({ status: 'unique' }),
+    };
+    storage = {
+      putObject: jest.fn().mockResolvedValue('etag'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -36,6 +41,10 @@ describe('ImportService', () => {
         {
           provide: CandidateService,
           useValue: { create: jest.fn() },
+        },
+        {
+          provide: StorageService,
+          useValue: storage,
         },
         {
           provide: getRepositoryToken(CandidateStagingEntity),
@@ -79,6 +88,37 @@ describe('ImportService', () => {
         sourceType: 'chrome_extension',
         sourcePlatform: 'boss_zhipin',
       }),
+    );
+  });
+
+  it('creates staging rows for explicit extension attachments without parsing', async () => {
+    const result = await service.createExtensionAttachment(
+      {
+        sourcePlatform: 'boss_zhipin',
+        sourceUrl: 'https://www.zhipin.com/resume.pdf',
+        name: '张三',
+        company: '某科技公司',
+        title: '后端工程师',
+      },
+      {
+        originalname: 'resume.pdf',
+        mimetype: 'application/pdf',
+        size: 12,
+        buffer: Buffer.from('resume file'),
+      } as Express.Multer.File,
+      { tenantId: 't1', operatorId: 'u1' },
+    );
+
+    expect(result.sourceType).toBe('chrome_extension');
+    expect(result.stagingFileKey).toMatch(/^staging\/resumes\/.+\/resume\.pdf$/);
+    expect(result.fileHash).toHaveLength(64);
+    expect(result.resumeText).toBeUndefined();
+    expect(storage.putObject).toHaveBeenCalledWith(
+      'uploads',
+      result.stagingFileKey,
+      expect.any(Buffer),
+      12,
+      'application/pdf',
     );
   });
 });
