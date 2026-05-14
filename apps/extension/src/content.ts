@@ -55,10 +55,10 @@ function injectFloatingPanel() {
       <div class="yzschros-status-badge">
         检测到 ${platform === 'boss_zhipin' ? 'BOSS直聘' : '猎聘号'} 简历
       </div>
-      <p style="margin-bottom: 20px;">系统已就绪，可一键录入人才库并生成专业邀约。</p>
+      <p style="margin-bottom: 20px;">系统已就绪，可将当前页面内容送入数据导入暂存区。</p>
       
       <button id="yzschros-btn-extract" class="yzschros-btn">
-        <span>✨ 录入人才库</span>
+        <span>✨ 暂存候选人</span>
       </button>
       
       <div id="yzschros-result" style="display: none;"></div>
@@ -71,19 +71,30 @@ function injectFloatingPanel() {
 
   btnExtract.addEventListener('click', async () => {
     btnExtract.disabled = true;
-    btnExtract.innerHTML = '<span>⏳ 正在解析并录入...</span>';
+    btnExtract.innerHTML = '<span>⏳ 正在写入暂存区...</span>';
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<p>AI 正在深度分析简历结构...</p>';
+    resultDiv.innerHTML = '<p>正在保存页面文本和来源证据...</p>';
     
     const resumeData = extractResumeData();
     
     chrome.runtime.sendMessage({ type: 'PROCESS_RESUME', payload: resumeData }, (response) => {
       if (response && response.success) {
-        const tags = response.data.parsedTags?.tags || [];
+        const row = response.data || {};
+        const decisionLabel = row.importDecision === 'candidate'
+          ? '可入库'
+          : row.importDecision === 'reject'
+            ? '拒绝'
+            : row.matchedCandidateId
+              ? '重复'
+              : '待复核';
         resultDiv.innerHTML = `
-          <div style="color: #10b981; font-weight: 600; margin-bottom: 8px;">✅ 已成功入库</div>
+          <div style="color: #10b981; font-weight: 600; margin-bottom: 8px;">✅ 已进入数据导入暂存区</div>
+          <div style="font-size: 12px; color: #475569; line-height: 1.8;">
+            <div>质量评分: ${row.qualityScore ?? 0}</div>
+            <div>处理状态: ${row.createdCandidateId ? '已成功入库' : decisionLabel}</div>
+          </div>
           <div class="yzschros-tag-list">
-            ${tags.map((t: string) => `<span class="yzschros-tag">${t}</span>`).join('')}
+            ${(row.qualityReasons || []).map((t: string) => `<span class="yzschros-tag">${t}</span>`).join('')}
           </div>
           <button id="yzschros-btn-greeting" class="yzschros-btn yzschros-btn-secondary">
             🪄 生成 AI 邀约语
@@ -127,7 +138,7 @@ function injectFloatingPanel() {
       } else {
         resultDiv.innerHTML = `<p style="color: #ef4444">❌ 录入失败: ${response?.message || '未知错误'}</p>`;
         btnExtract.disabled = false;
-        btnExtract.innerHTML = '<span>✨ 重试录入</span>';
+        btnExtract.innerHTML = '<span>✨ 重试暂存</span>';
       }
     });
   });

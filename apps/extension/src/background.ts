@@ -35,36 +35,25 @@ async function handleAiGreeting(payload: any) {
 }
 
 async function handleResumeUpload(payload: any) {
-  // 1. 调用 AI 进行解析
-  const parseRes = await apiFetch('/ai/parse-resume', {
+  const captureRes = await apiFetch('/import/extension-capture', {
     method: 'POST',
-    body: JSON.stringify({ text: payload.rawText }), // 修正为后端期待的 'text' 字段
-  });
-  
-  if (!parseRes.ok) throw new Error('AI 解析失败');
-  const parsedData = await parseRes.json();
-
-  // 2. 将解析数据和提取的结构整合入库
-  const createData = {
-    name: payload.name,
-    sourcePlatform: payload.sourcePlatform,
-    currentCompany: parsedData.currentCompany || payload.company || '',
-    currentTitle: parsedData.currentTitle || payload.title || '',
-    resumeText: payload.rawText, // 传递原始内容便于搜索
-    parsedTags: parsedData,
-  };
-
-  const createRes = await apiFetch('/candidates', {
-    method: 'POST',
-    body: JSON.stringify(createData),
+    body: JSON.stringify({
+      sourcePlatform: payload.sourcePlatform,
+      sourceUrl: payload.url,
+      sourceRecordId: payload.sourceRecordId,
+      name: payload.name,
+      company: payload.company,
+      title: payload.title,
+      rawText: payload.rawText,
+    }),
   });
 
-  if (!createRes.ok) {
-    const err = await createRes.json();
-    throw new Error(err.message || '候选人入库查重未通过');
+  if (!captureRes.ok) {
+    const err = await captureRes.json();
+    throw new Error(err.message || '暂存区写入失败');
   }
 
-  return await createRes.json();
+  return await captureRes.json();
 }
 
 async function apiFetch(path: string, init: RequestInit = {}) {
