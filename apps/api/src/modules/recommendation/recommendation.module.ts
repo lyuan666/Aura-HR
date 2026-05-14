@@ -5,6 +5,8 @@ import { RecommendationService } from './recommendation.service';
 import { RecommendationEntity } from '../../entities/recommendation.entity';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
+import { EnterpriseEntity } from '../../entities/enterprise.entity';
+import { ContractEntity } from '../../entities/contract.entity';
 import { AiModule } from '../ai/ai.module';
 
 @Module({
@@ -13,6 +15,8 @@ import { AiModule } from '../ai/ai.module';
       RecommendationEntity,
       CandidateEntity,
       JobPositionEntity,
+      EnterpriseEntity,
+      ContractEntity,
     ]),
     AiModule,
   ],

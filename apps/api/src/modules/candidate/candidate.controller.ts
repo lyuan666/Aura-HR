@@ -417,10 +417,11 @@ export class CandidateController {
   uploadProgress(
     @Param('key') key: string,
     @Query('token') token: string,
+    @Req() req: any,
   ): Observable<MessageEvent> {
-    // SSE 无法设 header，用 query param 传 JWT
+    const streamToken = token || this.extractTokenFromRequest(req);
     try {
-      this.jwtService.verify(token, {
+      this.jwtService.verify(streamToken, {
         secret:
           this.configService.get<string>('JWT_SECRET') || 'dev-secret-key',
       });
@@ -448,5 +449,22 @@ export class CandidateController {
       throw new ForbiddenException('当前账号缺少租户信息，请先完成租户初始化');
     }
     return tenantId;
+  }
+
+  private extractTokenFromRequest(req: any) {
+    const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      return authHeader.slice('Bearer '.length).trim();
+    }
+
+    const cookieHeader = req?.headers?.cookie;
+    if (typeof cookieHeader !== 'string') return '';
+
+    const tokenCookie = cookieHeader
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith('token='));
+
+    return tokenCookie ? decodeURIComponent(tokenCookie.slice('token='.length)) : '';
   }
 }

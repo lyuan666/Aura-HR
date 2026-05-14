@@ -153,4 +153,22 @@ describe('CandidateController', () => {
       }),
     );
   });
+
+  it('should accept upload progress authentication from the login cookie', () => {
+    const jwtService = moduleRef.get(JwtService);
+    const progressService = moduleRef.get(ProgressService);
+    progressService.getStream.mockReturnValue('progress-stream');
+
+    const result = controller.uploadProgress(
+      'batch-1',
+      '',
+      { headers: { cookie: 'token=cookie-token; theme=dark' } } as any,
+    );
+
+    expect(jwtService.verify).toHaveBeenCalledWith('cookie-token', {
+      secret: 'test-secret',
+    });
+    expect(progressService.getStream).toHaveBeenCalledWith('batch-1');
+    expect(result).toBe('progress-stream');
+  });
 });

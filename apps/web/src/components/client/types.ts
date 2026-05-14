@@ -30,3 +30,39 @@ export interface ClientRecommendation {
   };
   candidate: ClientCandidateProfile;
 }
+
+export interface ClientPortalContext {
+  enterprise: {
+    id: string;
+    name: string;
+    industry?: string;
+    scale?: string;
+    status?: string;
+  };
+  contracts: Array<{
+    id: string;
+    contractNo: string;
+    title: string;
+    status: string;
+    startDate?: string;
+    endDate?: string;
+    modules: string[];
+  }>;
+  enabledModules: string[];
+  stats: {
+    totalRecommendations: number;
+    submitted: number;
+    reviewing: number;
+    interviewScheduled: number;
+    accepted: number;
+    rejected: number;
+  };
+  jobs: Array<{
+    id: string;
+    title: string;
+    department?: string;
+    status: string;
+    headcount?: number;
+    location?: string;
+  }>;
+}

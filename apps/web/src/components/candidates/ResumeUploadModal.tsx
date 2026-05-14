@@ -46,12 +46,13 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     };
   }, []);
 
-  const openProgressStream = (batchId: string) => {
+  const openProgressStream = async (batchId: string) => {
     const token = localStorage.getItem('token');
     if (!token) return;
+    await refreshStreamCookieIfNeeded(token);
 
     eventSourceRef.current?.close();
-    const stream = new EventSource(`/api/candidates/upload-progress/${batchId}?token=${encodeURIComponent(token)}`);
+    const stream = new EventSource(`/api/candidates/upload-progress/${batchId}`);
     eventSourceRef.current = stream;
 
     stream.onmessage = (event) => {
@@ -94,6 +95,7 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     stream.onerror = () => {
       stream.close();
       eventSourceRef.current = null;
+      antMessage.warning('解析进度连接中断，请稍后刷新人才库查看结果');
     };
   };
 
@@ -151,7 +153,7 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
       }));
 
       if (res.data.batchId) {
-        openProgressStream(res.data.batchId);
+        void openProgressStream(res.data.batchId);
       }
     } catch (e: any) {
       setQueue(prev => prev.map(item =>
@@ -310,4 +312,32 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
       </div>
     </Modal>
   );
+}
+
+async function refreshStreamCookieIfNeeded(token: string) {
+  const payload = decodeJwtPayload(token);
+  const expiresAt = Number(payload?.exp || 0) * 1000;
+  if (!expiresAt || expiresAt - Date.now() > 60_000) return;
+
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return;
+
+  const res = await api.post('/auth/refresh', { refreshToken });
+  const { accessToken, refreshToken: nextRefreshToken } = res.data;
+  localStorage.setItem('token', accessToken);
+  if (nextRefreshToken) localStorage.setItem('refreshToken', nextRefreshToken);
+
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `token=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure}`;
+}
+
+function decodeJwtPayload(token: string) {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(normalized));
+  } catch {
+    return null;
+  }
 }
