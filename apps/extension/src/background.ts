@@ -2,7 +2,8 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('猎头智能助手已安装');
 });
 
-const API_BASE = 'http://localhost:3001/api';
+const DEFAULT_API_BASE_URL = 'http://localhost:3001/api';
+const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'PROCESS_RESUME') {
@@ -21,9 +22,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleAiGreeting(payload: any) {
-  const res = await fetch(`${API_BASE}/ai/greeting`, {
+  const res = await apiFetch('/ai/greeting', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       resumeText: payload.resumeText,
       job: { title: payload.jobTitle }
@@ -36,9 +36,8 @@ async function handleAiGreeting(payload: any) {
 
 async function handleResumeUpload(payload: any) {
   // 1. 调用 AI 进行解析
-  const parseRes = await fetch(`${API_BASE}/ai/parse-resume`, {
+  const parseRes = await apiFetch('/ai/parse-resume', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: payload.rawText }), // 修正为后端期待的 'text' 字段
   });
   
@@ -55,9 +54,8 @@ async function handleResumeUpload(payload: any) {
     parsedTags: parsedData,
   };
 
-  const createRes = await fetch(`${API_BASE}/candidates`, {
+  const createRes = await apiFetch('/candidates', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(createData),
   });
 
@@ -67,4 +65,33 @@ async function handleResumeUpload(payload: any) {
   }
 
   return await createRes.json();
+}
+
+async function apiFetch(path: string, init: RequestInit = {}) {
+  const settings = await getSettings();
+  if (!settings.accessToken) {
+    throw new Error('请先在插件设置中填写 YZSCHROS Token');
+  }
+
+  return fetch(`${settings.apiBaseUrl}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+      Authorization: `Bearer ${settings.accessToken}`,
+    },
+  });
+}
+
+async function getSettings(): Promise<{ apiBaseUrl: string; accessToken: string }> {
+  const stored = await chrome.storage.local.get(['apiBaseUrl', 'accessToken', 'tokenSavedAt']);
+  const savedAt = Number(stored.tokenSavedAt || 0);
+  if (savedAt > 0 && Date.now() - savedAt > TOKEN_MAX_AGE) {
+    await chrome.storage.local.remove(['accessToken', 'tokenSavedAt']);
+    return { apiBaseUrl: stored.apiBaseUrl || DEFAULT_API_BASE_URL, accessToken: '' };
+  }
+  return {
+    apiBaseUrl: stored.apiBaseUrl || DEFAULT_API_BASE_URL,
+    accessToken: stored.accessToken || '',
+  };
 }
