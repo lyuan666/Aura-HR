@@ -17,12 +17,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { ConfigService } from '@nestjs/config';
-import { Observable, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 import { createHash, randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { JwtService } from '@nestjs/jwt';
 import type { Response } from 'express';
 import { CandidateService } from './candidate.service';
 import { AiService } from '../ai/ai.service';
@@ -32,7 +30,6 @@ import { StorageService } from '../storage/storage.service';
 import { FeishuService } from './feishu.service';
 import { CreateCandidateDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
-import { Public } from '../../common/decorators/public.decorator';
 
 const UPLOAD_LIMITS = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -56,8 +53,6 @@ export class CandidateController {
     private readonly progressService: ProgressService,
     private readonly storage: StorageService,
     private readonly feishuService: FeishuService,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
     @InjectQueue('parse-resume') private readonly parseQueue: Queue,
   ) {}
 
@@ -412,20 +407,15 @@ export class CandidateController {
     };
   }
 
-  @Public()
   @Sse('upload-progress/:key')
   uploadProgress(
     @Param('key') key: string,
-    @Query('token') token: string,
+    @Req() req: any,
   ): Observable<MessageEvent> {
-    // SSE 无法设 header，用 query param 传 JWT
-    try {
-      this.jwtService.verify(token, {
-        secret:
-          this.configService.get<string>('JWT_SECRET') || 'dev-secret-key',
-      });
-    } catch {
-      return throwError(() => new UnauthorizedException('无效或过期的 token'));
+    // SSE 鉴权统一走全局 JwtAuthGuard：strategy 同时支持 header 和 ?token= query。
+    // 这里只校验"用户已登录"，不再做手动 verify，避免 sign/verify 用不同 secret 的回归。
+    if (!req.user?.sub) {
+      throw new UnauthorizedException('未登录或会话已过期，请重新登录');
     }
     return this.progressService.getStream(key);
   }

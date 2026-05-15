@@ -6,6 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { UserEntity } from '../../entities/user.entity';
+import { getJwtAccessSecret } from '../../common/config/jwt-config';
 
 interface JwtPayload {
   sub: string;
@@ -25,9 +26,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly userRepo: Repository<UserEntity>,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // 同时接受 Authorization header 和 ?token= query。
+      // 浏览器 EventSource/SSE 不支持自定义 header，必须用 query；
+      // 普通 API 仍然走 header。统一在 strategy 层处理，业务代码不再
+      // 自己 verify token，避免再出现 sign/verify 用不同 secret 的事故。
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'dev-secret-key',
+      secretOrKey: getJwtAccessSecret(configService),
     });
   }
 

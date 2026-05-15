@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { UserEntity } from '../../entities/user.entity';
 import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
+import { getJwtAccessSecret } from '../../common/config/jwt-config';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'dev-secret-key',
+        secret: getJwtAccessSecret(configService),
         signOptions: {
           expiresIn: configService.get<string>(
             'JWT_EXPIRES_IN',

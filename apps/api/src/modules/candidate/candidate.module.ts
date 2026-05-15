@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { JwtModule } from '@nestjs/jwt';
 import { CandidateController } from './candidate.controller';
 import { CandidateService } from './candidate.service';
 import { CandidateDedupeService } from './candidate-dedupe.service';
@@ -18,7 +17,6 @@ import { StorageModule } from '../storage/storage.module';
     AiModule,
     EmbeddingModule,
     StorageModule,
-    JwtModule.register({}),
     BullModule.registerQueue({ name: 'vectorize' }, { name: 'parse-resume' }),
   ],
   controllers: [CandidateController],

@@ -5,8 +5,6 @@ import { AiService } from '../ai/ai.service';
 import { PdfExtractionService } from '../ai/pdf-extraction.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { getQueueToken } from '@nestjs/bullmq';
 import { FeishuService } from './feishu.service';
 
@@ -57,18 +55,6 @@ describe('CandidateController', () => {
           provide: FeishuService,
           useValue: {
             importFromBitable: jest.fn(),
-          },
-        },
-        {
-          provide: JwtService,
-          useValue: {
-            verify: jest.fn(),
-          },
-        },
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn().mockReturnValue('test-secret'),
           },
         },
         {

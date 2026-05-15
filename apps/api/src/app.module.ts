@@ -50,7 +50,11 @@ import {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      // 同时加载 apps/api/.env 和仓库根 .env：
+      // - 第一个匹配到的值优先（apps/api/.env 覆盖根 .env）
+      // - 解决"根 .env 有 JWT_SECRET、apps/api/.env 没有 → 沉默 fallback"事故
+      // - 部署环境直接走 process.env，不读 .env 文件，行为不变
+      envFilePath: ['.env', '../../.env'],
     }),
 
     ScheduleModule.forRoot(),

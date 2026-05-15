@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { Subject, map } from 'rxjs';
+import { Observable, Subject, merge, interval, map } from 'rxjs';
 import Redis from 'ioredis';
 
 export interface JobProgress {
@@ -12,7 +12,14 @@ export interface JobProgress {
   error?: string;
 }
 
+interface SseEnvelope {
+  type: 'progress' | 'heartbeat' | 'connected';
+  payload?: JobProgress;
+  ts: number;
+}
+
 const CHANNEL = 'progress_events';
+const HEARTBEAT_MS = 15_000;
 
 /**
  * ProgressService — SSE 实时进度推送
@@ -76,12 +83,24 @@ export class ProgressService implements OnModuleDestroy {
     }
   }
 
-  getStream(key: string) {
+  getStream(key: string): Observable<MessageEvent> {
     if (!this.subjects.has(key)) {
       this.subjects.set(key, new Subject<JobProgress>());
     }
-    return this.subjects.get(key)!.pipe(
-      map((event) => ({ data: JSON.stringify(event) }) as MessageEvent),
+    const progress$ = this.subjects.get(key)!.pipe(
+      map((event): SseEnvelope => ({ type: 'progress', payload: event, ts: Date.now() })),
+    );
+    // 立刻发一个 connected 事件，让前端确认 SSE 真的建起来了。
+    const connected$ = new Observable<SseEnvelope>((sub) => {
+      sub.next({ type: 'connected', ts: Date.now() });
+    });
+    // 15s 心跳：防止 Nginx/Cloudflare/中间代理把空闲连接当 idle 关掉，
+    // 也帮前端区分"网络断了"和"后端还在跑但还没新进度"。
+    const heartbeat$ = interval(HEARTBEAT_MS).pipe(
+      map((): SseEnvelope => ({ type: 'heartbeat', ts: Date.now() })),
+    );
+    return merge(connected$, progress$, heartbeat$).pipe(
+      map((env) => ({ data: JSON.stringify(env) }) as MessageEvent),
     );
   }
 

@@ -20,6 +20,7 @@ import {
 } from './auth.dto';
 import { UserEntity } from '../../entities/user.entity';
 import { RefreshTokenEntity } from '../../entities/refresh-token.entity';
+import { getJwtRefreshSecret } from '../../common/config/jwt-config';
 
 type SettingsConfig = Required<UpdateSettingsConfigDto>;
 
@@ -104,9 +105,7 @@ export class AuthService {
     }
 
     try {
-      const refreshSecret =
-        this.configService.get<string>('JWT_REFRESH_SECRET') ||
-        'dev-refresh-secret';
+      const refreshSecret = getJwtRefreshSecret(this.configService);
       const payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken, {
         secret: refreshSecret,
       });
@@ -240,9 +239,7 @@ export class AuthService {
       tenantId: userWithTenant.tenantId,
       enterpriseId: userWithTenant.enterpriseId,
     };
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      'dev-refresh-secret';
+    const refreshSecret = getJwtRefreshSecret(this.configService);
     const refreshExpiresIn = this.configService.get<string>(
       'JWT_REFRESH_EXPIRES_IN',
       '30d',

@@ -56,7 +56,12 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
 
     stream.onmessage = (event) => {
       try {
-        const progressEvent = JSON.parse(event.data);
+        const envelope = JSON.parse(event.data);
+        // 后端改为 envelope 格式：{type:'progress'|'heartbeat'|'connected', payload?, ts}.
+        // heartbeat/connected 不更新 UI，只用来保活和确认通道。
+        if (envelope?.type !== 'progress' || !envelope.payload) return;
+        const progressEvent = envelope.payload;
+
         const isDone = ['completed', 'duplicate', 'failed'].includes(progressEvent.status);
         const nextStatus: UploadQueueItem['status'] =
           progressEvent.status === 'completed'
@@ -92,8 +97,18 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     };
 
     stream.onerror = () => {
+      // SSE 断开：可能是 token 过期、网络抖动或代理超时。
+      // 不要把队列里的 queued/uploading 项标红 —— 后端任务大概率还在跑。
+      // 让用户知道是连接问题，建议刷新查看最终结果。
       stream.close();
       eventSourceRef.current = null;
+      setQueue(prev =>
+        prev.map(item =>
+          ['queued', 'uploading'].includes(item.status)
+            ? { ...item, message: '进度连接中断，后台仍在解析，请稍后刷新列表查看结果' }
+            : item,
+        ),
+      );
     };
   };
 
