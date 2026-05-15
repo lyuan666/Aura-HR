@@ -130,6 +130,11 @@ export class CandidateEntity {
   @Column({ name: 'resume_url', nullable: true })
   resumeUrl: string;
 
+  // 历史简历归档：每次 duplicate-decision=replace 时把旧 resumeUrl 推入这里。
+  // 保留追溯能力，避免覆盖丢失原始版本。
+  @Column({ name: 'history_resume_urls', type: 'jsonb', nullable: true })
+  historyResumeUrls: string[];
+
   @Column({ name: 'resume_text', type: 'text', nullable: true })
   resumeText: string;
 

@@ -10,7 +10,8 @@ import {
   CheckCircleOutlined,
   LoadingOutlined,
   CloudUploadOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -32,9 +33,29 @@ interface UploadQueueItem {
   message?: string;
 }
 
+interface PendingDuplicate {
+  jobId: string;
+  fileName: string;
+  matchType: string;
+  matchTypeLabel: string;
+  confidence: number;
+  existing: {
+    id: string;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    currentCompany?: string | null;
+    currentTitle?: string | null;
+    updatedAt?: string | null;
+    sourcePlatform?: string | null;
+  };
+  resolving?: 'discard' | 'replace';
+}
+
 export default function ResumeUploadModal({ visible, onClose, onSuccess }: ResumeUploadModalProps) {
   const { message: antMessage } = App.useApp();
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const [pendingDuplicates, setPendingDuplicates] = useState<PendingDuplicate[]>([]);
   const pendingFilesRef = useRef<File[]>([]);
   const flushTimerRef = useRef<number | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -57,10 +78,28 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
     stream.onmessage = (event) => {
       try {
         const envelope = JSON.parse(event.data);
-        // 后端改为 envelope 格式：{type:'progress'|'heartbeat'|'connected', payload?, ts}.
+        // 后端 envelope 格式：{type:'progress'|'heartbeat'|'connected', payload?, ts}.
         // heartbeat/connected 不更新 UI，只用来保活和确认通道。
         if (envelope?.type !== 'progress' || !envelope.payload) return;
         const progressEvent = envelope.payload;
+
+        // 命中查重：把决策上下文塞到 pendingDuplicates，弹 Modal 让用户选择。
+        if (progressEvent.status === 'duplicate' && progressEvent.duplicate) {
+          setPendingDuplicates(prev => {
+            if (prev.some(d => d.jobId === progressEvent.jobId)) return prev;
+            return [
+              ...prev,
+              {
+                jobId: progressEvent.jobId,
+                fileName: progressEvent.fileName,
+                matchType: progressEvent.duplicate.matchType,
+                matchTypeLabel: progressEvent.duplicate.matchTypeLabel,
+                confidence: progressEvent.duplicate.confidence,
+                existing: progressEvent.duplicate.existing,
+              },
+            ];
+          });
+        }
 
         const isDone = ['completed', 'duplicate', 'failed'].includes(progressEvent.status);
         const nextStatus: UploadQueueItem['status'] =
@@ -79,7 +118,10 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
                 ...item,
                 status: nextStatus,
                 progress: Math.max(item.progress, progressEvent.progress || 0),
-                message: progressEvent.error || progressEvent.status,
+                message:
+                  progressEvent.status === 'duplicate'
+                    ? `已存在：${progressEvent.duplicate?.existing?.name || '同一候选人'}`
+                    : progressEvent.error || progressEvent.status,
               }
               : item,
           );
@@ -110,6 +152,35 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
         ),
       );
     };
+  };
+
+  const resolveDuplicate = async (jobId: string, decision: 'discard' | 'replace') => {
+    setPendingDuplicates(prev =>
+      prev.map(d => (d.jobId === jobId ? { ...d, resolving: decision } : d)),
+    );
+    try {
+      await api.post('/candidates/duplicate-decision', { jobId, decision });
+      setPendingDuplicates(prev => prev.filter(d => d.jobId !== jobId));
+      setQueue(prev =>
+        prev.map(item =>
+          item.id === jobId
+            ? {
+              ...item,
+              status: 'success',
+              progress: 100,
+              message: decision === 'replace' ? '已用新简历覆盖' : '已放弃',
+            }
+            : item,
+        ),
+      );
+      antMessage.success(decision === 'replace' ? '已用新简历覆盖' : '已放弃此简历');
+      if (decision === 'replace') onSuccess();
+    } catch (e: any) {
+      setPendingDuplicates(prev =>
+        prev.map(d => (d.jobId === jobId ? { ...d, resolving: undefined } : d)),
+      );
+      antMessage.error(e?.response?.data?.message || '操作失败，请重试');
+    }
   };
 
   const handleBatchUpload = async (files: File[]) => {
@@ -323,6 +394,91 @@ export default function ResumeUploadModal({ visible, onClose, onSuccess }: Resum
           </div>
         )}
       </div>
+
+      {/* 重复简历决策 Modal —— 一次处理一个 dup，避免用户面对一堆决策按钮。 */}
+      <Modal
+        open={pendingDuplicates.length > 0}
+        title={
+          <span className="text-base font-black text-white tracking-tight flex items-center gap-2">
+            <WarningOutlined className="text-[#FFB300]" /> 检测到重复简历
+          </span>
+        }
+        onCancel={() => {
+          // 关闭按钮 = 全部放弃；逐一调 discard。
+          pendingDuplicates.forEach(d => {
+            if (!d.resolving) resolveDuplicate(d.jobId, 'discard');
+          });
+        }}
+        footer={null}
+        width={520}
+        centered
+        styles={{
+          content: { backgroundColor: '#0B0D11', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px' },
+          header: { backgroundColor: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)' },
+          body: { padding: '24px 28px' },
+        }}
+        closeIcon={<span className="text-[#555762] hover:text-white transition-colors">✕</span>}
+      >
+        {pendingDuplicates[0] && (() => {
+          const dup = pendingDuplicates[0];
+          const ex = dup.existing;
+          const updated = ex.updatedAt
+            ? new Date(ex.updatedAt).toLocaleString('zh-CN', { hour12: false })
+            : '未知';
+          return (
+            <div className="space-y-5">
+              <div className="text-[12px] text-[#A29BFE]">
+                上传的简历 <span className="text-white">{dup.fileName}</span>{' '}
+                与候选人库中已存在记录匹配（{dup.matchTypeLabel}，置信度 {(dup.confidence * 100).toFixed(0)}%）。
+              </div>
+
+              <div className="bg-[#13161C] border border-white/5 rounded-xl p-4 space-y-2">
+                <div className="text-[10px] text-[#555762] font-black uppercase tracking-widest">已存在的候选人</div>
+                <div className="text-sm font-black text-white">{ex.name || '(无姓名)'}</div>
+                <div className="text-[11px] text-[#8B8D97] grid grid-cols-2 gap-y-1 gap-x-4 mt-2">
+                  {ex.phone && <div>手机：{ex.phone}</div>}
+                  {ex.email && <div>邮箱：{ex.email}</div>}
+                  {ex.currentTitle && <div>职位：{ex.currentTitle}</div>}
+                  {ex.currentCompany && <div>公司：{ex.currentCompany}</div>}
+                  {ex.sourcePlatform && <div>来源：{ex.sourcePlatform}</div>}
+                  <div>更新：{updated}</div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-[#FFB300]/80 leading-relaxed">
+                选择「更新」会用本次上传的新简历覆盖现有候选人的字段（姓名、电话、职位、公司、经历、技能等），原简历归档到历史记录；
+                选择「放弃」则丢弃本次上传，保留库中现有版本不变。
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  onClick={() => resolveDuplicate(dup.jobId, 'discard')}
+                  loading={dup.resolving === 'discard'}
+                  disabled={!!dup.resolving}
+                  className="h-9 rounded-lg border-white/10 bg-transparent text-white/80 hover:!text-white hover:!border-white/20 px-5"
+                >
+                  放弃此简历
+                </Button>
+                <Button
+                  type="primary"
+                  onClick={() => resolveDuplicate(dup.jobId, 'replace')}
+                  loading={dup.resolving === 'replace'}
+                  disabled={!!dup.resolving}
+                  className="h-9 rounded-lg bg-[#6C5CE7] hover:!bg-[#5a4cdb] border-none px-5"
+                >
+                  用新简历更新
+                </Button>
+              </div>
+
+              {pendingDuplicates.length > 1 && (
+                <div className="text-[10px] text-[#555762] text-center">
+                  还有 {pendingDuplicates.length - 1} 份重复简历待处理
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
     </Modal>
   );
 }

@@ -10,6 +10,22 @@ export interface JobProgress {
   status: 'queued' | 'extracting' | 'parsing' | 'deduping' | 'saving' | 'completed' | 'duplicate' | 'failed';
   result?: any;
   error?: string;
+  // 命中查重时一并下发，前端用来弹决策 Modal。
+  duplicate?: {
+    matchType: string;
+    matchTypeLabel: string;
+    confidence: number;
+    existing: {
+      id: string;
+      name?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      currentCompany?: string | null;
+      currentTitle?: string | null;
+      updatedAt?: string | null;
+      sourcePlatform?: string | null;
+    };
+  };
 }
 
 interface SseEnvelope {

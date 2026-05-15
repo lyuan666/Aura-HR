@@ -23,6 +23,7 @@ export interface DupCheckResult {
   candidateId?: string;
   matchField?: string;
   confidence?: number;
+  existing?: CandidateEntity;
 }
 
 /**
@@ -129,7 +130,13 @@ export class ParsingV2Service {
       .where('c.textHash = :textHash AND c.tenantId = :tenantId', { textHash, tenantId })
       .getOne();
     if (textDup) {
-      return { isDuplicate: true, candidateId: textDup.id, matchField: 'text_hash', confidence: 0.99 };
+      return {
+        isDuplicate: true,
+        candidateId: textDup.id,
+        matchField: 'text_hash',
+        confidence: 0.99,
+        existing: textDup,
+      };
     }
 
     return { isDuplicate: false };
@@ -163,7 +170,13 @@ export class ParsingV2Service {
         .getOne();
 
       if (exact) {
-        return { isDuplicate: true, candidateId: exact.id, matchField: 'phone_or_email', confidence: 0.95 };
+        return {
+          isDuplicate: true,
+          candidateId: exact.id,
+          matchField: 'phone_or_email',
+          confidence: 0.95,
+          existing: exact,
+        };
       }
     }
 
@@ -177,7 +190,13 @@ export class ParsingV2Service {
         .catch(() => null); // cn_name_similarity may not exist yet
 
       if (fuzzy) {
-        return { isDuplicate: true, candidateId: fuzzy.id, matchField: 'name+company_fuzzy', confidence: 0.7 };
+        return {
+          isDuplicate: true,
+          candidateId: fuzzy.id,
+          matchField: 'name+company_fuzzy',
+          confidence: 0.7,
+          existing: fuzzy,
+        };
       }
     }
 
@@ -301,5 +320,69 @@ ${text.substring(0, 3000)}
       : true;
 
     return { id: row.id, isNew };
+  }
+
+  /**
+   * 决策路径：replace —— 用新简历覆盖现有候选人记录。
+   *
+   * - 重新从 MinIO 读取并解析文件（命中 LLM 缓存时几乎无开销）
+   * - 整体覆盖业务字段（name/phone/email/职业/经历/技能/简历正文/url/hash）
+   * - 旧 resumeUrl 推入 historyResumeUrls，保留追溯
+   * - 不动 status / notes / lastContactedAt / embedding 等运营字段
+   */
+  async replaceExistingCandidate(
+    jobData: ParseJobData,
+    existingCandidateId: string,
+  ): Promise<{ id: string }> {
+    const buffer = await this.storage.getObject('uploads', jobData.fileKey);
+    const content = await this.pdfExtraction.extractStructuredText(
+      buffer,
+      jobData.fileName,
+    );
+    const textHash = ParsingV2Service.computeTextHash(content.text);
+    const profile = await this.extractStructured(content.text, jobData.fileName);
+
+    const existing = await this.candidateRepo.findOne({
+      where: { id: existingCandidateId },
+    });
+    if (!existing) {
+      throw new Error(`existing candidate ${existingCandidateId} not found`);
+    }
+
+    const history = Array.isArray(existing.historyResumeUrls)
+      ? existing.historyResumeUrls.slice()
+      : [];
+    if (existing.resumeUrl && existing.resumeUrl !== jobData.fileKey) {
+      history.push(existing.resumeUrl);
+    }
+
+    const allowedKeys = new Set([
+      'name', 'gender', 'phone', 'email', 'age', 'location',
+      'currentCompany', 'currentTitle', 'totalYears', 'degree',
+      'school', 'major', 'workExperiences', 'projectExperiences',
+      'educationHistory', 'careerExpectations', 'skills', 'summary',
+      'parsedTags',
+    ]);
+    const update: Record<string, any> = {};
+    for (const [key, value] of Object.entries(profile)) {
+      if (allowedKeys.has(key)) {
+        update[key] = value;
+      }
+    }
+    update.fileHash = jobData.fileHash;
+    update.textHash = textHash;
+    update.resumeText = content.text.substring(0, 5000);
+    update.resumeUrl = jobData.fileKey;
+    update.historyResumeUrls = history;
+    update.sourcePlatform = jobData.sourcePlatform || existing.sourcePlatform;
+
+    await this.candidateRepo
+      .createQueryBuilder()
+      .update()
+      .set(update)
+      .where('id = :id', { id: existingCandidateId })
+      .execute();
+
+    return { id: existingCandidateId };
   }
 }

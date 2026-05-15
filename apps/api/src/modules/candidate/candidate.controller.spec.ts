@@ -3,10 +3,12 @@ import { CandidateController } from './candidate.controller';
 import { CandidateService } from './candidate.service';
 import { AiService } from '../ai/ai.service';
 import { PdfExtractionService } from '../ai/pdf-extraction.service';
+import { ParsingV2Service } from '../ai/parsing-v2.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { getQueueToken } from '@nestjs/bullmq';
 import { FeishuService } from './feishu.service';
+import { SHARED_REDIS } from '../redis/redis.module';
 
 describe('CandidateController', () => {
   let moduleRef: TestingModule;
@@ -55,6 +57,22 @@ describe('CandidateController', () => {
           provide: FeishuService,
           useValue: {
             importFromBitable: jest.fn(),
+          },
+        },
+        {
+          provide: ParsingV2Service,
+          useValue: {
+            parseResume: jest.fn(),
+            replaceExistingCandidate: jest.fn(),
+          },
+        },
+        {
+          provide: SHARED_REDIS,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+            setex: jest.fn(),
+            del: jest.fn(),
           },
         },
         {

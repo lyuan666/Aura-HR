@@ -5,6 +5,8 @@ import {
   ForbiddenException,
   Get,
   Header,
+  Inject,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -25,11 +27,16 @@ import type { Response } from 'express';
 import { CandidateService } from './candidate.service';
 import { AiService } from '../ai/ai.service';
 import { PdfExtractionService } from '../ai/pdf-extraction.service';
+import { ParsingV2Service, ParseJobData } from '../ai/parsing-v2.service';
 import { ProgressService } from './progress.service';
 import { StorageService } from '../storage/storage.service';
 import { FeishuService } from './feishu.service';
 import { CreateCandidateDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
+import { SHARED_REDIS } from '../redis/redis.module';
+import {
+  DUP_PENDING_KEY_PREFIX,
+} from '../queue/parse-resume.processor';
 
 const UPLOAD_LIMITS = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -50,10 +57,12 @@ export class CandidateController {
     private readonly candidateService: CandidateService,
     private readonly aiService: AiService,
     private readonly pdfExtractionService: PdfExtractionService,
+    private readonly parsingV2: ParsingV2Service,
     private readonly progressService: ProgressService,
     private readonly storage: StorageService,
     private readonly feishuService: FeishuService,
     @InjectQueue('parse-resume') private readonly parseQueue: Queue,
+    @Inject(SHARED_REDIS) private readonly redis: any,
   ) {}
 
   @Get()
@@ -356,11 +365,10 @@ export class CandidateController {
         file.mimetype,
       );
 
-      const jobId = `parse-${fileHash.substring(0, 16)}`;
-      const existingJob = await this.parseQueue.getJob(jobId);
-      if (existingJob && (await existingJob.getState()) === 'failed') {
-        await existingJob.remove();
-      }
+      // 用 batchId + 短 hash 做 jobId，确保每次上传都跑完查重链路。
+      // 旧实现 (parse-<fileHash前16>) 配合 BullMQ removeOnComplete 会把
+      // "同 hash 的二次上传"静默吞掉，用户连 duplicate 提示都看不到。
+      const jobId = `parse-${batchId.slice(0, 8)}-${fileHash.substring(0, 16)}`;
 
       const job = await this.parseQueue.add(
         'parse-resume',
@@ -418,6 +426,99 @@ export class CandidateController {
       throw new UnauthorizedException('未登录或会话已过期，请重新登录');
     }
     return this.progressService.getStream(key);
+  }
+
+  /**
+   * 重复简历决策：discard（放弃，删暂存+原始文件）或 replace（用新简历覆盖现有候选人）。
+   *
+   * Worker 在命中查重时把决策上下文写入 Redis (TTL 1h)；前端 Modal 从 SSE
+   * payload 拿到 jobId 后调用本接口完成决策。
+   */
+  @Post('duplicate-decision')
+  async duplicateDecision(
+    @Body() body: { jobId?: string; decision?: string },
+    @Req() req: any,
+  ) {
+    const tenantId = this.requireTenantId(req);
+    const jobId = body?.jobId?.trim();
+    const decision = body?.decision;
+
+    if (!jobId) {
+      throw new BadRequestException('缺少 jobId');
+    }
+    if (decision !== 'discard' && decision !== 'replace') {
+      throw new BadRequestException('decision 必须为 discard 或 replace');
+    }
+
+    const cacheKey = `${DUP_PENDING_KEY_PREFIX}${jobId}`;
+    const raw = await this.redis.get(cacheKey);
+    if (!raw) {
+      throw new NotFoundException('该重复任务已超时或不存在，请重新上传');
+    }
+
+    let pending: {
+      jobData: ParseJobData;
+      existingCandidateId: string;
+      matchType: string;
+    };
+    try {
+      pending = JSON.parse(raw);
+    } catch {
+      await this.redis.del(cacheKey);
+      throw new BadRequestException('暂存数据已损坏，请重新上传');
+    }
+
+    if (pending.jobData?.tenantId !== tenantId) {
+      throw new ForbiddenException('无权操作他人租户的简历');
+    }
+
+    if (decision === 'discard') {
+      // 删 MinIO 原始文件 + 暂存 key。失败容忍（最多留点垃圾，不影响业务）。
+      try {
+        await this.storage.deleteObject('uploads', pending.jobData.fileKey);
+      } catch {
+        // ignore
+      }
+      await this.redis.del(cacheKey);
+      this.progressService.emit({
+        jobId,
+        batchId: pending.jobData.batchId,
+        fileName: pending.jobData.fileName,
+        progress: 100,
+        status: 'completed',
+      });
+      return { success: true, decision: 'discard' };
+    }
+
+    // replace 路径
+    this.progressService.emit({
+      jobId,
+      batchId: pending.jobData.batchId,
+      fileName: pending.jobData.fileName,
+      progress: 70,
+      status: 'saving',
+    });
+
+    const result = await this.parsingV2.replaceExistingCandidate(
+      pending.jobData,
+      pending.existingCandidateId,
+    );
+
+    await this.redis.del(cacheKey);
+
+    this.progressService.emit({
+      jobId,
+      batchId: pending.jobData.batchId,
+      fileName: pending.jobData.fileName,
+      progress: 100,
+      status: 'completed',
+    });
+
+    return {
+      success: true,
+      decision: 'replace',
+      candidateId: result.id,
+    };
   }
 
   @Get(':id')
