@@ -356,12 +356,12 @@ ${text.substring(0, 3000)}
       history.push(existing.resumeUrl);
     }
 
+    // 与 CandidateEntity 实际字段严格对齐。skills/summary 不在表里，下面会塞进 parsedTags。
     const allowedKeys = new Set([
       'name', 'gender', 'phone', 'email', 'age', 'location',
       'currentCompany', 'currentTitle', 'totalYears', 'degree',
       'school', 'major', 'workExperiences', 'projectExperiences',
-      'educationHistory', 'careerExpectations', 'skills', 'summary',
-      'parsedTags',
+      'educationHistory', 'careerExpectations',
     ]);
     const update: Record<string, any> = {};
     for (const [key, value] of Object.entries(profile)) {
@@ -369,6 +369,14 @@ ${text.substring(0, 3000)}
         update[key] = value;
       }
     }
+    // skills/summary/selfEvaluation 等 entity 没有实体列的字段统一塞进 parsedTags。
+    const mergedTags: Record<string, any> = {
+      ...(existing.parsedTags || {}),
+      ...((profile.parsedTags as Record<string, any>) || {}),
+    };
+    if (profile.skills) mergedTags.skills = profile.skills;
+    if (profile.summary) mergedTags.summary = profile.summary;
+    update.parsedTags = mergedTags;
     update.fileHash = jobData.fileHash;
     update.textHash = textHash;
     update.resumeText = content.text.substring(0, 5000);
