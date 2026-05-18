@@ -56,6 +56,30 @@ export class ParsingV2Service {
   }
 
   /**
+   * Strip NULL bytes (U+0000) from any value before DB write.
+   * PDF text and some LLM outputs contain NULL bytes; Postgres rejects them
+   * with error 22021. Recurse into objects and arrays.
+   */
+  static stripNullBytes<T>(value: T): T {
+    if (value == null) return value;
+    const NUL = String.fromCharCode(0);
+    if (typeof value === 'string') {
+      return value.split(NUL).join('') as unknown as T;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => ParsingV2Service.stripNullBytes(item)) as unknown as T;
+    }
+    if (typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        out[k] = ParsingV2Service.stripNullBytes(v);
+      }
+      return out as T;
+    }
+    return value;
+  }
+
+  /**
    * 完整解析流程 (由 BullMQ Worker 调用)
    */
   async parseResume(
@@ -306,7 +330,7 @@ ${text.substring(0, 3000)}
       .createQueryBuilder()
       .insert()
       .values({
-        ...safeDto,
+        ...ParsingV2Service.stripNullBytes(safeDto),
         status: 'new',
       })
       .onConflict('("file_hash", "tenant_id") DO UPDATE SET "updated_at" = now()')
@@ -387,7 +411,7 @@ ${text.substring(0, 3000)}
     await this.candidateRepo
       .createQueryBuilder()
       .update()
-      .set(update)
+      .set(ParsingV2Service.stripNullBytes(update))
       .where('id = :id', { id: existingCandidateId })
       .execute();
 

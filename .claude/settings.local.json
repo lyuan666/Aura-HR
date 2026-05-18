@@ -108,7 +108,82 @@
       "Bash(git push:*)",
       "Bash(claude:*)",
       "Bash(npm show:*)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm --filter @yzschros/api test)",
+      "Bash(pnpm --filter @yzschros/api build)",
+      "Bash(pnpm --filter @yzschros/web build)",
+      "Bash(python3 -c \"import json,sys;d=json.load\\(sys.stdin\\);items=d.get\\('items'\\) or d.get\\('data'\\) or [];print\\('total:',d.get\\('total','?'\\)\\);[print\\(f'  - {i.get\\(\\\\\"name\\\\\",\\\\\"?\\\\\"\\)} {i.get\\(\\\\\"createdAt\\\\\",\\\\\"\\\\\"\\)[:19]}'\\) for i in items[:5]]\")",
+      "Bash(python3 -c \"import json,sys;d=json.load\\(sys.stdin\\);print\\('total:',d.get\\('total','?'\\)\\);[print\\('  -',i.get\\('name'\\),'|',i.get\\('phone'\\),'|',str\\(i.get\\('createdAt',''\\)\\)[:19]\\) for i in \\(d.get\\('items'\\) or []\\)[:3]]\")",
+      "Bash(python3 -c \"import json,sys;d=json.load\\(sys.stdin\\);print\\('total:',d.get\\('total'\\)\\);[print\\(' -',i.get\\('name'\\),'|',i.get\\('phone'\\),'|',i.get\\('currentTitle'\\),'|',i.get\\('currentCompany'\\)\\) for i in \\(d.get\\('items'\\) or []\\)[:4]]\")",
+      "Bash(ping -c 3 -W 2 47.97.62.57)",
+      "Bash(nc -zv -w 5 47.97.62.57 22)",
+      "Bash(ping -c 3 -W 2 github.com)",
+      "Read(//Users/lee/.ssh/**)",
+      "Bash(chmod 600 ~/.ssh/config)",
+      "Bash(chmod +x /Users/lee/Desktop/YZSCHROS/.local-agents/server-deploy.sh)",
+      "Bash(./.local-agents/server-deploy.sh)",
+      "Bash(awk 'NR>=56 && NR<=82' /Users/lee/Desktop/YZSCHROS/apps/api/src/modules/ai/parsing-v2.service.ts)",
+      "Bash(python3 *)",
+      "Bash(chmod +x *)",
+      "Bash(.local-agents/worker status *)",
+      "Bash(codex automation:create --name \"worker-health-check\" --schedule \"*/10 * * * *\" --command \".local-agents/worker check\" --description \"每10分钟检查 Mac mini Worker 健康状态\")",
+      "Bash(codex automation *)",
+      "Bash(codex --help)",
+      "Bash(arp -a)",
+      "Bash(ping *)",
+      "Bash(dmesg)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/lee/Desktop/YZSCHROS && node .local-agents/claude-hook.mjs SessionStart",
+            "timeout": 10,
+            "statusMessage": "YZSCHROS 工作组状态刷新"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/lee/Desktop/YZSCHROS && node .local-agents/claude-hook.mjs UserPromptSubmit",
+            "timeout": 5,
+            "statusMessage": "YZSCHROS 工作组路由检查"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/lee/Desktop/YZSCHROS && node .local-agents/claude-hook.mjs PostToolUse",
+            "timeout": 15,
+            "statusMessage": "YZSCHROS 记录文件变更"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/lee/Desktop/YZSCHROS && node .local-agents/claude-hook.mjs Stop",
+            "timeout": 20,
+            "statusMessage": "YZSCHROS 最终守卫摘要"
+          }
+        ]
+      }
     ]
   }
 }
