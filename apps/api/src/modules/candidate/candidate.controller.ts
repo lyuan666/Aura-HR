@@ -499,10 +499,34 @@ export class CandidateController {
       status: 'saving',
     });
 
-    const result = await this.parsingV2.replaceExistingCandidate(
-      pending.jobData,
-      pending.existingCandidateId,
-    );
+    let result: { id: string };
+    try {
+      result = await this.parsingV2.replaceExistingCandidate(
+        pending.jobData,
+        pending.existingCandidateId,
+      );
+    } catch (err: any) {
+      // 把真实错误回给前端 + 写日志。这是一个用户主动决策接口，
+      // 出错必须可定位 —— 通用 500 让 dup-decision 失败成黑盒。
+      // eslint-disable-next-line no-console
+      console.error('[duplicateDecision/replace] failed', {
+        jobId,
+        existingCandidateId: pending.existingCandidateId,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      this.progressService.emit({
+        jobId,
+        batchId: pending.jobData.batchId,
+        fileName: pending.jobData.fileName,
+        progress: 100,
+        status: 'failed',
+        error: err?.message || '更新候选人失败',
+      });
+      throw new BadRequestException(
+        `更新候选人失败：${err?.message || '未知错误'}`,
+      );
+    }
 
     await this.redis.del(cacheKey);
 
