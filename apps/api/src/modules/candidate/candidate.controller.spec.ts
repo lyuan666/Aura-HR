@@ -1,3 +1,4 @@
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CandidateController } from './candidate.controller';
 import { CandidateService } from './candidate.service';
@@ -51,6 +52,7 @@ describe('CandidateController', () => {
           useValue: {
             putObject: jest.fn(),
             getObject: jest.fn(),
+            deleteObject: jest.fn(),
           },
         },
         {
@@ -126,6 +128,59 @@ describe('CandidateController', () => {
         resumeUrl: expect.stringContaining('resumes/tenant-1/'),
       }),
       'tenant-1',
+    );
+  });
+
+  it('should reject unsupported resume file types before parsing', async () => {
+    const aiService = moduleRef.get(AiService);
+    const storage = moduleRef.get(StorageService);
+    const req = { user: { tenantId: 'tenant-1' } };
+    const file = {
+      originalname: 'alice.exe',
+      mimetype: 'application/x-msdownload',
+      size: 128,
+      buffer: Buffer.from('resume'),
+    } as Express.Multer.File;
+
+    await expect(controller.uploadResume(file, req as any)).rejects.toThrow(
+      new BadRequestException('不支持的文件类型: application/x-msdownload'),
+    );
+
+    expect(aiService.parseFile).not.toHaveBeenCalled();
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it('should delete uploaded object and rethrow persistence conflicts', async () => {
+    const aiService = moduleRef.get(AiService);
+    const storage = moduleRef.get(StorageService);
+    const req = { user: { tenantId: 'tenant-1' } };
+    const file = {
+      originalname: 'alice.pdf',
+      mimetype: 'application/pdf',
+      size: 128,
+      buffer: Buffer.from('resume'),
+    } as Express.Multer.File;
+
+    aiService.parseFile.mockResolvedValue({
+      basicInfo: { name: 'Alice', phoneNumber: '13800000000' },
+      workExperience: [],
+      education: [],
+      projectExperience: [],
+      metadata: { parseTime: '1s', engine: 'test-engine' },
+      skills: [],
+    });
+    service.create.mockRejectedValue(
+      new ConflictException('检测到重复候选人 (手机号匹配)'),
+    );
+
+    await expect(controller.uploadResume(file, req as any)).rejects.toThrow(
+      ConflictException,
+    );
+
+    expect(storage.putObject).toHaveBeenCalled();
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      'uploads',
+      expect.stringContaining('resumes/tenant-1/'),
     );
   });
 

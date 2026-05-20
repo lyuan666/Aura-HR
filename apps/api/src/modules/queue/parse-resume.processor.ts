@@ -43,7 +43,11 @@ export class ParseResumeProcessor extends WorkerHost {
   async process(job: Job<ParseJobData>) {
     const { fileName, batchId } = job.data;
 
-    const emit = (status: string, progress: number, extra?: Partial<JobProgress>) => {
+    const emit = (
+      status: string,
+      progress: number,
+      extra?: Partial<JobProgress>,
+    ) => {
       const event: JobProgress = {
         jobId: job.id!,
         batchId,
@@ -78,7 +82,9 @@ export class ParseResumeProcessor extends WorkerHost {
             }),
           )
           .catch((err: any) => {
-            this.logger.warn(`暂存 dup 决策上下文失败 jobId=${job.id}: ${err.message}`);
+            this.logger.warn(
+              `暂存 dup 决策上下文失败 jobId=${job.id}: ${err.message}`,
+            );
           });
 
         emit('duplicate', 100, {
@@ -116,11 +122,40 @@ export class ParseResumeProcessor extends WorkerHost {
 
       return result;
     } catch (error: any) {
-      this.logger.error(`parse-resume job ${job.id} failed: ${error.message}`);
-      emit('failed', job.progress as number, { error: error.message || '解析任务失败' });
+      const attemptsMade = job.attemptsMade + 1;
+      const maxAttempts = job.opts.attempts || 1;
+      const willRetry = attemptsMade < maxAttempts;
+      const progress =
+        typeof job.progress === 'number'
+          ? job.progress
+          : Number(job.progress) || 0;
+
+      if (willRetry) {
+        this.logger.warn(
+          `parse-resume job ${job.id} attempt ${attemptsMade}/${maxAttempts} failed, retrying: ${error.message}`,
+        );
+        emit('parsing', progress, {
+          error: `解析服务繁忙，正在重试 (${attemptsMade}/${maxAttempts})`,
+        });
+      } else {
+        this.logger.error(
+          `parse-resume job ${job.id} failed: ${error.message}`,
+        );
+        emit('failed', progress, { error: this.userFacingError(error) });
+      }
 
       // BullMQ 会根据 attempts + backoff 自动重试
       throw error;
     }
+  }
+
+  private userFacingError(error: any) {
+    if (
+      error?.response?.status === 429 ||
+      /status code 429/i.test(error?.message || '')
+    ) {
+      return '简历解析服务暂时繁忙，请稍后重试';
+    }
+    return error?.message || '解析任务失败';
   }
 }

@@ -4,8 +4,10 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  Header,
+  HttpException,
   Inject,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -34,9 +36,7 @@ import { FeishuService } from './feishu.service';
 import { CreateCandidateDto } from './candidate.dto';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
 import { SHARED_REDIS } from '../redis/redis.module';
-import {
-  DUP_PENDING_KEY_PREFIX,
-} from '../queue/parse-resume.processor';
+import { DUP_PENDING_KEY_PREFIX } from '../queue/parse-resume.processor';
 
 const UPLOAD_LIMITS = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -53,6 +53,8 @@ const UPLOAD_LIMITS = {
 
 @Controller('candidates')
 export class CandidateController {
+  private readonly logger = new Logger(CandidateController.name);
+
   constructor(
     private readonly candidateService: CandidateService,
     private readonly aiService: AiService,
@@ -135,13 +137,13 @@ export class CandidateController {
     @Req() req: any,
   ) {
     const tenantId = this.requireTenantId(req);
-    if (!file) {
-      throw new BadRequestException('未检测到上传的文件');
-    }
+    this.validateSingleUploadFile(file);
+
+    let resumeKey: string | undefined;
 
     try {
-      console.log('--- 开始 Omni-Parse v4 全模态解析 ---');
-      console.log('文件名称:', file.originalname);
+      this.logger.log('开始单文件简历解析上传');
+      this.logger.debug(`文件名称: ${file.originalname}`);
 
       // 1. 调用极速混合解析流水线
       const parsedData: any = await this.aiService.parseFile(
@@ -150,7 +152,7 @@ export class CandidateController {
         'resume',
       );
       const parseTime = parsedData.metadata?.parseTime || 'unknown';
-      console.log(`解析耗时: ${parseTime}，开始构造 DTO...`);
+      this.logger.debug(`解析耗时: ${parseTime}，开始构造 DTO`);
 
       // 2. 提取结构化数据
       const basicInfo = parsedData.basicInfo || {};
@@ -167,7 +169,7 @@ export class CandidateController {
       const latestWork = workExp[0] || {};
       const latestEdu = eduList[0] || {};
       const safeName = file.originalname.replace(/[/\\]/g, '_');
-      const resumeKey = `resumes/${tenantId}/single/${randomUUID()}-${safeName}`;
+      resumeKey = `resumes/${tenantId}/single/${randomUUID()}-${safeName}`;
 
       await this.storage.putObject(
         'uploads',
@@ -223,7 +225,7 @@ export class CandidateController {
 
       // 4. 物理入库
       const result = await this.candidateService.create(candidateDto, tenantId);
-      console.log('候选人数据已成功存入 PostgreSQL 数据库:', result.id);
+      this.logger.log(`候选人数据已成功存入 PostgreSQL 数据库: ${result.id}`);
 
       return {
         success: true,
@@ -231,13 +233,16 @@ export class CandidateController {
         message: '简历解析入库成功',
       };
     } catch (e: any) {
-      console.error('❌ [简历解析链路崩溃]:', e);
+      if (resumeKey) {
+        await this.cleanupUploadedResume(resumeKey);
+      }
 
-      return {
-        success: false,
-        message: e.message || '解析链路异常',
-        debug: process.env.NODE_ENV === 'development' ? e.stack : undefined,
-      };
+      if (e instanceof HttpException) {
+        throw e;
+      }
+
+      this.logger.error('简历解析链路崩溃', e?.stack || e);
+      throw new InternalServerErrorException('简历解析入库失败');
     }
   }
 
@@ -508,7 +513,6 @@ export class CandidateController {
     } catch (err: any) {
       // 把真实错误回给前端 + 写日志。这是一个用户主动决策接口，
       // 出错必须可定位 —— 通用 500 让 dup-decision 失败成黑盒。
-      // eslint-disable-next-line no-console
       console.error('[duplicateDecision/replace] failed', {
         jobId,
         existingCandidateId: pending.existingCandidateId,
@@ -563,5 +567,29 @@ export class CandidateController {
       throw new ForbiddenException('当前账号缺少租户信息，请先完成租户初始化');
     }
     return tenantId;
+  }
+
+  private validateSingleUploadFile(file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('未检测到上传的文件');
+    }
+    if (!UPLOAD_LIMITS.allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(`不支持的文件类型: ${file.mimetype}`);
+    }
+    if (file.size > UPLOAD_LIMITS.maxFileSize) {
+      throw new BadRequestException(
+        `文件过大，不能超过 ${Math.floor(UPLOAD_LIMITS.maxFileSize / 1024 / 1024)}MB`,
+      );
+    }
+  }
+
+  private async cleanupUploadedResume(resumeKey: string) {
+    try {
+      await this.storage.deleteObject('uploads', resumeKey);
+    } catch (cleanupError: any) {
+      this.logger.warn(
+        `简历上传失败后清理对象存储失败: ${resumeKey} - ${cleanupError?.message || cleanupError}`,
+      );
+    }
   }
 }

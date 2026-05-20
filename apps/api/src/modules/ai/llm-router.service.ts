@@ -14,15 +14,22 @@ import { SHARED_REDIS } from '../redis/redis.module';
 export class LlmRouterService implements OnModuleDestroy {
   private readonly logger = new Logger(LlmRouterService.name);
   private readonly semaphore: RedisSemaphore;
+  private readonly maxRetries: number;
 
   constructor(@Inject(SHARED_REDIS) private readonly redis: Redis) {
     const maxConcurrency = parseInt(process.env.LLM_CONCURRENCY || '3', 10);
+    this.maxRetries = this.parsePositiveInt(process.env.LLM_MAX_RETRIES, 3);
     // lockTimeout=300s > max LLM call (90s), 防止与 BullMQ stalled 冲突
-    this.semaphore = new RedisSemaphore(this.redis, 'llm:concurrency', maxConcurrency, {
-      lockTimeout: 300000,
-      acquireTimeout: 120000,
-      retryInterval: 1000,
-    });
+    this.semaphore = new RedisSemaphore(
+      this.redis,
+      'llm:concurrency',
+      maxConcurrency,
+      {
+        lockTimeout: 300000,
+        acquireTimeout: 120000,
+        retryInterval: 1000,
+      },
+    );
   }
 
   async onModuleDestroy() {
@@ -89,9 +96,7 @@ export class LlmRouterService implements OnModuleDestroy {
       return JSON.parse(cleaned);
     } catch (_) {
       // Step 4: 修复常见问题
-      const repaired = cleaned
-        .replace(/,\s*([}\]])/g, '$1')
-        .replace(/'/g, '"');
+      const repaired = cleaned.replace(/,\s*([}\]])/g, '$1').replace(/'/g, '"');
 
       try {
         return JSON.parse(repaired);
@@ -101,31 +106,52 @@ export class LlmRouterService implements OnModuleDestroy {
     }
   }
 
-  private async doCall(config: { url: string; model: string; key: string }, messages: any[]): Promise<string> {
+  private async doCall(
+    config: { url: string; model: string; key: string },
+    messages: any[],
+  ): Promise<string> {
     if (!config.url || !config.model) {
       throw new Error('LLM provider is not configured: missing url or model');
     }
 
-    const startedAt = Date.now();
-    const response = await axios.post(
-      config.url,
-      {
-        model: config.model,
-        messages,
-        temperature: 0.1,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.key}`,
-        },
-        timeout: 90000,
-      },
-    );
-    this.logger.log(
-      `LLM call success (${this.providerLabel(config.url)}, model=${config.model}, duration=${Date.now() - startedAt}ms)`,
-    );
-    return response.data.choices[0].message.content;
+    let lastError: any;
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const startedAt = Date.now();
+      try {
+        const response = await axios.post(
+          config.url,
+          {
+            model: config.model,
+            messages,
+            temperature: 0.1,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${config.key}`,
+            },
+            timeout: 90000,
+          },
+        );
+        this.logger.log(
+          `LLM call success (${this.providerLabel(config.url)}, model=${config.model}, duration=${Date.now() - startedAt}ms)`,
+        );
+        return response.data.choices[0].message.content;
+      } catch (error: any) {
+        lastError = error;
+        if (attempt >= this.maxRetries || !this.isRetryable(error)) {
+          throw error;
+        }
+
+        const delayMs = this.retryDelayMs(error, attempt);
+        this.logger.warn(
+          `LLM transient failure (${this.providerLabel(config.url)}, status=${error.response?.status || 'network'}, attempt=${attempt + 1}/${this.maxRetries + 1}); retrying in ${delayMs}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    throw lastError;
   }
 
   private providerLabel(url: string) {
@@ -149,5 +175,34 @@ export class LlmRouterService implements OnModuleDestroy {
         key: process.env[`${prefix}FALLBACK_KEY`] || '',
       },
     };
+  }
+
+  private isRetryable(error: any) {
+    const status = error.response?.status;
+    return (
+      status === 408 ||
+      status === 425 ||
+      status === 429 ||
+      (typeof status === 'number' && status >= 500) ||
+      ['ECONNRESET', 'ETIMEDOUT', 'ECONNABORTED'].includes(error.code)
+    );
+  }
+
+  private retryDelayMs(error: any, attempt: number) {
+    const retryAfter = error.response?.headers?.['retry-after'];
+    const retryAfterSeconds = Number(retryAfter);
+    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+      return Math.min(retryAfterSeconds * 1000, 30_000);
+    }
+
+    return Math.min(
+      1000 * 2 ** attempt + Math.round(Math.random() * 250),
+      30_000,
+    );
+  }
+
+  private parsePositiveInt(value: string | undefined, fallback: number) {
+    const parsed = Number.parseInt(value || '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 }

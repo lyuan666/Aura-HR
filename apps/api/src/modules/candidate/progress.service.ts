@@ -7,7 +7,15 @@ export interface JobProgress {
   batchId?: string;
   fileName: string;
   progress: number;
-  status: 'queued' | 'extracting' | 'parsing' | 'deduping' | 'saving' | 'completed' | 'duplicate' | 'failed';
+  status:
+    | 'queued'
+    | 'extracting'
+    | 'parsing'
+    | 'deduping'
+    | 'saving'
+    | 'completed'
+    | 'duplicate'
+    | 'failed';
   result?: any;
   error?: string;
   // 命中查重时一并下发，前端用来弹决策 Modal。
@@ -36,6 +44,8 @@ interface SseEnvelope {
 
 const CHANNEL = 'progress_events';
 const HEARTBEAT_MS = 15_000;
+const LAST_EVENT_KEY_PREFIX = 'progress:last:';
+const LAST_EVENT_TTL_SECONDS = 60 * 60;
 
 /**
  * ProgressService — SSE 实时进度推送
@@ -46,6 +56,8 @@ const HEARTBEAT_MS = 15_000;
 @Injectable()
 export class ProgressService implements OnModuleDestroy {
   private subjects = new Map<string, Subject<JobProgress>>();
+  private latestEvents = new Map<string, JobProgress>();
+  private cleanupTimers = new Set<NodeJS.Timeout>();
   private publisher?: Redis;
   private subscriber?: Redis;
 
@@ -53,23 +65,28 @@ export class ProgressService implements OnModuleDestroy {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     try {
       // Publisher: 所有实例都能发布进度事件
-      this.publisher = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
+      this.publisher = new Redis(redisUrl, {
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+      });
       this.publisher.connect().catch(() => {});
 
       // Subscriber: 所有实例订阅, 收到事件后推送给本地 SSE 客户端
-      this.subscriber = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
-      this.subscriber.connect().then(() => {
-        this.subscriber!.subscribe(CHANNEL).catch(() => {});
-      }).catch(() => {});
+      this.subscriber = new Redis(redisUrl, {
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+      });
+      this.subscriber
+        .connect()
+        .then(() => {
+          this.subscriber!.subscribe(CHANNEL).catch(() => {});
+        })
+        .catch(() => {});
 
       this.subscriber.on('message', (_channel: string, data: string) => {
         try {
           const event = JSON.parse(data) as JobProgress;
-          const key = event.batchId || event.jobId;
-          const subject = this.subjects.get(key);
-          if (subject) {
-            subject.next(event);
-          }
+          this.cacheAndForward(event);
         } catch {
           // Ignore malformed messages
         }
@@ -80,22 +97,35 @@ export class ProgressService implements OnModuleDestroy {
   }
 
   emit(event: JobProgress) {
-    const key = event.batchId || event.jobId;
-    if (!this.subjects.has(key)) {
-      this.subjects.set(key, new Subject<JobProgress>());
-    }
-    this.subjects.get(key)!.next(event);
+    this.cacheAndForward(event);
 
     // 广播到 Redis (跨进程)
     try {
-      this.publisher?.publish(CHANNEL, JSON.stringify(event)).catch(() => {});
+      const payload = JSON.stringify(event);
+      for (const key of this.keysFor(event)) {
+        this.publisher
+          ?.setex(
+            `${LAST_EVENT_KEY_PREFIX}${key}`,
+            LAST_EVENT_TTL_SECONDS,
+            payload,
+          )
+          .catch(() => {});
+      }
+      this.publisher?.publish(CHANNEL, payload).catch(() => {});
     } catch {
       // Redis publish failed: local-only
     }
 
     // 完成后延迟清理 Subject
     if (['completed', 'duplicate', 'failed'].includes(event.status)) {
-      setTimeout(() => this.subjects.delete(key), 60000);
+      const timer = setTimeout(() => {
+        for (const key of this.keysFor(event)) {
+          this.subjects.delete(key);
+          this.latestEvents.delete(key);
+        }
+        this.cleanupTimers.delete(timer);
+      }, 60000);
+      this.cleanupTimers.add(timer);
     }
   }
 
@@ -104,11 +134,22 @@ export class ProgressService implements OnModuleDestroy {
       this.subjects.set(key, new Subject<JobProgress>());
     }
     const progress$ = this.subjects.get(key)!.pipe(
-      map((event): SseEnvelope => ({ type: 'progress', payload: event, ts: Date.now() })),
+      map(
+        (event): SseEnvelope => ({
+          type: 'progress',
+          payload: event,
+          ts: Date.now(),
+        }),
+      ),
     );
-    // 立刻发一个 connected 事件，让前端确认 SSE 真的建起来了。
+    // 立刻发 connected；如果 worker 已经先完成，也补发最近状态。
     const connected$ = new Observable<SseEnvelope>((sub) => {
       sub.next({ type: 'connected', ts: Date.now() });
+      void this.getLatestEvent(key).then((event) => {
+        if (!sub.closed && event) {
+          sub.next({ type: 'progress', payload: event, ts: Date.now() });
+        }
+      });
     });
     // 15s 心跳：防止 Nginx/Cloudflare/中间代理把空闲连接当 idle 关掉，
     // 也帮前端区分"网络断了"和"后端还在跑但还没新进度"。
@@ -121,7 +162,45 @@ export class ProgressService implements OnModuleDestroy {
   }
 
   onModuleDestroy() {
+    for (const timer of this.cleanupTimers) {
+      clearTimeout(timer);
+    }
+    this.cleanupTimers.clear();
     this.publisher?.disconnect();
     this.subscriber?.disconnect();
+  }
+
+  private cacheAndForward(event: JobProgress) {
+    for (const key of this.keysFor(event)) {
+      this.latestEvents.set(key, event);
+      const subject = this.subjects.get(key);
+      if (subject) {
+        subject.next(event);
+      }
+    }
+  }
+
+  private keysFor(event: JobProgress) {
+    return Array.from(
+      new Set([event.batchId, event.jobId].filter(Boolean)),
+    ) as string[];
+  }
+
+  private async getLatestEvent(key: string) {
+    const local = this.latestEvents.get(key);
+    if (local) return local;
+
+    const cached = await this.publisher
+      ?.get(`${LAST_EVENT_KEY_PREFIX}${key}`)
+      .catch(() => undefined);
+    if (!cached) return undefined;
+
+    try {
+      const event = JSON.parse(cached) as JobProgress;
+      this.latestEvents.set(key, event);
+      return event;
+    } catch {
+      return undefined;
+    }
   }
 }
