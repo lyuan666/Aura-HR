@@ -13,7 +13,7 @@ import {
   HistoryOutlined, SolutionOutlined, EditOutlined,
   GlobalOutlined, EnvironmentOutlined, DownOutlined,
   PlusOutlined, MailOutlined, PhoneOutlined,
-  SendOutlined, CheckCircleOutlined
+  SendOutlined, CheckCircleOutlined, FileProtectOutlined
 } from '@ant-design/icons';
 import api from '@/lib/api';
 
@@ -60,6 +60,15 @@ export default function EnterpriseDetailPage() {
   const [followUpContent, setFollowUpContent] = useState('');
   const [form] = Form.useForm();
 
+  const [contractStats, setContractStats] = useState<{
+    totalCount: number;
+    activeCount: number;
+    expiredSoonCount: number;
+    totalAmount: number;
+  } | null>(null);
+  const [enterpriseContracts, setEnterpriseContracts] = useState<any[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!params.id) return;
     setLoading(true);
@@ -71,6 +80,23 @@ export default function EnterpriseDetailPage() {
       message.error('加载客户详情失败');
     } finally {
       setLoading(false);
+    }
+  }, [params.id]);
+
+  const fetchContractData = useCallback(async () => {
+    if (!params.id) return;
+    setContractsLoading(true);
+    try {
+      const [statsRes, contractsRes] = await Promise.all([
+        api.get(`/contracts/enterprise/${params.id}/stats`),
+        api.get(`/contracts?enterpriseId=${params.id}&pageSize=100`),
+      ]);
+      setContractStats(statsRes.data);
+      setEnterpriseContracts(Array.isArray(contractsRes.data) ? contractsRes.data : (contractsRes.data?.items || []));
+    } catch (e) {
+      message.error('加载合同全景失败');
+    } finally {
+      setContractsLoading(false);
     }
   }, [params.id]);
 
@@ -118,7 +144,8 @@ export default function EnterpriseDetailPage() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchContractData();
+  }, [fetchData, fetchContractData]);
 
   if (loading) return (
     <div className="flex h-[80vh] items-center justify-center">
@@ -298,6 +325,98 @@ export default function EnterpriseDetailPage() {
            <SolutionOutlined className="text-6xl mb-6" />
            <Text strong className="text-xl">岗位需求模块正在同步中</Text>
            <Text type="secondary" className="mt-2">通过大数据自动关联该企业的最新招聘需求</Text>
+        </div>
+      ),
+    },
+    {
+      key: '5',
+      label: <span className="px-2"><FileProtectOutlined /> 合同全景</span>,
+      children: (
+        <div className="p-4">
+          <div className="mb-6">
+            <Text strong className="text-base">企业合同资产全景监控</Text>
+            <div className="text-[11px] text-slate-400">实时归纳企业在系统内托管或在线签署的协议总资产、履约状态与风险预警</div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card styles={{ body: { padding: '16px' } }} className="border border-slate-100 shadow-sm rounded-xl">
+              <div className="text-slate-400 text-xs mb-1">托管合同总数</div>
+              <div className="text-2xl font-bold text-slate-800">{contractStats?.totalCount ?? 0} <span className="text-xs font-normal text-slate-400">份</span></div>
+            </Card>
+            <Card styles={{ body: { padding: '16px' } }} className="border border-slate-100 shadow-sm rounded-xl">
+              <div className="text-slate-400 text-xs mb-1">生效中合同</div>
+              <div className="text-2xl font-bold text-emerald-600">{contractStats?.activeCount ?? 0} <span className="text-xs font-normal text-slate-400">份</span></div>
+            </Card>
+            <Card styles={{ body: { padding: '16px' } }} className="border border-slate-100 shadow-sm rounded-xl">
+              <div className="text-slate-400 text-xs mb-1">即将到期 (30天内)</div>
+              <div className={`text-2xl font-bold ${(contractStats?.expiredSoonCount ?? 0) > 0 ? 'text-amber-500' : 'text-slate-800'}`}>
+                {contractStats?.expiredSoonCount ?? 0} <span className="text-xs font-normal text-slate-400">份</span>
+                {(contractStats?.expiredSoonCount ?? 0) > 0 && <Badge status="warning" className="ml-2 align-middle" />}
+              </div>
+            </Card>
+            <Card styles={{ body: { padding: '16px' } }} className="border border-slate-100 shadow-sm rounded-xl">
+              <div className="text-slate-400 text-xs mb-1">合同总额</div>
+              <div className="text-2xl font-bold text-indigo-600">
+                ¥{(contractStats?.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </Card>
+          </div>
+
+          <Table
+            loading={contractsLoading}
+            dataSource={enterpriseContracts}
+            rowKey="id"
+            pagination={{ pageSize: 5 }}
+            className="mophy-table-small"
+            columns={[
+              {
+                title: '合同名称',
+                dataIndex: 'title',
+                key: 'title',
+                render: (title: string, record: any) => (
+                  <div>
+                    <div className="font-bold text-slate-800">{title}</div>
+                    <div className="text-[10px] text-slate-400">{record.contractNo}</div>
+                  </div>
+                ),
+              },
+              {
+                title: '合同金额',
+                dataIndex: 'amount',
+                key: 'amount',
+                render: (amount: any) => (
+                  <span className="font-bold text-amber-600">
+                    {amount ? `¥${Number(amount).toLocaleString()}` : '--'}
+                  </span>
+                ),
+              },
+              {
+                title: '合同周期',
+                key: 'period',
+                render: (_, record: any) => {
+                  const start = record.startDate ? new Date(record.startDate).toLocaleDateString() : '--';
+                  const end = record.endDate ? new Date(record.endDate).toLocaleDateString() : '--';
+                  return <span className="text-xs text-slate-500">{start} ~ {end}</span>;
+                },
+              },
+              {
+                title: '状态',
+                dataIndex: 'status',
+                key: 'status',
+                render: (status: string) => {
+                  const map: Record<string, { color: string; label: string }> = {
+                    draft: { color: 'default', label: '草稿' },
+                    pending_approval: { color: 'processing', label: '待审批' },
+                    active: { color: 'success', label: '生效中' },
+                    completed: { color: 'default', label: '已完成' },
+                    terminated: { color: 'error', label: '已终止' },
+                  };
+                  const current = map[status] || { color: 'default', label: status };
+                  return <Tag color={current.color}>{current.label}</Tag>;
+                },
+              },
+            ]}
+          />
         </div>
       ),
     },

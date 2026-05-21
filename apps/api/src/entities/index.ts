@@ -15,3 +15,7 @@ export { RefreshTokenEntity } from './refresh-token.entity';
 export { ImportBatchEntity } from './import-batch.entity';
 export { CandidateStagingEntity } from './candidate-staging.entity';
 export { CandidateMergeLinkEntity } from './candidate-merge-link.entity';
+export { ContractTemplateEntity } from './contract-template.entity';
+export { ContractGenerationEntity } from './contract-generation.entity';
+export type { RiskAssessmentReport } from './contract-generation.entity';
+export { ContractAuditLogEntity } from './contract-audit-log.entity';

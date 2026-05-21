@@ -204,8 +204,8 @@ function splitCsvLine(line: string) {
 function pickString(source: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = source[key];
-    if (value !== undefined && value !== null && String(value).trim()) {
-      return String(value).trim();
+    if (value !== undefined && value !== null && typeof value === 'string' && value.trim()) {
+      return value.trim();
     }
   }
   return undefined;
@@ -236,7 +236,7 @@ function loadDotEnv(path: string) {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error(error.message || error);
+    console.error((error instanceof Error ? error.message : String(error)));
     process.exit(1);
   });
 }

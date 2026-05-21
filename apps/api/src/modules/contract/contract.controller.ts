@@ -7,26 +7,34 @@ export class ContractController {
   constructor(private readonly contractService: ContractService) {}
 
   @Get()
-  findAll(@Req() req: any, @Query('page') page = 1, @Query('pageSize') pageSize = 20) {
-    const tenantId = req.user?.tenantId;
-    return this.contractService.findAll(Number(page), Number(pageSize), tenantId);
+  findAll(
+    @Req() req: any,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 20,
+    @Query('enterpriseId') enterpriseId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.contractService.findAll(
+      Number(page),
+      Number(pageSize),
+      req.user,
+      { enterpriseId, status },
+    );
   }
 
-  @Get('templates')
-  getTemplates() {
-    return this.contractService.getTemplates();
+  @Get('enterprise/:enterpriseId/stats')
+  getEnterpriseStats(@Param('enterpriseId') enterpriseId: string, @Req() req: any) {
+    return this.contractService.getEnterpriseStats(enterpriseId, req.user);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    return this.contractService.findOne(id, tenantId);
+    return this.contractService.findOne(id, req.user);
   }
 
   @Post()
   create(@Body() dto: any, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    return this.contractService.create(dto, tenantId);
+    return this.contractService.create(dto, req.user);
   }
 
   @Post('upload')
@@ -39,13 +47,11 @@ export class ContractController {
     if (!file) {
       throw new BadRequestException('请上传合同文件');
     }
-    const tenantId = req.user?.tenantId;
-    return this.contractService.uploadAndCreate(file, body, tenantId);
+    return this.contractService.uploadAndCreate(file, body, req.user);
   }
 
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body('status') status: string, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    return this.contractService.updateStatus(id, status, tenantId);
+    return this.contractService.updateStatus(id, status, req.user);
   }
 }

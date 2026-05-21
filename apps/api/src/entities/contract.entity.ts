@@ -12,11 +12,11 @@ export class ContractEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'tenant_id', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
   @Index()
-  tenantId: string;
+  tenantId: string | null;
 
-  @Column({ name: 'enterprise_id' })
+  @Column({ name: 'enterprise_id', type: 'uuid' })
   @Index()
   enterpriseId: string;
 
@@ -48,6 +48,19 @@ export class ContractEntity {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  @Column({ name: 'generation_id', type: 'uuid', nullable: true })
+  @Index()
+  generationId: string | null;
+
+  @Column({ name: 'renewed_from', type: 'uuid', nullable: true })
+  renewedFrom: string | null;
+
+  @Column({ name: 'next_review_at', type: 'timestamp', nullable: true })
+  nextReviewAt: Date;
+
+  @Column({ name: 'alert_days', default: 30 })
+  alertDays: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

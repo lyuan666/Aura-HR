@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Button, Tag, Space, App, Alert, Modal, Upload, Form, Input, DatePicker, Drawer, Card, Typography } from 'antd';
+import { Button, Tag, Space, App, Alert, Modal, Upload, Form, Input, DatePicker, Drawer, Card, Typography, Tabs } from 'antd';
 import {
   PlusOutlined,
   DownloadOutlined,
@@ -11,8 +11,10 @@ import {
   FileTextOutlined,
   InboxOutlined,
   FilePdfOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 const { Dragger } = Upload;
 const { Text, Paragraph } = Typography;
@@ -34,12 +36,69 @@ const TEMPLATES = [
 
 export default function ContractsPage() {
   const { message } = App.useApp();
+  const router = useRouter();
   const actionRef = useRef<ActionType>(null);
+  const draftActionRef = useRef<ActionType>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [templateDrawerOpen, setTemplateDrawerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<any[]>([]);
   const [form] = Form.useForm();
+
+  const draftColumns: ProColumns[] = [
+    {
+      title: '草稿编号',
+      dataIndex: 'generationNo',
+      key: 'generationNo',
+      render: (_, record: any) => (
+        <Space>
+          <FileTextOutlined style={{ color: '#722ed1' }} />
+          <span style={{ fontWeight: 600 }}>{record.generationNo}</span>
+        </Space>
+      ),
+    },
+    {
+      title: '选用模板',
+      key: 'template',
+      hideInSearch: true,
+      render: (_, record: any) => record.templateSnapshot?.name || '在线模板',
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      valueType: 'dateTime',
+      hideInSearch: true,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      valueEnum: {
+        draft: { text: '草稿', status: 'Default' },
+        preview: { text: '预览中', status: 'Processing' },
+      },
+    },
+    {
+      title: '操作',
+      key: 'action',
+      hideInSearch: true,
+      width: 140,
+      render: (_, record: any) => (
+        <Space>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => router.push(`/contracts/${record.id}/edit`)}
+          >
+            编辑/微调
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   const handleUpload = async (values: any) => {
     if (fileList.length === 0) {
@@ -139,7 +198,8 @@ export default function ContractsPage() {
         subTitle: '法务合规与协议管理',
         extra: [
           <Button key="template" icon={<DownloadOutlined />} onClick={() => setTemplateDrawerOpen(true)}>协议模板库</Button>,
-          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={() => setUploadModalOpen(true)}>上传合同</Button>,
+          <Button key="new-wizard" type="primary" icon={<PlusOutlined />} onClick={() => router.push('/contracts/new')}>在线向导生成合同</Button>,
+          <Button key="create" icon={<PlusOutlined />} onClick={() => setUploadModalOpen(true)}>上传已有合同</Button>,
         ],
       }}
     >
@@ -155,40 +215,85 @@ export default function ContractsPage() {
         style={{ marginBottom: 16 }}
       />
 
-      <ProTable
-        columns={columns}
-        actionRef={actionRef}
-        cardBordered
-        request={async (params) => {
-          try {
-            const res = await api.get('/contracts', { params });
-            const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
-            return {
-              data: items,
-              success: true,
-              total: res.data?.total || items.length,
-            };
-          } catch (e) {
-            message.error('合同数据加载失败');
-            return { data: [], success: false };
-          }
-        }}
-        rowKey="id"
-        search={{
-          labelWidth: 'auto',
-        }}
-        pagination={{
-          defaultPageSize: 10,
-          showSizeChanger: true,
-        }}
-        dateFormatter="string"
-        toolbar={{
-          search: {
-            onSearch: (value: string) => {
-              console.log('search', value);
-            },
+      <Tabs
+        defaultActiveKey="formal"
+        items={[
+          {
+            key: 'formal',
+            label: '正式合同归档',
+            children: (
+              <ProTable
+                columns={columns}
+                actionRef={actionRef}
+                cardBordered
+                request={async (params) => {
+                  try {
+                    const res = await api.get('/contracts', { params });
+                    const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+                    return {
+                      data: items,
+                      success: true,
+                      total: res.data?.total || items.length,
+                    };
+                  } catch (e) {
+                    message.error('合同数据加载失败');
+                    return { data: [], success: false };
+                  }
+                }}
+                rowKey="id"
+                search={{
+                  labelWidth: 'auto',
+                }}
+                pagination={{
+                  defaultPageSize: 10,
+                  showSizeChanger: true,
+                }}
+                dateFormatter="string"
+                toolbar={{
+                  search: {
+                    onSearch: (value: string) => {
+                      console.log('search', value);
+                    },
+                  },
+                }}
+              />
+            ),
           },
-        }}
+          {
+            key: 'drafts',
+            label: '在线生成草稿',
+            children: (
+              <ProTable
+                columns={draftColumns}
+                actionRef={draftActionRef}
+                cardBordered
+                request={async (params) => {
+                  try {
+                    const res = await api.get('/contracts/generations', { params });
+                    const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+                    return {
+                      data: items.filter((x: any) => x.status !== 'formalized'),
+                      success: true,
+                      total: res.data?.total || items.length,
+                    };
+                  } catch (e) {
+                    message.error('草稿数据加载失败');
+                    return { data: [], success: false };
+                  }
+                }}
+                rowKey="id"
+                search={{
+                  labelWidth: 'auto',
+                }}
+                pagination={{
+                  defaultPageSize: 10,
+                  showSizeChanger: true,
+                }}
+                dateFormatter="string"
+              />
+            ),
+          },
+        ]}
       />
 
       {/* Upload Modal */}
@@ -259,7 +364,16 @@ export default function ContractsPage() {
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{t.name}</div>
                   <Text type="secondary" style={{ fontSize: 13 }}>{t.desc}</Text>
                 </div>
-                <Button type="link" icon={<DownloadOutlined />}>下载</Button>
+                <Button 
+                  type="link" 
+                  icon={<PlusOutlined />} 
+                  onClick={() => {
+                    setTemplateDrawerOpen(false);
+                    router.push('/contracts/new');
+                  }}
+                >
+                  选用生成
+                </Button>
               </div>
             </Card>
           ))}

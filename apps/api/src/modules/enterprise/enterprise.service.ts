@@ -174,10 +174,11 @@ export class EnterpriseService {
     });
   }
 
-  async updateStatus(id: string, dto: UpdateEnterpriseStatusDto, tenantId?: string) {
+  async updateStatus(id: string, dto: UpdateEnterpriseStatusDto, user?: any) {
+    const tenantId = user?.tenantId;
     return await this.dataSource.transaction(async (manager) => {
-      const enterprise = await manager.findOne(EnterpriseEntity, { 
-        where: { id, ...(tenantId ? { tenantId } : {}) } 
+      const enterprise = await manager.findOne(EnterpriseEntity, {
+        where: { id, ...(tenantId ? { tenantId } : {}) }
       });
       if (!enterprise) throw new NotFoundException('企业客户不存在');
 
@@ -190,6 +191,7 @@ export class EnterpriseService {
         targetType: 'enterprise',
         targetId: id,
         tenantId,
+        userId: user?.id || user?.sub,
         content: `系统自动记录：将客户状态从 [${oldStatus}] 修改为 [${dto.status}]`,
       });
       await manager.save(log);

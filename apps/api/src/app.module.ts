@@ -44,6 +44,9 @@ import {
   ImportBatchEntity,
   CandidateStagingEntity,
   CandidateMergeLinkEntity,
+  ContractTemplateEntity,
+  ContractGenerationEntity,
+  ContractAuditLogEntity,
 } from './entities';
 
 @Module({
@@ -87,6 +90,9 @@ import {
           ImportBatchEntity,
           CandidateStagingEntity,
           CandidateMergeLinkEntity,
+          ContractTemplateEntity,
+          ContractGenerationEntity,
+          ContractAuditLogEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') !== 'production',

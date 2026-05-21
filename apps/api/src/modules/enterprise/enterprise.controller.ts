@@ -43,8 +43,7 @@ export class EnterpriseController {
     @Body() dto: UpdateEnterpriseStatusDto,
     @Req() req: any,
   ) {
-    const tenantId = req.user?.tenantId;
-    return this.enterpriseService.updateStatus(id, dto, tenantId);
+    return this.enterpriseService.updateStatus(id, dto, req.user);
   }
 
   @Post(':id/contacts')
