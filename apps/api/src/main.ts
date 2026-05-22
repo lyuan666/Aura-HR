@@ -20,7 +20,10 @@ async function bootstrap() {
         }
         return origin === allowedOrigin;
       });
-      callback(allowed ? null : new Error(`CORS origin not allowed: ${origin}`), allowed);
+      if (!allowed) {
+        console.warn(`CORS origin not allowed: ${origin}`);
+      }
+      callback(null, allowed);
     },
     credentials: true,
   });

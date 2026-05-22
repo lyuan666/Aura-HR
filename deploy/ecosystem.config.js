@@ -9,7 +9,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         API_PORT: 3001,
-        CORS_ORIGINS: 'http://localhost:3000,http://localhost:3002,http://localhost:3003,http://47.97.62.57,http://www.txos.top,https://www.txos.top',
+        CORS_ORIGINS: 'http://localhost:3000,http://localhost:3002,http://localhost:3003,http://47.97.62.57,http://www.txos.top,https://www.txos.top,http://txos.top,https://txos.top',
       },
     },
     {

@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, Star, Settings2, Eraser, Briefcase, GraduationCap } from 'lucide-react';
 import api from '@/lib/api';
 import CandidateDetailModal from '@/components/candidates/CandidateDetailModal';
 import ResumeUploadModal from '@/components/candidates/ResumeUploadModal';
 import FeishuImportModal from '@/components/candidates/FeishuImportModal';
-import { demoCandidates } from '@/data/demoCandidates';
 import { App, Skeleton, Empty, Tag, Checkbox, Button, Input, Avatar, Pagination, Dropdown } from 'antd';
 import { UploadOutlined, MailOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { cn } from '@/lib/utils';
@@ -92,6 +91,7 @@ const getEducation = (candidate: CandidateRecord) => {
 
 export default function CandidatesPage() {
   const { message } = App.useApp();
+  const messageRef = useRef(message);
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState<CandidateRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,44 +99,67 @@ export default function CandidatesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isFeishuModalOpen, setIsFeishuModalOpen] = useState(false);
-  const [usingDemoData, setUsingDemoData] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Selection State
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
-  const fetchCandidates = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await api.get('/candidates', {
-        params: { page: currentPage, pageSize },
-      });
-      if (res.data?.success) {
-        setCandidates(res.data.data.items || []);
-        setTotal(res.data.data.meta?.totalItems || 0);
-        setUsingDemoData(false);
-        return;
-      }
-
-      setCandidates(demoCandidates);
-      setUsingDemoData(true);
-    } catch (e) {
-      console.error(e);
-      setCandidates(demoCandidates);
-      setUsingDemoData(true);
-      message.warning('当前还没有正式人才数据，先展示演示卡片');
-    } finally {
-      setLoading(false);
-    }
-  }, [message, currentPage, pageSize]);
+  useEffect(() => {
+    messageRef.current = message;
+  }, [message]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const fetchCandidates = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/candidates', {
+          params: { page: currentPage, pageSize },
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        const payload = res.data?.success ? res.data.data : res.data;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const nextTotal = payload?.meta?.totalItems ?? payload?.total ?? items.length;
+
+        setCandidates(items);
+        setTotal(nextTotal);
+        setLoadError(false);
+      } catch (e) {
+        const err = e as { code?: string; name?: string };
+        if (cancelled || err.code === 'ERR_CANCELED' || err.name === 'CanceledError') return;
+
+        console.error(e);
+        setCandidates([]);
+        setTotal(0);
+        setLoadError(true);
+        messageRef.current.error('人才库数据加载失败，请稍后重试');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     fetchCandidates();
-  }, [fetchCandidates]);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [currentPage, pageSize, refreshKey]);
+
+  const refreshCandidates = () => {
+    setRefreshKey((key) => key + 1);
+  };
 
   const filteredCandidates = useMemo(() => {
     return candidates.filter(
@@ -181,9 +204,9 @@ export default function CandidatesPage() {
             >
               全部简历
             </h1>
-            {usingDemoData && (
-              <Tag className="m-0 rounded-full border-none bg-brand-primary/12 px-3 py-1 text-[11px] font-semibold text-brand-primary">
-                演示数据
+            {loadError && (
+              <Tag className="m-0 rounded-full border-none bg-red-500/12 px-3 py-1 text-[11px] font-semibold text-red-500">
+                加载异常
               </Tag>
             )}
           </div>
@@ -520,7 +543,7 @@ export default function CandidatesPage() {
         <Pagination
           current={currentPage}
           pageSize={pageSize}
-          total={total || demoCandidates.length}
+          total={total}
           onChange={(page, size) => {
             setCurrentPage(page);
             setPageSize(size);
@@ -539,12 +562,12 @@ export default function CandidatesPage() {
       <ResumeUploadModal
         visible={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        onSuccess={fetchCandidates}
+        onSuccess={refreshCandidates}
       />
       <FeishuImportModal
         visible={isFeishuModalOpen}
         onClose={() => setIsFeishuModalOpen(false)}
-        onSuccess={fetchCandidates}
+        onSuccess={refreshCandidates}
       />
     </div>
   );
