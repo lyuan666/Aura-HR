@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Like } from 'typeorm';
 import {
@@ -124,6 +124,17 @@ export class EnterpriseService {
 
   async create(dto: CreateEnterpriseDto, tenantId?: string) {
     return await this.dataSource.transaction(async (manager) => {
+      // 按企业名称查重（忽略大小写）
+      const existing = await manager
+        .createQueryBuilder(EnterpriseEntity, 'ent')
+        .where('LOWER(ent.name) = LOWER(:name)', { name: dto.name.trim() })
+        .andWhere(tenantId ? 'ent.tenantId = :tenantId' : '1=1', { tenantId })
+        .getOne();
+
+      if (existing) {
+        throw new ConflictException('该客户已存在');
+      }
+
       const newEnterprise = manager.create(EnterpriseEntity, {
         name: dto.name,
         industry: dto.industry || '未知',

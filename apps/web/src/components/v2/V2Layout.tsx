@@ -13,7 +13,7 @@ export const V2Layout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="min-w-0 flex flex-1 flex-col overflow-hidden">
         <V2Header />
         <main className="relative flex-1 overflow-hidden bg-bg-base">
-          <div className="relative z-10 h-full overflow-y-auto px-6 py-3 no-scrollbar">
+          <div className="relative z-10 h-full overflow-y-auto px-6 py-3">
             <AnimatePresence mode="wait">{children}</AnimatePresence>
           </div>
         </main>
