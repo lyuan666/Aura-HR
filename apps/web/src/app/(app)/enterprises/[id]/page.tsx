@@ -94,7 +94,7 @@ export default function EnterpriseDetailPage() {
       setContractStats(statsRes.data);
       setEnterpriseContracts(Array.isArray(contractsRes.data) ? contractsRes.data : (contractsRes.data?.items || []));
     } catch (e) {
-      message.error('加载合同全景失败');
+      message.error('加载合同管理数据失败');
     } finally {
       setContractsLoading(false);
     }
@@ -330,12 +330,22 @@ export default function EnterpriseDetailPage() {
     },
     {
       key: '5',
-      label: <span className="px-2"><FileProtectOutlined /> 合同全景</span>,
+      label: <span className="px-2"><FileProtectOutlined /> 合同管理</span>,
       children: (
         <div className="p-4">
-          <div className="mb-6">
-            <Text strong className="text-base">企业合同资产全景监控</Text>
-            <div className="text-[11px] text-slate-400">实时归纳企业在系统内托管或在线签署的协议总资产、履约状态与风险预警</div>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <Text strong className="text-base">企业合同管理</Text>
+              <div className="text-[11px] text-slate-400">实时归纳企业在系统内托管或在线签署的协议总资产、履约状态与风险预警</div>
+            </div>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => router.push(`/contracts/new?enterpriseId=${params.id}`)}
+              className="bg-indigo-600 border-none rounded-lg shadow-md"
+            >
+              一键生成合同
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

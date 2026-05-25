@@ -28,7 +28,6 @@ const navItems: NavItem[] = [
   { key: 'dashboard', label: '工作台', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
   { key: 'interviews', label: '面试管理', icon: <CalendarClock size={20} />, path: '/interviews' },
   { key: 'candidates', label: '人才库', icon: <UserRoundSearch size={20} />, path: '/candidates' },
-  { key: 'imports', label: '数据导入', icon: <Database size={20} />, path: '/imports' },
   { key: 'enterprises', label: '客户管理', icon: <Building2 size={20} />, path: '/enterprises' },
   { key: 'jobs', label: '职位管理', icon: <BriefcaseBusiness size={20} />, path: '/jobs' },
   { key: 'delivery', label: '流程看板', icon: <PanelsTopLeft size={20} />, path: '/delivery' },
@@ -61,7 +60,7 @@ export const V2Sidebar: React.FC = () => {
         <span className="text-[12px] font-black tracking-tight text-text-main">天选OS</span>
       </button>
 
-      <nav className="flex flex-1 flex-col gap-2 px-2 py-5">
+      <nav className="flex flex-1 min-h-0 flex-col gap-2 overflow-y-auto px-2 py-5">
         {navItems.map((item) => {
           const active = activeKey === item.key;
           return (

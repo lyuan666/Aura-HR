@@ -42,4 +42,16 @@ export class UpdateJobDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsNumber()
+  @IsOptional()
+  salaryMin?: number;
+
+  @IsNumber()
+  @IsOptional()
+  salaryMax?: number;
+
+  @IsString()
+  @IsOptional()
+  location?: string;
 }

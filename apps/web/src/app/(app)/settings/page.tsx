@@ -26,13 +26,17 @@ import {
   MailOutlined,
   PhoneOutlined,
   KeyOutlined,
+  ImportOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
 const { Text, Title } = Typography;
 
 export default function SettingsPage() {
   const { message } = App.useApp();
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<{
@@ -298,6 +302,46 @@ export default function SettingsPage() {
               </div>
             </Card>
           ))}
+        </Space>
+      ),
+    },
+    {
+      key: '4',
+      label: '数据导入',
+      icon: <ImportOutlined />,
+      children: (
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card
+            hoverable
+            style={{ cursor: 'pointer' }}
+            onClick={() => router.push('/imports')}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Space size={16}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#f0f5ff',
+                    color: '#1677ff',
+                  }}
+                >
+                  <ImportOutlined style={{ fontSize: 20 }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600 }}>数据导入管理</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Legacy、插件与手工上传进入正式人才库前的审核区，点击进入导入页面
+                  </Text>
+                </div>
+              </Space>
+              <RightOutlined style={{ color: '#bbb' }} />
+            </div>
+          </Card>
         </Space>
       ),
     },
