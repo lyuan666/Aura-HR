@@ -1,25 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PageContainer } from '@ant-design/pro-components';
 import {
-  Card,
   Switch,
   Avatar,
   Input,
   Button,
   App,
   Space,
-  Divider,
   Skeleton,
   Typography,
-  Row,
-  Col,
-  Tabs,
-  Table,
   Tag,
   Modal,
-  Descriptions,
   Tooltip,
 } from 'antd';
 import {
@@ -72,12 +64,47 @@ interface TeamMember {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Color constants                                                    */
+/* ------------------------------------------------------------------ */
+
+const COLORS = {
+  primary: '#1677ff',
+  primaryBg: '#e6f4ff',
+  primaryBgHover: '#f0f5ff',
+  bg: '#ffffff',
+  text: '#1f1f1f',
+  textSecondary: '#666666',
+  textAux: '#999999',
+  border: '#f0f0f0',
+  borderMenu: '#e8e8e8',
+  inputBg: '#fafafa',
+  gradientStart: '#1677ff',
+  gradientEnd: '#69b1ff',
+};
+
+/* ------------------------------------------------------------------ */
+/*  Menu items                                                         */
+/* ------------------------------------------------------------------ */
+
+const MENU_ITEMS = [
+  { key: 'profile', label: '个人信息', icon: UserOutlined },
+  { key: 'team', label: '团队管理', icon: TeamOutlined },
+  { key: 'integrations', label: '通信连接', icon: ApiOutlined },
+  { key: 'ai', label: '大模型设置', icon: ThunderboltOutlined },
+  { key: 'security', label: '安全设置', icon: SafetyCertificateOutlined },
+  { key: 'sync', label: '数据同步', icon: SyncOutlined },
+];
+
+/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
 export default function SettingsPage() {
   const { message, modal } = App.useApp();
   const router = useRouter();
+
+  /* ---- Active menu ---- */
+  const [activeMenu, setActiveMenu] = useState('profile');
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -279,170 +306,203 @@ export default function SettingsPage() {
   ];
 
   /* ================================================================ */
-  /*  Tab 1: 个人信息                                                   */
+  /*  Section: 个人信息                                                 */
   /* ================================================================ */
 
-  const renderProfileTab = () => {
+  const renderProfileSection = () => {
     if (loading) return <Skeleton active avatar paragraph={{ rows: 4 }} />;
     if (!profile) return null;
 
     const avatarSrc = profile.avatar || getAvatarUrl(profile.name);
 
     return (
-      <Card>
-        <Row gutter={24}>
-          <Col span={24}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 32 }}>
-              <Tooltip title="头像由 DiceBear 自动生成">
-                <Avatar size={80} src={avatarSrc} style={{ backgroundColor: '#1677ff' }}>
-                  {profile.name?.[0] || 'U'}
-                </Avatar>
-              </Tooltip>
-              <div>
-                <Title level={4} style={{ marginBottom: 4 }}>
-                  {profile.name || '未设置'}
-                </Title>
-                <Text type="secondary">{profile.email}</Text>
-                {profile.role && (
-                  <div style={{ marginTop: 4 }}>
-                    <Tag color={roleTagColor(profile.role)}>{roleLabel(profile.role)}</Tag>
-                  </div>
-                )}
-              </div>
+      <div>
+        {/* Section header */}
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            个人信息
+          </h2>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+            管理您的个人资料与账户信息
+          </p>
+        </div>
+
+        {/* Avatar + Name area */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 36 }}>
+          <Tooltip title="头像由 DiceBear 自动生成">
+            <Avatar
+              size={96}
+              src={avatarSrc}
+              style={{ backgroundColor: COLORS.primary, flexShrink: 0 }}
+            >
+              {profile.name?.[0] || 'U'}
+            </Avatar>
+          </Tooltip>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>
+              {profile.name || '未设置'}
             </div>
-          </Col>
-          <Col span={12}>
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                姓名
-              </Text>
-              <Input
-                value={profile.name || ''}
-                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-              />
+            <div style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: 6 }}>
+              {profile.email}
             </div>
-          </Col>
-          <Col span={12}>
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                邮箱
-              </Text>
-              <Input
-                prefix={<MailOutlined />}
-                value={profile.email || ''}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              />
-            </div>
-          </Col>
-          <Col span={12}>
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                手机号
-              </Text>
-              <Input
-                prefix={<PhoneOutlined />}
-                value={profile.phone || ''}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-              />
-            </div>
-          </Col>
-        </Row>
-        <Divider />
-        <div style={{ textAlign: 'right' }}>
+            {profile.role && (
+              <Tag color={roleTagColor(profile.role)} style={{ margin: 0 }}>
+                {roleLabel(profile.role)}
+              </Tag>
+            )}
+          </div>
+        </div>
+
+        {/* Form fields */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 24px', marginBottom: 32 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, color: COLORS.textSecondary, marginBottom: 6, fontWeight: 500 }}>
+              姓名
+            </label>
+            <Input
+              value={profile.name || ''}
+              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+              style={{ background: COLORS.inputBg, borderColor: COLORS.border }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, color: COLORS.textSecondary, marginBottom: 6, fontWeight: 500 }}>
+              邮箱
+            </label>
+            <Input
+              prefix={<MailOutlined style={{ color: COLORS.textAux }} />}
+              value={profile.email || ''}
+              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+              style={{ background: COLORS.inputBg, borderColor: COLORS.border }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, color: COLORS.textSecondary, marginBottom: 6, fontWeight: 500 }}>
+              手机号
+            </label>
+            <Input
+              prefix={<PhoneOutlined style={{ color: COLORS.textAux }} />}
+              value={profile.phone || ''}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              style={{ background: COLORS.inputBg, borderColor: COLORS.border }}
+            />
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             type="primary"
             icon={<SaveOutlined />}
             onClick={handleSaveProfile}
             loading={saving}
+            style={{ borderRadius: 6, height: 36, paddingLeft: 24, paddingRight: 24 }}
           >
-            保存更改
+            保存修改
           </Button>
         </div>
-      </Card>
+      </div>
     );
   };
 
   /* ================================================================ */
-  /*  Tab 2: 团队管理                                                   */
+  /*  Section: 团队管理                                                 */
   /* ================================================================ */
 
-  const renderTeamTab = () => {
-    const columns = [
-      {
-        title: '姓名',
-        dataIndex: 'name',
-        key: 'name',
-        render: (name: string, record: TeamMember) => (
-          <Space>
-            <Avatar size="small" src={getAvatarUrl(name)} style={{ backgroundColor: '#1677ff' }}>
-              {name?.[0] || 'U'}
-            </Avatar>
-            <span>{name || '—'}</span>
-          </Space>
-        ),
-      },
-      {
-        title: '邮箱',
-        dataIndex: 'email',
-        key: 'email',
-        render: (email: string) => <Text type="secondary">{email}</Text>,
-      },
-      {
-        title: '角色',
-        dataIndex: 'role',
-        key: 'role',
-        render: (role: string) => <Tag color={roleTagColor(role)}>{roleLabel(role)}</Tag>,
-      },
-      {
-        title: '状态',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status: string) => statusTag(status),
-      },
-    ];
-
+  const renderTeamSection = () => {
+    /* Empty state */
     if (!teamAvailable) {
       return (
-        <Card>
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <TeamOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
-            <Title level={4} type="secondary" style={{ marginBottom: 8 }}>
-              团队管理功能开发中
-            </Title>
-            <Text type="secondary">
-              团队成员管理 API 尚未就绪，功能上线后即可在此管理您的团队成员。
-            </Text>
+        <div>
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+              团队管理
+            </h2>
+            <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+              管理您的团队成员及其角色权限
+            </p>
           </div>
-        </Card>
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <TeamOutlined style={{ fontSize: 56, color: '#d9d9d9', marginBottom: 20, display: 'block' }} />
+            <div style={{ fontSize: 16, fontWeight: 500, color: COLORS.textSecondary, marginBottom: 8 }}>
+              团队管理功能开发中
+            </div>
+            <div style={{ fontSize: 14, color: COLORS.textAux, maxWidth: 360, margin: '0 auto' }}>
+              团队成员管理 API 尚未就绪，功能上线后即可在此管理您的团队成员。
+            </div>
+          </div>
+        </div>
       );
     }
 
     return (
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <Title level={5} style={{ marginBottom: 4 }}>团队成员</Title>
-              <Text type="secondary">管理您的团队成员及其角色权限</Text>
-            </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setInviteOpen(true)}
-            >
-              邀请成员
-            </Button>
+      <div>
+        {/* Section header + invite button */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+              团队管理
+            </h2>
+            <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+              管理您的团队成员及其角色权限
+            </p>
           </div>
-          <Table
-            columns={columns}
-            dataSource={teamMembers}
-            rowKey="id"
-            loading={teamLoading}
-            pagination={false}
-            size="middle"
-          />
-        </Card>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setInviteOpen(true)}
+            style={{ borderRadius: 6, height: 36 }}
+          >
+            邀请成员
+          </Button>
+        </div>
 
+        {/* Member list */}
+        {teamLoading ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {teamMembers.map((member) => (
+              <div
+                key={member.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  borderBottom: `1px solid ${COLORS.border}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Avatar
+                    size={36}
+                    src={getAvatarUrl(member.name)}
+                    style={{ backgroundColor: COLORS.primary, flexShrink: 0 }}
+                  >
+                    {member.name?.[0] || 'U'}
+                  </Avatar>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>
+                      {member.name || '—'}
+                    </div>
+                    <div style={{ fontSize: 13, color: COLORS.textAux }}>{member.email}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Tag color={roleTagColor(member.role)}>{roleLabel(member.role)}</Tag>
+                  {statusTag(member.status)}
+                </div>
+              </div>
+            ))}
+            {teamMembers.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: COLORS.textAux }}>
+                暂无团队成员
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invite modal */}
         <Modal
           title="邀请团队成员"
           open={inviteOpen}
@@ -484,477 +544,657 @@ export default function SettingsPage() {
             </Space>
           </div>
         </Modal>
-      </Space>
+      </div>
     );
   };
 
   /* ================================================================ */
-  /*  Tab 3: 通信连接                                                   */
+  /*  Section: 通信连接                                                 */
   /* ================================================================ */
 
-  const renderIntegrationsTab = () => {
+  const renderIntegrationsSection = () => {
+    const integrations = [
+      {
+        key: 'feishu',
+        name: '飞书集成',
+        desc: '连接飞书后可同步日历、消息通知和审批流程',
+        icon: <GlobalOutlined style={{ fontSize: 22 }} />,
+        iconBg: '#fff7e6',
+        iconColor: '#fa8c16',
+        connected: false,
+        btnLabel: '连接飞书',
+        onBtnClick: () => message.info('飞书集成功能开发中'),
+      },
+      {
+        key: 'wecom',
+        name: '企业微信集成',
+        desc: '连接企业微信后可同步通讯录和消息推送',
+        icon: <WechatOutlined style={{ fontSize: 22 }} />,
+        iconBg: '#f0f5ff',
+        iconColor: '#1677ff',
+        connected: false,
+        btnLabel: '连接企业微信',
+        onBtnClick: () => message.info('企业微信集成功能开发中'),
+      },
+    ];
+
     return (
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        {/* 飞书集成 */}
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Space size={16}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#fff7e6',
-                  color: '#fa8c16',
-                }}
-              >
-                <GlobalOutlined style={{ fontSize: 22 }} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 2 }}>飞书集成</div>
-                <Space size={4}>
-                  <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>未连接</Text>
-                </Space>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    连接飞书后可同步日历、消息通知和审批流程
-                  </Text>
-                </div>
-              </div>
-            </Space>
-            <Button
-              icon={<LinkOutlined />}
-              onClick={() => message.info('飞书集成功能开发中')}
+      <div>
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            通信连接
+          </h2>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+            管理第三方通信平台的集成与连接状态
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {integrations.map((item) => (
+            <div
+              key={item.key}
+              style={{
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 8,
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: COLORS.bg,
+              }}
             >
-              连接飞书
-            </Button>
-          </div>
-        </Card>
-
-        {/* 企业微信集成 */}
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Space size={16}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#f0f5ff',
-                  color: '#1677ff',
-                }}
-              >
-                <WechatOutlined style={{ fontSize: 22 }} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 2 }}>企业微信集成</div>
-                <Space size={4}>
-                  <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>未连接</Text>
-                </Space>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    连接企业微信后可同步通讯录和消息推送
-                  </Text>
-                </div>
-              </div>
-            </Space>
-            <Button
-              icon={<LinkOutlined />}
-              onClick={() => message.info('企业微信集成功能开发中')}
-            >
-              连接企业微信
-            </Button>
-          </div>
-        </Card>
-
-        <Card size="small" style={{ background: '#fafafa', borderColor: '#d9d9d9' }}>
-          <Space>
-            <ApiOutlined style={{ color: '#999' }} />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              更多通信平台集成（钉钉、Slack 等）将在后续版本中陆续开放
-            </Text>
-          </Space>
-        </Card>
-      </Space>
-    );
-  };
-
-  /* ================================================================ */
-  /*  Tab 4: 大模型设置                                                 */
-  /* ================================================================ */
-
-  const renderAITab = () => {
-    return (
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        <Card size="small" style={{ background: '#f0f5ff', borderColor: '#adc6ff' }}>
-          <Space>
-            <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 18 }} />
-            <div>
-              <div style={{ fontWeight: 600 }}>底层 AI 算力节点已连接</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                当前正在使用 GLM-4 视觉解析引擎与专用人才向量空间
-              </Text>
-            </div>
-          </Space>
-        </Card>
-        {aiItems.map((item) => (
-          <Card key={item.id} size="small">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Space size={16}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div
                   style={{
                     width: 48,
                     height: 48,
-                    borderRadius: 8,
+                    borderRadius: 10,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: config[item.id] ? '#e6f4ff' : '#f5f5f5',
-                    color: config[item.id] ? '#1677ff' : '#999',
+                    background: item.iconBg,
+                    color: item.iconColor,
+                    flexShrink: 0,
                   }}
                 >
                   {item.icon}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{item.name}</div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, marginBottom: 2 }}>
+                    {item.name}
+                  </div>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 }}>
                     {item.desc}
-                  </Text>
+                  </div>
+                  {item.connected ? (
+                    <Space size={4}>
+                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />
+                      <span style={{ fontSize: 12, color: '#52c41a' }}>已连接</span>
+                    </Space>
+                  ) : (
+                    <Space size={4}>
+                      <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />
+                      <span style={{ fontSize: 12, color: COLORS.textAux }}>未连接</span>
+                    </Space>
+                  )}
                 </div>
-              </Space>
-              <Switch checked={!!config[item.id]} onChange={() => handleToggle(item.id)} />
+              </div>
+              <Button
+                icon={<LinkOutlined />}
+                onClick={item.onBtnClick}
+                style={{ borderRadius: 6, height: 34 }}
+              >
+                {item.btnLabel}
+              </Button>
             </div>
-          </Card>
-        ))}
-      </Space>
+          ))}
+        </div>
+
+        {/* Footer note */}
+        <div
+          style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: COLORS.inputBg,
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <ApiOutlined style={{ color: COLORS.textAux }} />
+          <span style={{ fontSize: 13, color: COLORS.textAux }}>
+            更多通信平台集成（钉钉、Slack 等）将在后续版本中陆续开放
+          </span>
+        </div>
+      </div>
     );
   };
 
   /* ================================================================ */
-  /*  Tab 5: 安全设置                                                   */
+  /*  Section: 大模型设置                                               */
   /* ================================================================ */
 
-  const renderSecurityTab = () => {
-    const isAdmin = profile?.role === 'admin';
-
+  const renderAISection = () => {
     return (
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        {/* 个人安全设置 */}
-        <Card>
-          <Title level={5} style={{ marginBottom: 16 }}>个人安全设置</Title>
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            {securityItems.map((item) => (
+      <div>
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            大模型设置
+          </h2>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+            配置 AI 算力与智能解析功能
+          </p>
+        </div>
+
+        {/* Status banner */}
+        <div
+          style={{
+            background: `linear-gradient(135deg, ${COLORS.gradientStart}, ${COLORS.gradientEnd})`,
+            borderRadius: 8,
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              flexShrink: 0,
+            }}
+          >
+            <ThunderboltOutlined style={{ fontSize: 20 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>
+              AI 算力节点已连接
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
+              当前正在使用 GLM-4 视觉解析引擎与专用人才向量空间
+            </div>
+          </div>
+        </div>
+
+        {/* Config items */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {aiItems.map((item, idx) => (
+            <div key={item.id}>
               <div
-                key={item.id}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: '12px 16px',
-                  background: '#fafafa',
-                  borderRadius: 8,
+                  padding: '18px 4px',
                 }}
               >
-                <Space size={16}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
+                      width: 44,
+                      height: 44,
                       borderRadius: 8,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: config[item.id] ? '#e6f4ff' : '#f0f0f0',
-                      color: config[item.id] ? '#1677ff' : '#999',
+                      background: config[item.id] ? COLORS.primaryBg : '#f5f5f5',
+                      color: config[item.id] ? COLORS.primary : COLORS.textAux,
+                      flexShrink: 0,
                     }}
                   >
                     {item.icon}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{item.name}</div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
                       {item.desc}
-                    </Text>
+                    </div>
                   </div>
-                </Space>
+                </div>
                 <Switch checked={!!config[item.id]} onChange={() => handleToggle(item.id)} />
               </div>
-            ))}
-          </Space>
-        </Card>
-
-        {/* Admin-only: 系统操作日志 */}
-        {isAdmin && (
-          <Card>
-            <Title level={5} style={{ marginBottom: 16 }}>
-              <AuditOutlined style={{ marginRight: 8 }} />
-              系统操作日志
-            </Title>
-            <Descriptions
-              bordered
-              size="small"
-              column={1}
-              contentStyle={{ fontSize: 13 }}
-              labelStyle={{ fontSize: 13, fontWeight: 500 }}
-            >
-              <Descriptions.Item label="最近登录">
-                <Space>
-                  <ClockCircleOutlined />
-                  <Text type="secondary">暂无记录</Text>
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label="最近数据导出">
-                <Space>
-                  <ClockCircleOutlined />
-                  <Text type="secondary">暂无记录</Text>
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label="最近权限变更">
-                <Space>
-                  <ClockCircleOutlined />
-                  <Text type="secondary">暂无记录</Text>
-                </Space>
-              </Descriptions.Item>
-            </Descriptions>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                完整操作日志将通过 GET /audit-logs 接口获取，功能开发中
-              </Text>
+              {idx < aiItems.length - 1 && (
+                <div style={{ height: 1, background: COLORS.border }} />
+              )}
             </div>
-          </Card>
-        )}
-
-        {/* Admin-only: 全局安全策略 */}
-        {isAdmin && (
-          <Card>
-            <Title level={5} style={{ marginBottom: 16 }}>
-              <SettingOutlined style={{ marginRight: 8 }} />
-              全局安全策略
-            </Title>
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  background: '#fafafa',
-                  borderRadius: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>密码策略</div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    要求密码包含大小写字母、数字和特殊字符，最少 8 位
-                  </Text>
-                </div>
-                <Tag color="blue">标准模式</Tag>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  background: '#fafafa',
-                  borderRadius: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>会话超时</div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    用户无操作超过设定时间后自动登出
-                  </Text>
-                </div>
-                <Tag color="blue">30 分钟</Tag>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  background: '#fafafa',
-                  borderRadius: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>IP 白名单</div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    仅允许指定 IP 地址访问系统管理接口
-                  </Text>
-                </div>
-                <Tag color="default">未启用</Tag>
-              </div>
-            </Space>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                全局安全策略配置功能开发中，仅管理员可见
-              </Text>
-            </div>
-          </Card>
-        )}
-      </Space>
+          ))}
+        </div>
+      </div>
     );
   };
 
   /* ================================================================ */
-  /*  Tab 6: 数据同步                                                   */
+  /*  Section: 安全设置                                                 */
   /* ================================================================ */
 
-  const renderDataSyncTab = () => {
+  const renderSecuritySection = () => {
+    const isAdmin = profile?.role === 'admin';
+
     return (
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        {/* 飞书表格同步 */}
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Space size={16}>
+      <div>
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            安全设置
+          </h2>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+            管理账户安全策略与审计日志
+          </p>
+        </div>
+
+        {/* Personal security items */}
+        <div style={{ marginBottom: isAdmin ? 36 : 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSecondary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            个人安全
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {securityItems.map((item, idx) => (
+              <div key={item.id}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '18px 4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: config[item.id] ? COLORS.primaryBg : '#f5f5f5',
+                        color: config[item.id] ? COLORS.primary : COLORS.textAux,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text }}>
+                        {item.name}
+                      </div>
+                      <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
+                        {item.desc}
+                      </div>
+                    </div>
+                  </div>
+                  <Switch checked={!!config[item.id]} onChange={() => handleToggle(item.id)} />
+                </div>
+                {idx < securityItems.length - 1 && (
+                  <div style={{ height: 1, background: COLORS.border }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Admin-only: global security */}
+        {isAdmin && (
+          <>
+            <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 28, marginBottom: 20 }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: '#fff1f0',
+                  color: '#cf1322',
+                  padding: '2px 10px',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  marginBottom: 16,
+                }}
+              >
+                <SettingOutlined />
+                管理员专属
+              </div>
+            </div>
+
+            {/* System audit log */}
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <AuditOutlined style={{ color: COLORS.primary }} />
+                <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>
+                  系统操作日志
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {[
+                  { label: '最近登录', value: '暂无记录' },
+                  { label: '最近数据导出', value: '暂无记录' },
+                  { label: '最近权限变更', value: '暂无记录' },
+                ].map((row, idx) => (
+                  <div
+                    key={row.label}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 0',
+                    }}
+                  >
+                    <span style={{ fontSize: 14, color: COLORS.textSecondary }}>{row.label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ClockCircleOutlined style={{ color: COLORS.textAux, fontSize: 12 }} />
+                      <span style={{ fontSize: 13, color: COLORS.textAux }}>{row.value}</span>
+                    </div>
+                    {idx < 2 && <div style={{ display: 'none' }} />}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.textAux, marginTop: 4 }}>
+                完整操作日志将通过 GET /audit-logs 接口获取，功能开发中
+              </div>
+            </div>
+
+            {/* Global security policy */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <SettingOutlined style={{ color: COLORS.primary }} />
+                <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>
+                  全局安全策略
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {[
+                  { name: '密码策略', desc: '要求密码包含大小写字母、数字和特殊字符，最少 8 位', tag: '标准模式', tagColor: 'blue' },
+                  { name: '会话超时', desc: '用户无操作超过设定时间后自动登出', tag: '30 分钟', tagColor: 'blue' },
+                  { name: 'IP 白名单', desc: '仅允许指定 IP 地址访问系统管理接口', tag: '未启用', tagColor: 'default' },
+                ].map((row, idx) => (
+                  <div key={row.name}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '14px 0',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text }}>
+                          {row.name}
+                        </div>
+                        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
+                          {row.desc}
+                        </div>
+                      </div>
+                      <Tag color={row.tagColor}>{row.tag}</Tag>
+                    </div>
+                    {idx < 2 && <div style={{ height: 1, background: COLORS.border }} />}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.textAux, marginTop: 4 }}>
+                全局安全策略配置功能开发中，仅管理员可见
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  /* ================================================================ */
+  /*  Section: 数据同步                                                 */
+  /* ================================================================ */
+
+  const renderDataSyncSection = () => {
+    return (
+      <div>
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            数据同步
+          </h2>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: '4px 0 0' }}>
+            管理外部数据源的同步与导入
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Feishu sync card */}
+          <div
+            style={{
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 8,
+              padding: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div
                 style={{
                   width: 48,
                   height: 48,
-                  borderRadius: 8,
+                  borderRadius: 10,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   background: '#fff7e6',
                   color: '#fa8c16',
+                  flexShrink: 0,
                 }}
               >
                 <SyncOutlined style={{ fontSize: 20 }} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>飞书多维表格同步</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, marginBottom: 2 }}>
+                  飞书多维表格同步
+                </div>
+                <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 }}>
                   从飞书多维表格同步候选人数据到系统
-                </Text>
-                <div style={{ marginTop: 4 }}>
-                  <Space size={4}>
-                    <ClockCircleOutlined style={{ color: '#999', fontSize: 12 }} />
-                    <Text type="secondary" style={{ fontSize: 12 }}>上次同步：尚未同步</Text>
-                  </Space>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <ClockCircleOutlined style={{ color: COLORS.textAux, fontSize: 12 }} />
+                  <span style={{ fontSize: 12, color: COLORS.textAux }}>上次同步：尚未同步</span>
                 </div>
               </div>
-            </Space>
+            </div>
             <Button
               icon={<SyncOutlined />}
               onClick={() => message.info('飞书表格同步功能开发中')}
+              style={{ borderRadius: 6, height: 34 }}
             >
               立即同步
             </Button>
           </div>
-        </Card>
 
-        {/* 数据导入 */}
-        <Card
-          hoverable
-          style={{ cursor: 'pointer' }}
-          onClick={() => router.push('/imports')}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Space size={16}>
+          {/* Data import card */}
+          <div
+            onClick={() => router.push('/imports')}
+            style={{
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 8,
+              padding: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = COLORS.primaryBgHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = COLORS.bg)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div
                 style={{
                   width: 48,
                   height: 48,
-                  borderRadius: 8,
+                  borderRadius: 10,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: '#f0f5ff',
-                  color: '#1677ff',
+                  background: COLORS.primaryBg,
+                  color: COLORS.primary,
+                  flexShrink: 0,
                 }}
               >
                 <ImportOutlined style={{ fontSize: 20 }} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>数据导入管理</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Legacy、插件与手工上传进入正式人才库前的审核区，点击进入导入页面
-                </Text>
+                <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, marginBottom: 2 }}>
+                  数据导入管理
+                </div>
+                <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                  Legacy、插件与手工上传进入正式人才库前的审核区
+                </div>
               </div>
-            </Space>
-            <RightOutlined style={{ color: '#bbb' }} />
+            </div>
+            <RightOutlined style={{ color: '#bbb', fontSize: 14 }} />
           </div>
-        </Card>
+        </div>
 
-        <Card size="small" style={{ background: '#fafafa', borderColor: '#d9d9d9' }}>
-          <Space direction="vertical" size={4}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              支持从飞书多维表格、Excel 文件等来源同步数据
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              更多数据源（Google Sheets、CSV 等）将在后续版本中支持
-            </Text>
-          </Space>
-        </Card>
-      </Space>
+        {/* Footer note */}
+        <div
+          style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: COLORS.inputBg,
+            borderRadius: 6,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <span style={{ fontSize: 13, color: COLORS.textAux }}>
+            支持从飞书多维表格、Excel 文件等来源同步数据
+          </span>
+          <span style={{ fontSize: 13, color: COLORS.textAux }}>
+            更多数据源（Google Sheets、CSV 等）将在后续版本中支持
+          </span>
+        </div>
+      </div>
     );
   };
 
   /* ================================================================ */
-  /*  Tab items definition                                             */
+  /*  Section renderer                                                 */
   /* ================================================================ */
 
-  const tabItems = [
-    {
-      key: '1',
-      label: '个人信息',
-      icon: <UserOutlined />,
-      children: renderProfileTab(),
-    },
-    {
-      key: '2',
-      label: '团队管理',
-      icon: <TeamOutlined />,
-      children: renderTeamTab(),
-    },
-    {
-      key: '3',
-      label: '通信连接',
-      icon: <ApiOutlined />,
-      children: renderIntegrationsTab(),
-    },
-    {
-      key: '4',
-      label: '大模型设置',
-      icon: <ThunderboltOutlined />,
-      children: renderAITab(),
-    },
-    {
-      key: '5',
-      label: '安全设置',
-      icon: <SafetyCertificateOutlined />,
-      children: renderSecurityTab(),
-    },
-    {
-      key: '6',
-      label: '数据同步',
-      icon: <SyncOutlined />,
-      children: renderDataSyncTab(),
-    },
-  ];
+  const renderSection = () => {
+    switch (activeMenu) {
+      case 'profile':
+        return renderProfileSection();
+      case 'team':
+        return renderTeamSection();
+      case 'integrations':
+        return renderIntegrationsSection();
+      case 'ai':
+        return renderAISection();
+      case 'security':
+        return renderSecuritySection();
+      case 'sync':
+        return renderDataSyncSection();
+      default:
+        return null;
+    }
+  };
 
   /* ================================================================ */
-  /*  Render                                                           */
+  /*  Main Render                                                      */
   /* ================================================================ */
 
   return (
-    <PageContainer
-      header={{
-        title: '系统设置',
-        subTitle: '全局配置与参数优化',
-      }}
-    >
-      <Tabs items={tabItems} />
-    </PageContainer>
+    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '32px 40px' }}>
+      {/* Page title */}
+      <h1 style={{ fontSize: 24, fontWeight: 700, color: COLORS.text, margin: '0 0 28px' }}>
+        设置
+      </h1>
+
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: 0, minHeight: 'calc(100vh - 140px)' }}>
+        {/* Left sidebar menu */}
+        <div
+          style={{
+            width: 220,
+            flexShrink: 0,
+            borderRight: `1px solid ${COLORS.borderMenu}`,
+            paddingRight: 0,
+          }}
+        >
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {MENU_ITEMS.map((item) => {
+              const IconComp = item.icon;
+              const isActive = activeMenu === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveMenu(item.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 16px',
+                    border: 'none',
+                    background: isActive ? COLORS.primaryBg : 'transparent',
+                    color: isActive ? COLORS.primary : COLORS.textSecondary,
+                    fontSize: 14,
+                    fontWeight: isActive ? 600 : 400,
+                    cursor: 'pointer',
+                    borderRadius: 0,
+                    textAlign: 'left',
+                    position: 'relative',
+                    transition: 'background 0.15s, color 0.15s',
+                    width: '100%',
+                    outline: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = COLORS.primaryBgHover;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  {/* Left indicator bar */}
+                  {isActive && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 4,
+                        bottom: 4,
+                        width: 3,
+                        borderRadius: '0 2px 2px 0',
+                        background: COLORS.primary,
+                      }}
+                    />
+                  )}
+                  <IconComp style={{ fontSize: 16, color: isActive ? COLORS.primary : COLORS.textAux }} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Right content area */}
+        <div
+          style={{
+            flex: 1,
+            paddingLeft: 36,
+            paddingRight: 24,
+            overflowY: 'auto',
+          }}
+        >
+          {renderSection()}
+        </div>
+      </div>
+    </div>
   );
 }
