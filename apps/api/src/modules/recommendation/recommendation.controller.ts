@@ -46,6 +46,15 @@ export class RecommendationController {
     );
   }
 
+  @Get('interviews')
+  findInterviews(
+    @Req() req: any,
+    @Query('status') status?: string,
+  ) {
+    const tenantId = this.requireTenantId(req);
+    return this.recommendationService.findInterviews(status, tenantId);
+  }
+
   @Get('client')
   findClientRecommendations(@Req() req: any, @Query() query: PageQueryDto) {
     const { tenantId, enterpriseId } = this.requireClientScope(req);

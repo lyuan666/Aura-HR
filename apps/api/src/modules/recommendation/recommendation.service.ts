@@ -151,6 +151,37 @@ export class RecommendationService {
     return report;
   }
 
+  async findInterviews(status?: string, tenantId?: string) {
+    const qb = this.recommendationRepo
+      .createQueryBuilder('r')
+      .leftJoin('r.candidate', 'c')
+      .leftJoin('r.jobPosition', 'j')
+      .select([
+        'r.id AS id',
+        'c.name AS "candidateName"',
+        'j.title AS "jobTitle"',
+        'r.interview_date AS "interviewDate"',
+        'r.status AS status',
+        'r.interview_report AS "interviewReport"',
+        'r.created_at AS "createdAt"',
+      ]);
+
+    const statuses = ['interview_scheduled', 'interviewed'];
+    if (status && statuses.includes(status)) {
+      qb.where('r.status = :status', { status });
+    } else {
+      qb.where('r.status IN (:...statuses)', { statuses });
+    }
+
+    if (tenantId) {
+      qb.andWhere('r.tenant_id = :tenantId', { tenantId });
+    }
+
+    qb.orderBy('r.interview_date', 'ASC');
+
+    return qb.getRawMany();
+  }
+
   async findAll(page = 1, pageSize = 20, tenantId?: string) {
     const [items, total] = await this.recommendationRepo.findAndCount({
       where: tenantId ? { tenantId } : {},
