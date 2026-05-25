@@ -19,3 +19,5 @@ export { ContractTemplateEntity } from './contract-template.entity';
 export { ContractGenerationEntity } from './contract-generation.entity';
 export type { RiskAssessmentReport } from './contract-generation.entity';
 export { ContractAuditLogEntity } from './contract-audit-log.entity';
+export { NotificationEntity } from './notification.entity';
+export { NotificationType } from './notification.entity';

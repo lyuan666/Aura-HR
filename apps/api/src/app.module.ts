@@ -24,6 +24,7 @@ import { GuaranteeModule } from './modules/guarantee/guarantee.module';
 import { ContractModule } from './modules/contract/contract.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { ImportModule } from './modules/import/import.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -47,6 +48,7 @@ import {
   ContractTemplateEntity,
   ContractGenerationEntity,
   ContractAuditLogEntity,
+  NotificationEntity,
 } from './entities';
 
 @Module({
@@ -93,6 +95,7 @@ import {
           ContractTemplateEntity,
           ContractGenerationEntity,
           ContractAuditLogEntity,
+          NotificationEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') !== 'production',
@@ -124,6 +127,7 @@ import {
     GuaranteeModule,
     ContractModule,
     ImportModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
