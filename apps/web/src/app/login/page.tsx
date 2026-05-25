@@ -193,6 +193,8 @@ export default function LoginPage() {
 
         <div className="login-external-footer">
           还没有账号？ <a href="/register">立即申请入驻</a>
+          <span className="login-footer-divider">·</span>
+          <a href="/downloads">下载浏览器插件</a>
         </div>
       </div>
 

@@ -110,6 +110,7 @@ export class ParsingV2Service {
     // Step 4: LLM 结构化抽取
     emit('parsing', 50);
     const profile = await this.extractStructured(content.text, data.fileName);
+    this.enrichCurrentRole(profile);
 
     // Step 5: phone/email 精确去重
     emit('deduping', 60);
@@ -303,6 +304,22 @@ ${text.substring(0, 3000)}
     }
 
     return result;
+  }
+
+  private enrichCurrentRole(profile: any) {
+    const latestWork = Array.isArray(profile.workExperiences)
+      ? profile.workExperiences[0]
+      : undefined;
+
+    if (!profile.currentCompany && latestWork?.companyName) {
+      profile.currentCompany = latestWork.companyName;
+    }
+    if (!profile.currentTitle) {
+      profile.currentTitle =
+        latestWork?.position ||
+        profile.careerExpectations?.desiredPosition ||
+        undefined;
+    }
   }
 
   /**

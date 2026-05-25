@@ -57,6 +57,12 @@ export class RecommendationController {
     );
   }
 
+  @Get('client/portal')
+  findClientPortal(@Req() req: any) {
+    const { tenantId, enterpriseId } = this.requireClientScope(req);
+    return this.recommendationService.getClientPortalContext(tenantId, enterpriseId);
+  }
+
   @Get('client/:id')
   findClientRecommendationDetail(@Param('id') id: string, @Req() req: any) {
     const { tenantId, enterpriseId } = this.requireClientScope(req);

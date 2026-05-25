@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { RecommendationEntity } from '../../entities/recommendation.entity';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
+import { EnterpriseEntity } from '../../entities/enterprise.entity';
+import { ContractEntity } from '../../entities/contract.entity';
 import { AiService } from '../ai/ai.service';
 import { CLIENT_RECOMMENDATION_CANDIDATE_FIELDS } from '../client/client-visibility';
 import {
@@ -26,6 +28,10 @@ export class RecommendationService {
     private candidateRepo: Repository<CandidateEntity>,
     @InjectRepository(JobPositionEntity)
     private jobRepo: Repository<JobPositionEntity>,
+    @InjectRepository(EnterpriseEntity)
+    private enterpriseRepo: Repository<EnterpriseEntity>,
+    @InjectRepository(ContractEntity)
+    private contractRepo: Repository<ContractEntity>,
     private aiService: AiService,
   ) {}
 
@@ -177,6 +183,60 @@ export class RecommendationService {
     return { items, total: items.length, page, pageSize };
   }
 
+  async getClientPortalContext(tenantId: string, enterpriseId: string) {
+    const enterprise = await this.enterpriseRepo.findOne({
+      where: { id: enterpriseId, tenantId },
+    });
+    if (!enterprise) throw new NotFoundException('Enterprise not found');
+
+    const contracts = await this.contractRepo.find({
+      where: { tenantId, enterpriseId },
+      order: { updatedAt: 'DESC' },
+    });
+    const jobs = await this.jobRepo.find({
+      where: { tenantId, enterpriseId },
+      order: { updatedAt: 'DESC' },
+    });
+
+    const [recommendations] = await this.recommendationRepo.findAndCount({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+    });
+    const jobIds = new Set(jobs.map((job) => job.id));
+    const scopedRecommendations = recommendations.filter((rec) =>
+      jobIds.has(rec.jobPositionId),
+    );
+
+    return {
+      enterprise: {
+        id: enterprise.id,
+        name: enterprise.name,
+        industry: enterprise.industry,
+        scale: enterprise.scale,
+        status: enterprise.status,
+      },
+      contracts: contracts.map((contract) => ({
+        id: contract.id,
+        contractNo: contract.contractNo,
+        title: contract.title,
+        status: contract.status,
+        startDate: contract.startDate,
+        endDate: contract.endDate,
+        modules: this.extractContractModules(contract),
+      })),
+      enabledModules: this.getEnabledModules(contracts),
+      stats: this.buildClientStats(scopedRecommendations),
+      jobs: jobs.map((job) => ({
+        id: job.id,
+        title: job.title,
+        department: job.department,
+        status: job.status,
+        headcount: job.headcount,
+        location: job.location,
+      })),
+    };
+  }
+
   async findClientRecommendationDetail(id: string, tenantId: string, enterpriseId: string) {
     const rec = await this.recommendationRepo.findOne({ where: { id, tenantId } });
     if (!rec) throw new NotFoundException('Recommendation not found');
@@ -296,5 +356,49 @@ export class RecommendationService {
 
   private summarizeList(items?: any[]) {
     return Array.isArray(items) ? items.slice(0, 3) : [];
+  }
+
+  private extractContractModules(contract: ContractEntity) {
+    const parsed = this.parseContractNotes(contract.notes);
+    if (Array.isArray(parsed.modules)) {
+      return parsed.modules.filter((module) => typeof module === 'string');
+    }
+    if (contract.status === 'active') {
+      return ['recommendations', 'feedback'];
+    }
+    return [];
+  }
+
+  private getEnabledModules(contracts: ContractEntity[]) {
+    const modules = new Set<string>();
+    for (const contract of contracts) {
+      for (const module of this.extractContractModules(contract)) {
+        modules.add(module);
+      }
+    }
+    return Array.from(modules);
+  }
+
+  private parseContractNotes(notes?: string) {
+    if (!notes) return {} as { modules?: unknown };
+    try {
+      return JSON.parse(notes) as { modules?: unknown };
+    } catch {
+      return {} as { modules?: unknown };
+    }
+  }
+
+  private buildClientStats(recommendations: RecommendationEntity[]) {
+    const countStatus = (status: string) =>
+      recommendations.filter((rec) => rec.status === status).length;
+
+    return {
+      totalRecommendations: recommendations.length,
+      submitted: countStatus('submitted'),
+      reviewing: countStatus('reviewing'),
+      interviewScheduled: countStatus('interview_scheduled'),
+      accepted: countStatus('accepted'),
+      rejected: countStatus('rejected'),
+    };
   }
 }

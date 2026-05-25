@@ -4,6 +4,8 @@ import { RecommendationService } from './recommendation.service';
 import { RecommendationEntity } from '../../entities/recommendation.entity';
 import { CandidateEntity } from '../../entities/candidate.entity';
 import { JobPositionEntity } from '../../entities/job-position.entity';
+import { EnterpriseEntity } from '../../entities/enterprise.entity';
+import { ContractEntity } from '../../entities/contract.entity';
 import { AiService } from '../ai/ai.service';
 import { Repository } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
@@ -13,6 +15,8 @@ describe('RecommendationService', () => {
   let recRepo: Repository<RecommendationEntity>;
   let candidateRepo: Repository<CandidateEntity>;
   let jobRepo: Repository<JobPositionEntity>;
+  let enterpriseRepo: Repository<EnterpriseEntity>;
+  let contractRepo: Repository<ContractEntity>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -38,7 +42,15 @@ describe('RecommendationService', () => {
         },
         {
           provide: getRepositoryToken(JobPositionEntity),
+          useValue: { findOne: jest.fn(), find: jest.fn(), count: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(EnterpriseEntity),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(ContractEntity),
+          useValue: { find: jest.fn() },
         },
         {
           provide: AiService,
@@ -58,6 +70,12 @@ describe('RecommendationService', () => {
     );
     jobRepo = module.get<Repository<JobPositionEntity>>(
       getRepositoryToken(JobPositionEntity),
+    );
+    enterpriseRepo = module.get<Repository<EnterpriseEntity>>(
+      getRepositoryToken(EnterpriseEntity),
+    );
+    contractRepo = module.get<Repository<ContractEntity>>(
+      getRepositoryToken(ContractEntity),
     );
   });
 
@@ -130,5 +148,46 @@ describe('RecommendationService', () => {
     });
     expect(result.items[0].candidate.phone).toBeUndefined();
     expect(result.items[0].candidate.email).toBeUndefined();
+  });
+
+  it('should return client portal context scoped by enterprise contracts', async () => {
+    jest.spyOn(enterpriseRepo, 'findOne').mockResolvedValue({
+      id: 'e1',
+      name: '测试企业',
+      status: 'signed',
+    } as any);
+    jest.spyOn(contractRepo, 'find').mockResolvedValue([
+      {
+        id: 'contract-1',
+        title: 'RPO 服务合同',
+        contractNo: 'CT-001',
+        status: 'active',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        notes: JSON.stringify({ modules: ['recommendations', 'feedback'] }),
+      },
+    ] as any);
+    jest.spyOn(jobRepo, 'find').mockResolvedValue([
+      { id: 'j1', title: '后端工程师', status: 'recommending', headcount: 2 },
+    ] as any);
+    jest.spyOn(recRepo, 'findAndCount').mockResolvedValue([
+      [
+        { id: 'r1', status: 'submitted', jobPositionId: 'j1' },
+        { id: 'r2', status: 'interview_scheduled', jobPositionId: 'j1' },
+      ] as any,
+      2,
+    ]);
+
+    const result = await service.getClientPortalContext('t1', 'e1');
+
+    expect(enterpriseRepo.findOne).toHaveBeenCalledWith({ where: { id: 'e1', tenantId: 't1' } });
+    expect(contractRepo.find).toHaveBeenCalledWith({
+      where: { tenantId: 't1', enterpriseId: 'e1' },
+      order: { updatedAt: 'DESC' },
+    });
+    expect(result.enterprise).toMatchObject({ id: 'e1', name: '测试企业' });
+    expect(result.enabledModules).toEqual(['recommendations', 'feedback']);
+    expect(result.stats).toMatchObject({ totalRecommendations: 2, submitted: 1, interviewScheduled: 1 });
+    expect(result.jobs[0]).toMatchObject({ id: 'j1', title: '后端工程师' });
   });
 });

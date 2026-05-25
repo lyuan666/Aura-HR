@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const publicPaths = ['/login', '/register', '/share', '/client/login'];
+const publicPaths = ['/login', '/register', '/share', '/client/login', '/downloads'];
 
 interface TokenPayload {
   role?: string;

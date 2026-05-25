@@ -258,6 +258,25 @@ export const helpModules: HelpModule[] = [
     ],
   },
   {
+    id: 'extension-download',
+    title: '浏览器插件',
+    description: '下载、安装并配置 Chrome 浏览器插件。',
+    icon: 'download',
+    keywords: ['插件', '浏览器插件', 'Chrome', '下载', '安装', '采集'],
+    quickActions: ['下载插件', '解压安装', '登录插件账号', '采集候选人'],
+    sections: [
+      {
+        title: '下载入口',
+        body: '线上下载中心固定为 /downloads，当前插件包为 yzschros-chrome-extension.zip。后续版本更新会继续在下载中心维护版本号、更新时间和更新说明。',
+        steps: ['打开 /downloads。', '点击下载插件。', '解压 zip 文件。', '按页面安装步骤在 Chrome 中加载解压后的目录。', '打开插件，确认系统地址后登录插件账号。'],
+      },
+      {
+        title: '配置说明',
+        body: '插件安装后使用系统账号登录即可。认证信息保存在浏览器本地，不会同步到其他设备；开发或排错人员可在高级设置中手动处理令牌。',
+      },
+    ],
+  },
+  {
     id: 'client-portal',
     title: '客户门户',
     description: '客户通过魔法链接登录，查看职位和候选人推荐。',
