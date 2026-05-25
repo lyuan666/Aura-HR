@@ -14,7 +14,7 @@ import {
   FileProtectOutlined,
 } from '@ant-design/icons';
 import api from '@/lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 
 interface VariableDefinition {
@@ -39,6 +39,8 @@ interface Template {
 export default function NewContractPage() {
   const { message } = App.useApp();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlEnterpriseId = searchParams.get('enterpriseId');
   
   const [currentStep, setCurrentStep] = useState(0);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -74,6 +76,13 @@ export default function NewContractPage() {
     }
     initData();
   }, [message]);
+
+  // URL 带 enterpriseId 时自动回填企业下拉
+  useEffect(() => {
+    if (urlEnterpriseId && enterprises.length > 0) {
+      form.setFieldsValue({ _enterpriseId: urlEnterpriseId });
+    }
+  }, [urlEnterpriseId, enterprises, form]);
 
   // 当选择模板变化时，重置表单并加载默认值
   const handleSelectTemplate = (template: Template) => {
