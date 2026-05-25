@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SafetyGuardInterceptor } from './common/interceptors/safety-guard.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -36,6 +37,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // 全局异常过滤器 (兜底未捕获异常)
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // 全局安全熔断拦截器 (防止循环引用导致的内存爆炸)
   app.useGlobalInterceptors(new SafetyGuardInterceptor());

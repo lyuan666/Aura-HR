@@ -1,22 +1,33 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { ResponsiveGridLayout, useContainerWidth, LayoutItem } from 'react-grid-layout';
-import { Button, Space, message, Drawer, Checkbox, Typography, Divider } from 'antd';
-import { 
-  SaveOutlined, 
-  SettingOutlined, 
+import { Button, Space, message, Drawer, Checkbox, Typography, Divider, Skeleton } from 'antd';
+import {
+  SaveOutlined,
+  SettingOutlined,
   ReloadOutlined,
   AppstoreAddOutlined
 } from '@ant-design/icons';
 import api from '@/lib/api';
-import { 
-  QuickNavWidget, 
-  DemandHeatmapWidget, 
-  ClientTrackerWidget, 
-  PipelineFunnelWidget, 
-  LatestTalentWidget 
+import {
+  QuickNavWidget,
+  DemandHeatmapWidget,
+  ClientTrackerWidget,
+  LatestTalentWidget
 } from './DashboardWidgets';
+
+// Dynamic import for PipelineFunnelWidget to keep recharts (~100KB) out of initial bundle
+const PipelineFunnelWidget = dynamic(
+  () => import('./DashboardWidgets').then(mod => mod.PipelineFunnelWidget),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 20 }} />
+    ),
+  }
+);
 
 const { Text, Title } = Typography;
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseInterceptors, UploadedFile, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseInterceptors, UploadedFile, Req, Query, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JobService } from './job.service';
 import { AiService } from '../ai/ai.service';
@@ -19,6 +19,7 @@ export class JobController {
   @Post('parse')
   @UseInterceptors(FileInterceptor('file'))
   async parseJd(@UploadedFile() file: any) {
+    if (!file) throw new BadRequestException('请上传文件');
     return this.aiService.parseFile(file.buffer, file.originalname, 'jd');
   }
 

@@ -149,7 +149,7 @@ export class ProgressService implements OnModuleDestroy {
         if (!sub.closed && event) {
           sub.next({ type: 'progress', payload: event, ts: Date.now() });
         }
-      });
+      }).catch((err) => { console.error('[ProgressService]', err.message); });
     });
     // 15s 心跳：防止 Nginx/Cloudflare/中间代理把空闲连接当 idle 关掉，
     // 也帮前端区分"网络断了"和"后端还在跑但还没新进度"。
