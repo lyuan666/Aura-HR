@@ -216,51 +216,48 @@ describe('CandidateController', () => {
     );
   });
 
-  it('should accept upload progress authentication from the login cookie', () => {
-    const jwtService = moduleRef.get(JwtService);
+  it('should accept upload progress authentication from an authenticated request', () => {
     const progressService = moduleRef.get(ProgressService);
     progressService.getStream.mockReturnValue('progress-stream');
 
     const result = controller.uploadProgress(
       'batch-1',
-      '',
-      { headers: { cookie: 'token=cookie-token; theme=dark' } } as any,
+      { user: { sub: 'user-1' } } as any,
     );
 
-    expect(jwtService.verify).toHaveBeenCalledWith('cookie-token', {
-      secret: 'test-secret',
-    });
     expect(progressService.getStream).toHaveBeenCalledWith('batch-1');
     expect(result).toBe('progress-stream');
   });
 
-  it('should return completed immediately when the same upload job already completed', async () => {
-    const storage = moduleRef.get(StorageService);
-    parseQueue.getJob.mockResolvedValue({
-      id: 'parse-79a82273b936d456',
-      getState: jest.fn().mockResolvedValue('completed'),
-      returnvalue: { status: 'success', candidateId: 'candidate-1' },
-    });
+  it('should enqueue repeated uploads with a batch-scoped job id', async () => {
     const file = {
       originalname: 'repeat.pdf',
       mimetype: 'application/pdf',
       size: 128,
       buffer: Buffer.from('repeat-resume'),
     } as Express.Multer.File;
+    parseQueue.add.mockResolvedValue({ id: 'parse-batch-79a82273b936d456' });
 
     const result = await controller.batchUpload(
       [file],
       { user: { tenantId: 'tenant-1' } } as any,
     );
 
-    expect(storage.putObject).not.toHaveBeenCalled();
-    expect(parseQueue.add).not.toHaveBeenCalled();
-    expect(result.queued).toBe(0);
-    expect(result.completed).toBe(1);
+    expect(parseQueue.add).toHaveBeenCalledWith(
+      'parse-resume',
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        fileName: 'repeat.pdf',
+        sourcePlatform: 'manual_upload',
+      }),
+      expect.objectContaining({
+        jobId: expect.stringMatching(/^parse-.+-[a-f0-9]{16}$/),
+      }),
+    );
+    expect(result.queued).toBe(1);
     expect(result.jobs[0]).toMatchObject({
-      jobId: 'parse-79a82273b936d456',
-      status: 'completed',
-      candidateId: 'candidate-1',
+      jobId: 'parse-batch-79a82273b936d456',
+      status: 'queued',
     });
   });
 });

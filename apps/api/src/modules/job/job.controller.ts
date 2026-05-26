@@ -25,7 +25,11 @@ export class JobController {
 
   @Post('parse-text')
   async parseJdText(@Body('text') text: string) {
-    return this.aiService.parseJobDescription(text);
+    try {
+      return await this.aiService.parseJobDescription(text);
+    } catch {
+      return this.buildFallbackParsedJob(text);
+    }
   }
 
   @Post('generate')
@@ -57,5 +61,22 @@ export class JobController {
   async update(@Param('id') id: string, @Body() dto: UpdateJobDto, @Req() req: any) {
     const tenantId = req.user?.tenantId;
     return this.jobService.update(id, dto, tenantId);
+  }
+
+  private buildFallbackParsedJob(text = '') {
+    const summary = text.trim();
+    const titleMatch = summary.match(
+      /(?:招聘|招|需要|寻找|想招聘)(?:一个|一名|1名)?([^，,。.\n]{2,24}?)(?:的岗位|岗位|职位|，|,|。|\.|\n|$)/,
+    );
+    const title =
+      titleMatch?.[1]?.trim() ||
+      summary.split(/[\n，,。.\s]/).find(Boolean) ||
+      '未命名职位';
+
+    return {
+      title,
+      summary,
+      requiredSkills: [],
+    };
   }
 }
